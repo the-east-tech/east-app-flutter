@@ -1,0 +1,82 @@
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+*.swo
+*~
+.DS_Store
+.AppleDouble
+.LSOverride
+.atom/
+.build/
+.buildlog/
+.history
+.svn/
+.swiftpm/
+migrate_working_dir/
+tmp/
+temp/
+*.tmp
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+
+# Dart / Flutter / Pub
+.dart_tool/
+.packages
+.pub-cache/
+.pub/
+.flutter-plugins
+.flutter-plugins-dependencies
+**/doc/api/
+coverage/
+
+# Build output
+build/
+**/build/
+*.apk
+*.aab
+*.ipa
+*.xcarchive
+*.dSYM
+*.dSYM.zip
+app.*.symbols
+app.*.map.json
+
+# Flutter generated
+**/Flutter/ephemeral/
+**/ios/Flutter/.last_build_id
+
+# Android generated / local
+android/.gradle/
+android/local.properties
+android/key.properties
+android/app/debug/
+android/app/profile/
+android/app/release/
+
+# Signing keys
+*.jks
+*.keystore
+*.p12
+*.pem
+
+# iOS generated / local
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/Generated.xcconfig
+ios/Flutter/flutter_export_environment.sh
+ios/Runner.xcworkspace/xcuserdata/
+ios/Runner.xcodeproj/xcuserdata/
+**/*.xcuserstate
+DerivedData/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example

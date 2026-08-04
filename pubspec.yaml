@@ -1,0 +1,40 @@
+name: east_app
+description: EastApp prototype
+publish_to: 'none'
+version: 1.0.0+272
+
+environment:
+  sdk: '>=3.10.0 <4.0.0'
+  flutter: '>=3.38.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  audioplayers: ^6.0.0
+  camera: ^0.12.0+1
+  google_mlkit_face_detection: ^0.14.0
+  geolocator: ^14.0.2
+  geocoding: ^5.0.0
+  http: ^1.6.0
+  image_picker: ^1.2.3
+  flutter_secure_storage: ^10.3.1
+  youtube_player_iframe: ^6.0.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.3
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/app_icon.png
+    - assets/sounds/01_success_pop.wav
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/app_icon.png"
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: "assets/app_icon.png"
