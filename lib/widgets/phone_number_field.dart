@@ -266,7 +266,7 @@ class _PhoneCountryPickerState extends State<_PhoneCountryPicker> {
             Expanded(
               child: ListView.separated(
                 itemCount: filtered.length,
-                separatorBuilder: (_, __) => const Divider(height: 1),
+                separatorBuilder: (_, _) => const Divider(height: 1),
                 itemBuilder: (context, index) {
                   final country = filtered[index];
                   final isSelected = country.isoCode == widget.selected.isoCode;

@@ -562,7 +562,7 @@ class _ReportHero extends StatelessWidget {
             ),
             boxShadow: [
               BoxShadow(
-                color: AppColours.blue.withOpacity(.22),
+                color: AppColours.blue.withValues(alpha: .22),
                 blurRadius: 30,
                 offset: const Offset(0, 14),
               ),
@@ -578,7 +578,7 @@ class _ReportHero extends StatelessWidget {
                   height: 150,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: Colors.white.withOpacity(.08),
+                    color: Colors.white.withValues(alpha: .08),
                   ),
                 ),
               ),
@@ -592,7 +592,7 @@ class _ReportHero extends StatelessWidget {
                         width: 42,
                         height: 42,
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(.14),
+                          color: Colors.white.withValues(alpha: .14),
                           borderRadius: BorderRadius.circular(14),
                         ),
                         child: const Icon(
@@ -633,9 +633,9 @@ class _ReportHero extends StatelessWidget {
                               tooltip: 'Refresh report data',
                               onPressed: onRefresh,
                               style: IconButton.styleFrom(
-                                backgroundColor: Colors.white.withOpacity(.16),
+                                backgroundColor: Colors.white.withValues(alpha: .16),
                                 foregroundColor: Colors.white,
-                                disabledBackgroundColor: Colors.white.withOpacity(.10),
+                                disabledBackgroundColor: Colors.white.withValues(alpha: .10),
                                 disabledForegroundColor: Colors.white70,
                               ),
                               icon: loading
@@ -748,7 +748,7 @@ class _ReportHero extends StatelessWidget {
                       width: double.infinity,
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(.10),
+                        color: Colors.white.withValues(alpha: .10),
                         borderRadius: BorderRadius.circular(14),
                       ),
                       child: Text(
@@ -780,7 +780,7 @@ class _ReportHero extends StatelessWidget {
                             backgroundColor: WidgetStateProperty.resolveWith(
                               (states) => states.contains(WidgetState.selected)
                                   ? Colors.white
-                                  : Colors.white.withOpacity(.10),
+                                  : Colors.white.withValues(alpha: .10),
                             ),
                             foregroundColor: WidgetStateProperty.resolveWith(
                               (states) => states.contains(WidgetState.selected)
@@ -788,7 +788,7 @@ class _ReportHero extends StatelessWidget {
                                   : Colors.white,
                             ),
                             side: WidgetStateProperty.all(
-                              BorderSide(color: Colors.white.withOpacity(.18)),
+                              BorderSide(color: Colors.white.withValues(alpha: .18)),
                             ),
                           ),
                           segments: const [
@@ -899,9 +899,9 @@ class _HeroMetric extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(.10),
+        color: Colors.white.withValues(alpha: .10),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(.12)),
+        border: Border.all(color: Colors.white.withValues(alpha: .12)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1009,7 +1009,7 @@ class _ReportCard extends StatelessWidget {
             border: Border.all(color: AppColours.border),
             boxShadow: [
               BoxShadow(
-                color: accent.withOpacity(.08),
+                color: accent.withValues(alpha: .08),
                 blurRadius: 22,
                 offset: const Offset(0, 10),
               ),
@@ -1025,7 +1025,7 @@ class _ReportCard extends StatelessWidget {
                     height: 46,
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        colors: [accent, accent.withOpacity(.65)],
+                        colors: [accent, accent.withValues(alpha: .65)],
                       ),
                       borderRadius: BorderRadius.circular(15),
                     ),
@@ -1208,7 +1208,7 @@ class _TrendPanel extends StatelessWidget {
               tween: Tween(begin: 0, end: 1),
               duration: const Duration(milliseconds: 850),
               curve: Curves.easeOutCubic,
-              builder: (_, progress, __) => CustomPaint(
+              builder: (_, progress, _) => CustomPaint(
                 painter: _TrendChartPainter(points, progress),
               ),
             ),
@@ -1399,7 +1399,7 @@ Future<T?> _showReportSheet<T>(
                               width: 40,
                               height: 40,
                               decoration: BoxDecoration(
-                                color: AppColours.blue.withOpacity(.10),
+                                color: AppColours.blue.withValues(alpha: .10),
                                 borderRadius: BorderRadius.circular(13),
                               ),
                               child: Icon(icon, color: AppColours.blue),
@@ -1594,7 +1594,7 @@ class _SalesHistorySheetState extends State<_SalesHistorySheet> {
                         tooltip: 'Refresh loaded range',
                         onPressed: loading ? null : () => load(forceRefresh: true),
                         style: IconButton.styleFrom(
-                          backgroundColor: Colors.white.withOpacity(.16),
+                          backgroundColor: Colors.white.withValues(alpha: .16),
                           foregroundColor: Colors.white,
                         ),
                         icon: loading
@@ -1630,7 +1630,7 @@ class _SalesHistorySheetState extends State<_SalesHistorySheet> {
                     ),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Colors.white,
-                      side: BorderSide(color: Colors.white.withOpacity(.35)),
+                      side: BorderSide(color: Colors.white.withValues(alpha: .35)),
                       padding: const EdgeInsets.symmetric(
                         horizontal: 12,
                         vertical: 13,
@@ -1741,7 +1741,7 @@ class _SalesHistorySheetState extends State<_SalesHistorySheet> {
                             height: 46,
                             decoration: BoxDecoration(
                               color: _workflowColour(report.workflowStatus)
-                                  .withOpacity(.10),
+                                  .withValues(alpha: .10),
                               borderRadius: BorderRadius.circular(14),
                             ),
                             child: Icon(
@@ -1896,7 +1896,7 @@ class _WorkflowPill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
       decoration: BoxDecoration(
-        color: colour.withOpacity(.10),
+        color: colour.withValues(alpha: .10),
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
@@ -2122,7 +2122,7 @@ class _SalesSheetState extends State<_SalesSheet> {
                     width: 38,
                     height: 38,
                     decoration: BoxDecoration(
-                      color: AppColours.red.withOpacity(.10),
+                      color: AppColours.red.withValues(alpha: .10),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: const Icon(
@@ -2651,7 +2651,7 @@ class _InventorySheet extends StatelessWidget {
                   tween: Tween(begin: 0, end: data.healthScorePercent / 100),
                   duration: const Duration(milliseconds: 900),
                   curve: Curves.easeOutCubic,
-                  builder: (_, value, __) => CustomPaint(
+                  builder: (_, value, _) => CustomPaint(
                     painter: _DonutPainter(
                       value: value,
                       colour: _healthColour(data.healthScorePercent),
@@ -3061,7 +3061,7 @@ class _WasteFormState extends State<_WasteForm> {
           child: Column(
             children: [
               DropdownButtonFormField<StockSku?>(
-                value: selectedSku,
+                initialValue: selectedSku,
                 isExpanded: true,
                 decoration: AppInputStyle.decoration('Optional stock item').copyWith(
                   labelText: 'SKU',
@@ -3267,7 +3267,7 @@ class _DailyPhotosSheetState extends State<_DailyPhotosSheet> {
                     child: TweenAnimationBuilder<double>(
                       tween: Tween(begin: 0, end: progress),
                       duration: const Duration(milliseconds: 700),
-                      builder: (_, value, __) => CustomPaint(
+                      builder: (_, value, _) => CustomPaint(
                         painter: _DonutPainter(
                           value: value,
                           colour: report.requirementMet
@@ -3689,7 +3689,7 @@ class _ComplaintFormState extends State<_ComplaintForm> {
                 children: [
                   Expanded(
                     child: DropdownButtonFormField<String>(
-                      value: gender,
+                      initialValue: gender,
                       decoration: AppInputStyle.decoration('Gender').copyWith(
                         labelText: 'Customer Gender',
                       ),
@@ -3750,7 +3750,7 @@ class _ComplaintFormState extends State<_ComplaintForm> {
               ),
               const SizedBox(height: 10),
               DropdownButtonFormField<String>(
-                value: status,
+                initialValue: status,
                 decoration: AppInputStyle.decoration('Status').copyWith(
                   labelText: 'Status',
                 ),
@@ -3806,7 +3806,7 @@ Future<void> _showComplaintUpdateDialog(
             mainAxisSize: MainAxisSize.min,
             children: [
               DropdownButtonFormField<String>(
-                value: status,
+                initialValue: status,
                 decoration: AppInputStyle.decoration('Status').copyWith(
                   labelText: 'Status',
                 ),
@@ -4088,7 +4088,7 @@ class _ApprovalsSheetState extends State<_ApprovalsSheet> {
                         width: 42,
                         height: 42,
                         decoration: BoxDecoration(
-                          color: _reportTypeColour(item.reportType).withOpacity(.10),
+                          color: _reportTypeColour(item.reportType).withValues(alpha: .10),
                           borderRadius: BorderRadius.circular(13),
                         ),
                         child: Icon(
@@ -4185,7 +4185,7 @@ class _ApprovalEvidenceView extends StatelessWidget {
                 width: 46,
                 height: 46,
                 decoration: BoxDecoration(
-                  color: _reportTypeColour(approval.reportType).withOpacity(.10),
+                  color: _reportTypeColour(approval.reportType).withValues(alpha: .10),
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Icon(
@@ -4471,9 +4471,9 @@ class _StatusBanner extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(13),
       decoration: BoxDecoration(
-        color: colour.withOpacity(.09),
+        color: colour.withValues(alpha: .09),
         borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: colour.withOpacity(.22)),
+        border: Border.all(color: colour.withValues(alpha: .22)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -4541,9 +4541,9 @@ class _MetricGrid extends StatelessWidget {
                     constraints: const BoxConstraints(minHeight: 82),
                     padding: const EdgeInsets.all(13),
                     decoration: BoxDecoration(
-                      color: item.colour.withOpacity(.075),
+                      color: item.colour.withValues(alpha: .075),
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: item.colour.withOpacity(.14)),
+                      border: Border.all(color: item.colour.withValues(alpha: .14)),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -4755,7 +4755,7 @@ class _EvidenceCapture extends StatelessWidget {
                       gradient: LinearGradient(
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
-                        colors: [Colors.transparent, Colors.black.withOpacity(.68)],
+                        colors: [Colors.transparent, Colors.black.withValues(alpha: .68)],
                       ),
                     ),
                   ),
@@ -4769,7 +4769,7 @@ class _EvidenceCapture extends StatelessWidget {
                         width: 46,
                         height: 46,
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(.94),
+                          color: Colors.white.withValues(alpha: .94),
                           borderRadius: BorderRadius.circular(15),
                         ),
                         child: Icon(
@@ -4869,7 +4869,7 @@ class _SeverityPill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: colour.withOpacity(.10),
+        color: colour.withValues(alpha: .10),
         borderRadius: BorderRadius.circular(99),
       ),
       child: Text(
@@ -4900,7 +4900,7 @@ class _StatusChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
       decoration: BoxDecoration(
-        color: colour.withOpacity(.10),
+        color: colour.withValues(alpha: .10),
         borderRadius: BorderRadius.circular(99),
       ),
       child: Text(
@@ -4933,7 +4933,7 @@ class _MiniInsight extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: colour.withOpacity(.075),
+        color: colour.withValues(alpha: .075),
         borderRadius: BorderRadius.circular(14),
       ),
       child: Column(
@@ -4971,14 +4971,12 @@ class _MiniInsight extends StatelessWidget {
 class _RemoteReportImage extends StatefulWidget {
   final EastAppApi api;
   final String storageKey;
-  final BoxFit fit;
   final double? width;
   final double? height;
 
   const _RemoteReportImage({
     required this.api,
     required this.storageKey,
-    this.fit = BoxFit.cover,
     this.width,
     this.height,
   });
@@ -5014,7 +5012,7 @@ class _RemoteReportImageState extends State<_RemoteReportImage> {
             snapshot.data!,
             width: widget.width,
             height: widget.height,
-            fit: widget.fit,
+            fit: BoxFit.cover,
           );
         }
         if (snapshot.hasError) {

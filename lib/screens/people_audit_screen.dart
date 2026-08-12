@@ -248,7 +248,7 @@ class _PeopleAuditScreenState extends State<PeopleAuditScreen> {
         ),
         const SizedBox(height: 10),
         DropdownButtonFormField<bool?>(
-          value: activeFilter,
+          initialValue: activeFilter,
           decoration: AppInputStyle.decoration('Employee Status'),
           items: const [
             DropdownMenuItem<bool?>(value: null, child: Text('All')),
@@ -371,7 +371,7 @@ class _PeopleAuditScreenState extends State<PeopleAuditScreen> {
           child: ListView.separated(
             shrinkWrap: true,
             itemCount: users.length,
-            separatorBuilder: (_, __) => const Divider(height: 1),
+            separatorBuilder: (_, _) => const Divider(height: 1),
             itemBuilder: (context, index) {
               final user = users[index];
               final selected = selectedUser?.id == user.id;

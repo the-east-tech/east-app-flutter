@@ -31,7 +31,7 @@ class EastLogo extends StatelessWidget {
         'assets/app_icon.png',
         fit: fit,
         gaplessPlayback: true,
-        errorBuilder: (_, __, ___) => Icon(
+        errorBuilder: (_, _, _) => Icon(
           Icons.restaurant_rounded,
           size: size * .56,
           color: Colors.white,

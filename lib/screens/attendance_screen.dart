@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:camera/camera.dart';
@@ -12,7 +11,6 @@ import 'package:flutter/services.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:geolocator/geolocator.dart';
 
-import '../data/sample_data.dart';
 import '../localization/app_text_scope.dart';
 import '../models/app_models.dart';
 import '../models/attendance_models.dart';
@@ -346,25 +344,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         user.roleSystemKey != 'MANAGER';
   }
 
-  bool _isTodayAttendanceText(String? value) {
-    if (value == null) return false;
-    final lower = value.toLowerCase();
-    return lower.contains('today') ||
-        lower.contains('just now') ||
-        lower.contains('server time');
-  }
-
-  AttendanceRecord? get _selfTodayAttendanceRecord {
-    for (final record in widget.attendanceRecords) {
-      if (record.staffId != currentSelfUserId) continue;
-      if (_isTodayAttendanceText(record.clockInTime) ||
-          _isTodayAttendanceText(record.clockOutTime)) {
-        return record;
-      }
-    }
-    return null;
-  }
-
   void showComingSoon(String title) {
     AppFeedback.warning();
     _showPeopleBottomSheet(
@@ -429,7 +408,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   Future<void> _openAttendanceOptions() async {
     AppFeedback.tap();
     final hasAccess = await _ensureAttendanceAccess();
-    if (!hasAccess) return;
+    if (!hasAccess || !mounted) return;
 
     if (attendanceLoading) {
       showWarningSnackBar(context, 'Loading attendance status.');
@@ -450,8 +429,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     final cameraIssue = await _checkCameraAccessForAttendance();
 
     final issues = <String>[
-      if (locationIssue != null) locationIssue,
-      if (cameraIssue != null) cameraIssue,
+      ?locationIssue,
+      ?cameraIssue,
     ];
 
     if (issues.isNotEmpty) {
@@ -602,7 +581,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                   width: 42,
                   height: 42,
                   decoration: BoxDecoration(
-                    color: AppColours.orange.withOpacity(0.12),
+                    color: AppColours.orange.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(14),
                   ),
                   child: const Icon(Icons.lock_person_outlined, color: AppColours.orange),
@@ -705,7 +684,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         branchName: widget.workLocation.name,
         initialMode: initialMode,
         onSubmit: (modeLabel, capturedLocation, submissionData) async {
-          final event = await widget.api.createAttendanceEvent(
+          await widget.api.createAttendanceEvent(
             clientEventId: _newAttendanceClientEventId(),
             eventType: modeLabel == 'Clock Out' ? 'CLOCK_OUT' : 'CLOCK_IN',
             deviceCapturedAt: submissionData.deviceCapturedAt,
@@ -725,7 +704,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
             qrCheckpointValid: true,
             devicePlatform: submissionData.devicePlatform,
             deviceOsVersion: submissionData.deviceOsVersion,
-            appVersion: 'east_app_v272',
+            appVersion: 'east_app_v274',
             validationMethod: submissionData.faceVerificationBypassed
                 ? 'FACE_DETECTION_BYPASSED_AFTER_3_ATTEMPTS'
                 : 'ML_KIT_FACE_DETECTION',
@@ -794,7 +773,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       );
       return;
     }
-    if (!await ensureRolesLoaded()) return;
+    if (!await ensureRolesLoaded() || !mounted) return;
 
     _showPeopleBottomSheet<void>(
       context,
@@ -1113,8 +1092,11 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: handleBackNavigation,
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) unawaited(handleBackNavigation());
+      },
       child: GestureDetector(
         behavior: HitTestBehavior.translucent,
         onHorizontalDragStart: handlePeopleSwipeStart,
@@ -1649,7 +1631,7 @@ class _PeopleFilterDropdown extends StatelessWidget {
           child: Text(label, style: AppTextStyles.formLabel),
         ),
         DropdownButtonFormField<String>(
-          value: value,
+          initialValue: value,
           isExpanded: true,
           items: options
               .map((option) => DropdownMenuItem<String>(
@@ -1803,181 +1785,6 @@ class _PeopleRoleRow extends StatelessWidget {
     );
   }
 }
-
-class _AttendanceOptionsSheet extends StatelessWidget {
-  final String faceActionText;
-  final VoidCallback onScanFace;
-
-  const _AttendanceOptionsSheet({
-    required this.faceActionText,
-    required this.onScanFace,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 22),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const _PeopleSheetHandle(),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Container(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(
-                  color: AppColours.blueSoft,
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: const Icon(Icons.work_history_outlined, color: AppColours.blue),
-              ),
-              const SizedBox(width: 12),
-              const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Attendance',
-                      style: TextStyle(
-                        fontSize: AppTextSize.s24,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    SizedBox(height: 2),
-                    Text(
-                      'Choose verification method',
-                      style: TextStyle(
-                        fontSize: AppTextSize.s13,
-                        color: AppColours.textMuted,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              IconButton(
-                onPressed: () => Navigator.of(context).pop(),
-                icon: const Icon(Icons.close_rounded),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          const _AttendanceOptionCard(
-            title: 'Scan QR',
-            subtitle: 'Coming soon',
-            icon: Icons.qr_code_scanner_rounded,
-            statusText: 'Soon',
-            onTap: null,
-          ),
-          const SizedBox(height: 10),
-          _AttendanceOptionCard(
-            title: 'Scan Face',
-            subtitle: '$faceActionText with live face presence detection',
-            icon: Icons.face_retouching_natural_outlined,
-            statusText: 'Try',
-            onTap: onScanFace,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AttendanceOptionCard extends StatelessWidget {
-  final String title;
-  final String subtitle;
-  final IconData icon;
-  final String statusText;
-  final VoidCallback? onTap;
-
-  const _AttendanceOptionCard({
-    required this.title,
-    required this.subtitle,
-    required this.icon,
-    required this.statusText,
-    this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isEnabled = onTap != null;
-    final iconColour = isEnabled ? AppColours.blue : AppColours.textMuted;
-    final iconBackground = isEnabled ? AppColours.background : AppColours.mutedBox;
-    final titleColour = isEnabled ? AppColours.textMain : AppColours.textMuted;
-
-    return WhiteCard(
-      padding: EdgeInsets.zero,
-      child: Pressable(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(18),
-        child: Opacity(
-          opacity: isEnabled ? 1 : 0.62,
-          child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
-          child: Row(
-            children: [
-              Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  color: iconBackground,
-                  borderRadius: BorderRadius.circular(13),
-                ),
-                child: Icon(icon, color: iconColour, size: 23),
-              ),
-              const SizedBox(width: 11),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: AppTextSize.s17,
-                        fontWeight: FontWeight.w700,
-                        color: titleColour,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      subtitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: AppTextSize.s12,
-                        color: AppColours.textMuted,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              SmallStatusPill(
-                text: statusText,
-                textColour: isEnabled ? AppColours.green : AppColours.textMuted,
-                backgroundColour: isEnabled ? AppColours.greenSoft : AppColours.mutedBox,
-              ),
-              const SizedBox(width: 4),
-              if (isEnabled)
-                const Icon(Icons.chevron_right_rounded, color: AppColours.textMuted, size: 22)
-              else
-                const SizedBox(width: 22),
-            ],
-          ),
-        ),
-        ),
-      ),
-    );
-  }
-}
-
-
 
 class _IosStillPhotoCandidate {
   final int rotationQuarterTurns;
@@ -2176,12 +1983,6 @@ class _FaceScanSheetState extends State<_FaceScanSheet> {
   // User-friendly face verification tolerance.
   static const double _minimumFaceAbsolutePx = 64.0;
   static const double _minimumFaceShortSideFactor = 0.12;
-  static const double _frameEdgeMarginFactor = 0.010;
-  static const double _roiBoundaryToleranceFactor = 0.12;
-  static const double _portraitGuideWidthFactor = 0.78;
-  static const double _portraitGuideHeightFactor = 0.92;
-  static const double _landscapeGuideWidthFactor = 0.62;
-  static const double _landscapeGuideHeightFactor = 0.88;
   static const double _advisoryHeadYaw = 50.0;
   static const double _advisoryHeadRoll = 50.0;
   static const double _advisoryHeadPitch = 50.0;
@@ -2596,7 +2397,7 @@ class _FaceScanSheetState extends State<_FaceScanSheet> {
                 ? 'ANDROID'
                 : Platform.operatingSystem.toUpperCase(),
         deviceOsVersion: Platform.operatingSystemVersion.replaceAll('\n', ' '),
-        appVersion: 'east_app_v272',
+        appVersion: 'east_app_v274',
         validationMethod: 'ML_KIT_FACE_DETECTION_FAILED',
         photoBytes: photoBytes,
       );
@@ -3081,8 +2882,8 @@ class _FaceScanSheetState extends State<_FaceScanSheet> {
     } finally {
       outputImage?.dispose();
       picture?.dispose();
-      sourceImage?.dispose();
-      codec?.dispose();
+      sourceImage.dispose();
+      codec.dispose();
     }
   }
 
@@ -3650,37 +3451,6 @@ class _FaceScanSheetState extends State<_FaceScanSheet> {
     }).toList();
   }
 
-  Map<String, Object?> _faceRaw(Face face) {
-    return <String, Object?>{
-      'boundingBox.left': face.boundingBox.left,
-      'boundingBox.top': face.boundingBox.top,
-      'boundingBox.right': face.boundingBox.right,
-      'boundingBox.bottom': face.boundingBox.bottom,
-      'boundingBox.width': face.boundingBox.width,
-      'boundingBox.height': face.boundingBox.height,
-      'headEulerAngleX': face.headEulerAngleX,
-      'headEulerAngleY': face.headEulerAngleY,
-      'headEulerAngleZ': face.headEulerAngleZ,
-      'trackingId': face.trackingId,
-      'smilingProbability': face.smilingProbability,
-      'leftEyeOpenProbability': face.leftEyeOpenProbability,
-      'rightEyeOpenProbability': face.rightEyeOpenProbability,
-      'landmarks.length': face.landmarks.length,
-      'contours.length': face.contours.length,
-    };
-  }
-
-  Rect _headGuideRectForFrame(double frameWidth, double frameHeight) {
-    final isPortraitFrame = frameHeight >= frameWidth;
-    final guideWidth = frameWidth * (isPortraitFrame ? _portraitGuideWidthFactor : _landscapeGuideWidthFactor);
-    final guideHeight = frameHeight * (isPortraitFrame ? _portraitGuideHeightFactor : _landscapeGuideHeightFactor);
-    return Rect.fromCenter(
-      center: Offset(frameWidth / 2, frameHeight / 2),
-      width: guideWidth,
-      height: guideHeight,
-    );
-  }
-
   void captureQrCheckpoint() {
     if (verifying || submitting) return;
     AppFeedback.tap();
@@ -3864,7 +3634,7 @@ class _FaceScanSheetState extends State<_FaceScanSheet> {
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(120),
                   border: Border.all(
-                    color: verificationReady ? AppColours.green : Colors.white.withOpacity(0.86),
+                    color: verificationReady ? AppColours.green : Colors.white.withValues(alpha: 0.86),
                     width: 3,
                   ),
                 ),
@@ -3878,7 +3648,7 @@ class _FaceScanSheetState extends State<_FaceScanSheet> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.48),
+                color: Colors.black.withValues(alpha: 0.48),
                 borderRadius: BorderRadius.circular(14),
               ),
               child: Text(
@@ -3894,7 +3664,7 @@ class _FaceScanSheetState extends State<_FaceScanSheet> {
           ),
           if (verifying)
             Container(
-              color: Colors.black.withOpacity(0.12),
+              color: Colors.black.withValues(alpha: 0.12),
               alignment: Alignment.center,
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -4008,7 +3778,7 @@ class _FaceScanSheetState extends State<_FaceScanSheet> {
                     decoration: BoxDecoration(
                       color: AppColours.redSoft,
                       borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: AppColours.red.withOpacity(0.18)),
+                      border: Border.all(color: AppColours.red.withValues(alpha: 0.18)),
                     ),
                     child: Text(
                       errorText!,
@@ -4179,7 +3949,7 @@ class _FaceCaptureSummaryCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColours.greenSoft,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColours.green.withOpacity(0.22)),
+        border: Border.all(color: AppColours.green.withValues(alpha: 0.22)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -4315,7 +4085,7 @@ class _AttendanceActionChipSelector extends StatelessWidget {
                       boxShadow: selected
                           ? [
                               BoxShadow(
-                                color: AppColours.blue.withOpacity(0.16),
+                                color: AppColours.blue.withValues(alpha: 0.16),
                                 blurRadius: 10,
                                 offset: const Offset(0, 4),
                               ),
@@ -4409,9 +4179,9 @@ class _FaceCheckRow extends StatelessWidget {
         borderRadius: BorderRadius.circular(15),
         border: Border.all(
           color: passed
-              ? AppColours.green.withOpacity(0.28)
+              ? AppColours.green.withValues(alpha: 0.28)
               : active
-                  ? AppColours.blue.withOpacity(0.25)
+                  ? AppColours.blue.withValues(alpha: 0.25)
                   : AppColours.border,
         ),
       ),
@@ -4631,7 +4401,7 @@ class _AttendanceProgressPill extends StatelessWidget {
       decoration: BoxDecoration(
         color: background,
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: colour.withOpacity(0.16)),
+        border: Border.all(color: colour.withValues(alpha: 0.16)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -4662,7 +4432,6 @@ class _PeopleMenuCard extends StatelessWidget {
   final String subtitle;
   final IconData icon;
   final VoidCallback onTap;
-  final String? badgeText;
   final Widget? badgeWidget;
 
   const _PeopleMenuCard({
@@ -4670,7 +4439,6 @@ class _PeopleMenuCard extends StatelessWidget {
     required this.subtitle,
     required this.icon,
     required this.onTap,
-    this.badgeText,
     this.badgeWidget,
   });
 
@@ -4698,14 +4466,7 @@ class _PeopleMenuCard extends StatelessWidget {
                     child: Icon(icon, color: AppColours.blue, size: 22),
                   ),
                   const Spacer(),
-                  if (badgeWidget != null)
-                    badgeWidget!
-                  else if (badgeText != null)
-                    SmallStatusPill(
-                      text: badgeText!,
-                      textColour: AppColours.green,
-                      backgroundColour: AppColours.greenSoft,
-                    ),
+                  ?badgeWidget,
                   const SizedBox(width: 4),
                   const Icon(
                     Icons.chevron_right_rounded,
@@ -4740,73 +4501,6 @@ class _PeopleMenuCard extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-}
-
-class _PeopleSearchBox extends StatelessWidget {
-  final TextEditingController controller;
-  final int resultCount;
-  final int totalCount;
-  final ValueChanged<String> onChanged;
-  final VoidCallback onClear;
-
-  const _PeopleSearchBox({
-    required this.controller,
-    required this.resultCount,
-    required this.totalCount,
-    required this.onChanged,
-    required this.onClear,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final hasText = controller.text.trim().isNotEmpty;
-
-    return Row(
-      children: [
-        const Icon(Icons.search_rounded, color: AppColours.textMuted, size: 22),
-        const SizedBox(width: 8),
-        Expanded(
-          child: TextField(
-            controller: controller,
-            onChanged: onChanged,
-            textInputAction: TextInputAction.search,
-            onTapOutside: (_) => FocusScope.of(context).unfocus(),
-            decoration: const InputDecoration(
-              border: InputBorder.none,
-              isDense: true,
-              hintText: 'Search name, role, phone, date, status',
-              hintStyle: TextStyle(
-                color: AppColours.textMuted,
-                fontSize: AppTextSize.s14,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            style: const TextStyle(
-              fontSize: AppTextSize.s15,
-              fontWeight: FontWeight.w700,
-              color: AppColours.textMain,
-            ),
-          ),
-        ),
-        if (hasText) ...[
-          const SizedBox(width: 6),
-          IconButton(
-            visualDensity: VisualDensity.compact,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints.tightFor(width: 30, height: 30),
-            onPressed: onClear,
-            icon: const Icon(Icons.close_rounded, size: 18, color: AppColours.textMuted),
-          ),
-        ],
-        const SizedBox(width: 8),
-        SmallStatusPill(
-          text: '$resultCount/$totalCount',
-          textColour: AppColours.blue,
-          backgroundColour: AppColours.blueSoft,
-        ),
-      ],
     );
   }
 }
@@ -5920,7 +5614,7 @@ class _DeleteUserSheetState extends State<_DeleteUserSheet> {
               decoration: BoxDecoration(
                 color: AppColours.redSoft,
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: AppColours.red.withOpacity(0.18)),
+                border: Border.all(color: AppColours.red.withValues(alpha: 0.18)),
               ),
               child: const Text(
                 'Status will be set to Inactive and all sessions will be revoked.',
@@ -5972,7 +5666,7 @@ class _DangerButton extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppColours.redSoft,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: AppColours.red.withOpacity(0.28)),
+          border: Border.all(color: AppColours.red.withValues(alpha: 0.28)),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -5991,73 +5685,6 @@ class _DangerButton extends StatelessWidget {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _PhotoCaptureTile extends StatelessWidget {
-  final String title;
-  final bool added;
-  final VoidCallback onTap;
-  final String? errorText;
-
-  const _PhotoCaptureTile({
-    required this.title,
-    required this.added,
-    required this.onTap,
-    this.errorText,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return WhiteCard(
-      padding: EdgeInsets.zero,
-      child: Pressable(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(18),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            children: [
-              Container(
-                width: 46,
-                height: 46,
-                decoration: BoxDecoration(
-                  color: added ? AppColours.greenSoft : AppColours.blueSoft,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Icon(
-                  added ? Icons.check_circle_rounded : Icons.camera_alt_outlined,
-                  color: added ? AppColours.green : AppColours.blue,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: AppTextSize.s13,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              if (errorText != null) ...[
-                const SizedBox(height: 5),
-                Text(
-                  errorText!,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: AppTextSize.s10,
-                    fontWeight: FontWeight.w700,
-                    color: AppColours.red,
-                  ),
-                ),
-              ],
-            ],
-          ),
         ),
       ),
     );
@@ -6166,7 +5793,7 @@ class _DateField extends StatelessWidget {
                       ),
                     ),
                   ),
-                  if (trailing != null) trailing!,
+                  ?trailing,
                   const Icon(Icons.calendar_month_outlined, color: AppColours.textMuted, size: 20),
                 ],
               ),
@@ -6206,7 +5833,7 @@ class _ActiveStatusField extends StatelessWidget {
         Text('Active', style: AppTextStyles.formLabel),
         const SizedBox(height: 6),
         DropdownButtonFormField<bool>(
-          value: value,
+          initialValue: value,
           items: const [
             DropdownMenuItem<bool>(
               value: true,
@@ -6269,7 +5896,7 @@ class _RoleField extends StatelessWidget {
         Text('Role', style: AppTextStyles.formLabel),
         const SizedBox(height: 6),
         DropdownButtonFormField<String>(
-          value: value,
+          initialValue: value,
           isExpanded: true,
           items: options
               .map((role) => DropdownMenuItem<String>(

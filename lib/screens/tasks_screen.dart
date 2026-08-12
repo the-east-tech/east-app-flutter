@@ -176,7 +176,7 @@ class _TasksScreenState extends State<TasksScreen> {
                               widget.onApproveTask(task: task, score: score);
                               showSuccessSnackBar(
                                 context,
-                                text.t('Task approved') + ' +$score',
+                                '${text.t('Task approved')} +$score',
                               );
                             },
                             onRejected: (reason) {

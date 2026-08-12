@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
@@ -662,8 +661,11 @@ class _StockScreenState extends State<StockScreen> {
       api: widget.api,
       loadThumbnail: loadThumbnail,
       loadReceivingPhoto: loadReceivingPhoto,
-      child: WillPopScope(
-        onWillPop: handleBackNavigation,
+      child: PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, result) {
+          if (!didPop) unawaited(handleBackNavigation());
+        },
         child: GestureDetector(
           behavior: HitTestBehavior.translucent,
           onHorizontalDragStart: handleStockSwipeStart,
@@ -917,16 +919,12 @@ class _StockMenuCard extends StatelessWidget {
   final String subtitle;
   final IconData icon;
   final VoidCallback onTap;
-  final String? badgeText;
-  final bool badgeDanger;
 
   const _StockMenuCard({
     required this.title,
     required this.subtitle,
     required this.icon,
     required this.onTap,
-    this.badgeText,
-    this.badgeDanger = false,
   });
 
   @override
@@ -953,13 +951,7 @@ class _StockMenuCard extends StatelessWidget {
                     child: Icon(icon, color: AppColours.blue, size: 22),
                   ),
                   const Spacer(),
-                  if (badgeText != null)
-                    SmallStatusPill(
-                      text: badgeText!,
-                      textColour: badgeDanger ? AppColours.red : AppColours.green,
-                      backgroundColour:
-                          badgeDanger ? AppColours.redSoft : AppColours.greenSoft,
-                    ),
+
                   const SizedBox(width: 4),
                   const Icon(
                     Icons.chevron_right_rounded,
@@ -1571,7 +1563,7 @@ class _CountTagFilterChips extends StatelessWidget {
                   boxShadow: selected
                       ? [
                           BoxShadow(
-                            color: AppColours.blue.withOpacity(0.16),
+                            color: AppColours.blue.withValues(alpha: 0.16),
                             blurRadius: 10,
                             offset: const Offset(0, 4),
                           ),
@@ -1724,7 +1716,7 @@ class _SkuPhotoThumb extends StatelessWidget {
         height: size,
         fit: fit,
         gaplessPlayback: true,
-        errorBuilder: (_, __, ___) => fallback,
+        errorBuilder: (_, _, _) => fallback,
       );
     } else if (samplePhotoUrl != null) {
       photo = Image.network(
@@ -1732,7 +1724,7 @@ class _SkuPhotoThumb extends StatelessWidget {
         width: size,
         height: size,
         fit: fit,
-        errorBuilder: (_, __, ___) => fallback,
+        errorBuilder: (_, _, _) => fallback,
       );
     } else if (storedThumbnail) {
       final mediaScope = _StockMediaScope.of(context);
@@ -1747,7 +1739,7 @@ class _SkuPhotoThumb extends StatelessWidget {
             height: size,
             fit: fit,
             gaplessPlayback: true,
-            errorBuilder: (_, __, ___) => fallback,
+            errorBuilder: (_, _, _) => fallback,
           );
         },
       );
@@ -1965,7 +1957,7 @@ class _DailyStockMiniCard extends StatelessWidget {
                       decoration: BoxDecoration(
                         color: statusIconBackground,
                         shape: BoxShape.circle,
-                        border: Border.all(color: statusIconColour.withOpacity(countedNow ? 0.50 : 0.35)),
+                        border: Border.all(color: statusIconColour.withValues(alpha: countedNow ? 0.50 : 0.35)),
                       ),
                       alignment: Alignment.center,
                       child: Icon(statusIcon, size: 17, color: statusIconColour),
@@ -2214,7 +2206,6 @@ class _StockReceivingPageState extends State<_StockReceivingPage> {
   }
 
   bool syncSkuReceivingDraft({bool showFeedback = false}) {
-    final text = AppTextScope.of(context);
     final supplier = selectedSupplier;
     final sku = selectedSku;
     final invoiceQty = double.tryParse(invoiceQtyController.text.trim());
@@ -2376,9 +2367,9 @@ class _StockReceivingPageState extends State<_StockReceivingPage> {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: AppColours.orange.withOpacity(0.10),
+                  color: AppColours.orange.withValues(alpha: 0.10),
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: AppColours.orange.withOpacity(0.30)),
+                  border: Border.all(color: AppColours.orange.withValues(alpha: 0.30)),
                 ),
                 child: const Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -2701,13 +2692,13 @@ class _StockReceivingPageState extends State<_StockReceivingPage> {
               });
             }
 
-            Future<bool> handleSystemBackToSkuPicker() async {
-              closeFormAndReopenSkuPicker(useBackFeedback: true);
-              return false;
-            }
-
-            return WillPopScope(
-              onWillPop: handleSystemBackToSkuPicker,
+            return PopScope(
+              canPop: false,
+              onPopInvokedWithResult: (didPop, result) {
+                if (!didPop) {
+                  closeFormAndReopenSkuPicker(useBackFeedback: true);
+                }
+              },
               child: Padding(
                 padding: EdgeInsets.only(bottom: bottomInset),
               child: SafeArea(
@@ -2867,7 +2858,7 @@ class _StockReceivingPageState extends State<_StockReceivingPage> {
                                   borderRadius: BorderRadius.circular(14),
                                   border: Border.all(
                                     color: showReceivingErrors && sku.receivingChecklist.isNotEmpty && !checklistChecked
-                                        ? AppColours.red.withOpacity(0.65)
+                                        ? AppColours.red.withValues(alpha: 0.65)
                                         : AppColours.border,
                                   ),
                                 ),
@@ -3048,7 +3039,7 @@ class _SupplierPhotoButton extends StatelessWidget {
         decoration: BoxDecoration(
           color: background,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: colour.withOpacity(0.28)),
+          border: Border.all(color: colour.withValues(alpha: 0.28)),
         ),
         child: Stack(
           alignment: Alignment.center,
@@ -3185,7 +3176,7 @@ class _ReceivingSupplierActionRow extends StatelessWidget {
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
                                   fontSize: AppTextSize.s12,
-                                  color: submitted ? AppColours.textMuted.withOpacity(0.80) : AppColours.textMuted,
+                                  color: submitted ? AppColours.textMuted.withValues(alpha: 0.80) : AppColours.textMuted,
                                   fontWeight: FontWeight.w700,
                                 ),
                               ),
@@ -3270,22 +3261,22 @@ class _ReceivingSupplierActionRow extends StatelessWidget {
                   border: Border.all(
                     color: selecting
                         ? selected
-                            ? AppColours.blue.withOpacity(0.32)
+                            ? AppColours.blue.withValues(alpha: 0.32)
                             : AppColours.border
                         : canSubmit
-                            ? AppColours.blue.withOpacity(0.28)
+                            ? AppColours.blue.withValues(alpha: 0.28)
                             : AppColours.border,
                   ),
                 ),
                 child: selecting
                     ? Icon(
                         selected ? Icons.check_rounded : Icons.circle_outlined,
-                        color: selected && selectable ? AppColours.blue : AppColours.textMuted.withOpacity(0.45),
+                        color: selected && selectable ? AppColours.blue : AppColours.textMuted.withValues(alpha: 0.45),
                         size: 20,
                       )
                     : Icon(
                         submitted ? Icons.lock_outline_rounded : Icons.send_rounded,
-                        color: canSubmit ? AppColours.blue : AppColours.textMuted.withOpacity(0.45),
+                        color: canSubmit ? AppColours.blue : AppColours.textMuted.withValues(alpha: 0.45),
                         size: 20,
                       ),
               ),
@@ -3386,7 +3377,7 @@ class _ReceivingSkuPickerSheetState extends State<_ReceivingSkuPickerSheet> {
               decoration: BoxDecoration(
                 color: AppColours.greenSoft,
                 shape: BoxShape.circle,
-                border: Border.all(color: AppColours.green.withOpacity(0.35)),
+                border: Border.all(color: AppColours.green.withValues(alpha: 0.35)),
               ),
               child: const Icon(Icons.check_rounded, color: AppColours.green, size: 17),
             ),
@@ -4516,9 +4507,9 @@ class _StockReviewPageState extends State<_StockReviewPage> {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: AppColours.orange.withOpacity(0.10),
+                    color: AppColours.orange.withValues(alpha: 0.10),
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: AppColours.orange.withOpacity(0.30)),
+                    border: Border.all(color: AppColours.orange.withValues(alpha: 0.30)),
                   ),
                   child: const Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -4637,9 +4628,9 @@ class _StockReviewPageState extends State<_StockReviewPage> {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: AppColours.orange.withOpacity(0.10),
+                    color: AppColours.orange.withValues(alpha: 0.10),
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: AppColours.orange.withOpacity(0.30)),
+                    border: Border.all(color: AppColours.orange.withValues(alpha: 0.30)),
                   ),
                   child: const Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -4965,7 +4956,6 @@ class _StockReviewPageState extends State<_StockReviewPage> {
   void showRecordDetails(StockReceivingRecord record) {
     final text = AppTextScope.of(context);
     final overdue = isOverdue(record);
-    final good = isGoodCondition(record);
     final item = record.items.isNotEmpty ? record.items.first : null;
 
     showStockBottomSheet<void>(
@@ -5590,7 +5580,7 @@ class _ReviewFilterBar extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         DropdownButtonFormField<String>(
-          value: currentValue,
+          initialValue: currentValue,
           isExpanded: true,
           decoration: _inputDecoration(filterLabel),
           items: filterOptions
@@ -6029,7 +6019,7 @@ class _ReceivingPhotoImage extends StatelessWidget {
           height: height,
           fit: fit,
           gaplessPlayback: true,
-          errorBuilder: (_, __, ___) => fallback,
+          errorBuilder: (_, _, _) => fallback,
         );
       },
     );
@@ -6053,9 +6043,9 @@ class _ReceivingGoodsThumb extends StatelessWidget {
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: conditionColour.withOpacity(0.12),
+        color: conditionColour.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(size * 0.26),
-        border: Border.all(color: conditionColour.withOpacity(0.42)),
+        border: Border.all(color: conditionColour.withValues(alpha: 0.42)),
       ),
       child: Center(
         child: Icon(
@@ -6113,7 +6103,7 @@ class _CountReviewPhotoPreview extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.all(5),
                   decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.58),
+                    color: Colors.black.withValues(alpha: 0.58),
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: const Icon(Icons.zoom_in_rounded, color: Colors.white, size: 16),
@@ -6194,7 +6184,7 @@ class _ReviewPhotoPreview extends StatelessWidget {
   Widget fallback({double? height}) {
     return Container(
       height: height,
-      color: conditionColour.withOpacity(0.10),
+      color: conditionColour.withValues(alpha: 0.10),
       alignment: Alignment.center,
       child: Icon(
         isInvoice ? Icons.receipt_long_outlined : Icons.photo_camera_outlined,
@@ -6263,9 +6253,9 @@ class _ReviewPhotoPreview extends StatelessWidget {
     final previewFallback = Container(
       height: 118,
       decoration: BoxDecoration(
-        color: conditionColour.withOpacity(0.10),
+        color: conditionColour.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: conditionColour.withOpacity(0.34)),
+        border: Border.all(color: conditionColour.withValues(alpha: 0.34)),
       ),
       child: Icon(
         isInvoice ? Icons.receipt_long_outlined : Icons.photo_camera_outlined,
@@ -6298,7 +6288,7 @@ class _ReviewPhotoPreview extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.all(5),
                   decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.58),
+                    color: Colors.black.withValues(alpha: 0.58),
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: const Icon(
@@ -6367,62 +6357,6 @@ class _ReviewInfoRows extends StatelessWidget {
             ),
           ),
       ],
-    );
-  }
-}
-
-class _ReviewInfoCard extends StatelessWidget {
-  final String title;
-  final List<_ReviewInfoRow> rows;
-
-  const _ReviewInfoCard({
-    required this.title,
-    required this.rows,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return WhiteCard(
-      padding: const EdgeInsets.all(14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: const TextStyle(fontSize: AppTextSize.s16, fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: 10),
-          ...rows.map((row) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SizedBox(
-                      width: 118,
-                      child: Text(
-                        row.label,
-                        style: const TextStyle(
-                          fontSize: AppTextSize.s13,
-                          color: AppColours.textMuted,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                    Expanded(
-                      child: Text(
-                        row.value,
-                        style: TextStyle(
-                          fontSize: AppTextSize.s13,
-                          color: row.valueColour ?? AppColours.textMain,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              )),
-        ],
-      ),
     );
   }
 }
@@ -6540,7 +6474,7 @@ class _SkuSetupPageState extends State<_SkuSetupPage> {
           ),
         ),
         DropdownButtonFormField<String>(
-          value: value,
+          initialValue: value,
           isExpanded: true,
           isDense: true,
           style: AppTextStyles.formValue.copyWith(fontSize: AppTextSize.s13),
@@ -6707,7 +6641,6 @@ class _SkuSetupPageState extends State<_SkuSetupPage> {
             child: Column(
               children: [
                 ...skus.map((sku) {
-                  final linkedSuppliers = widget.suppliers.where((supplier) => sku.supplierIds.contains(supplier.id)).map((supplier) => supplier.supplierName).toList();
                   return _SkuCompactRow(
                     sku: sku,
                     onTap: () => showSkuDetailDialog(
@@ -6917,7 +6850,7 @@ class _CopySkuSheetState extends State<_CopySkuSheet> {
           ),
           const SizedBox(height: 10),
           DropdownButtonFormField<String>(
-            value: sourceTenantId,
+            initialValue: sourceTenantId,
             isExpanded: true,
             decoration: _inputDecoration('Source business'),
             items: sourceTenants
@@ -7004,7 +6937,7 @@ class _CopySkuSheetState extends State<_CopySkuSheet> {
                           )
                         : ListView.separated(
                             itemCount: visibleSkus.length,
-                            separatorBuilder: (_, __) => const Divider(height: 1),
+                            separatorBuilder: (_, _) => const Divider(height: 1),
                             itemBuilder: (context, index) {
                               final sku = visibleSkus[index];
                               final selected = selectedSkuIds.contains(sku.id);
@@ -7662,7 +7595,7 @@ class _SkuDetailContentState extends State<_SkuDetailContent> {
     return InputDecoration(
       isDense: true,
       filled: true,
-      fillColor: editing ? AppColours.blueSoft.withOpacity(0.55) : Colors.transparent,
+      fillColor: editing ? AppColours.blueSoft.withValues(alpha: 0.55) : Colors.transparent,
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
       enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
       focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColours.blue, width: 1.2)),
@@ -7673,9 +7606,9 @@ class _SkuDetailContentState extends State<_SkuDetailContent> {
 
   BoxDecoration editableBoxDecoration() {
     return BoxDecoration(
-      color: AppColours.blueSoft.withOpacity(0.55),
+      color: AppColours.blueSoft.withValues(alpha: 0.55),
       borderRadius: BorderRadius.circular(10),
-      border: Border.all(color: AppColours.blue.withOpacity(0.18)),
+      border: Border.all(color: AppColours.blue.withValues(alpha: 0.18)),
     );
   }
 
@@ -7743,7 +7676,7 @@ class _SkuDetailContentState extends State<_SkuDetailContent> {
           const SizedBox(width: 14),
           Expanded(
             child: DropdownButtonFormField<String>(
-              value: options.contains(current) ? current : null,
+              initialValue: options.contains(current) ? current : null,
               isExpanded: true,
               items: options
                   .map((tag) => DropdownMenuItem<String>(
@@ -7868,7 +7801,7 @@ class _SkuDetailContentState extends State<_SkuDetailContent> {
                   padding: editing ? const EdgeInsets.symmetric(horizontal: 8, vertical: 8) : EdgeInsets.zero,
                   decoration: editing
                       ? editableBoxDecoration().copyWith(
-                          border: Border.all(color: errorText == null ? AppColours.blue.withOpacity(0.18) : AppColours.red),
+                          border: Border.all(color: errorText == null ? AppColours.blue.withValues(alpha: 0.18) : AppColours.red),
                         )
                       : null,
                   child: InkWell(
@@ -8458,7 +8391,7 @@ class _AuditTrailPageState extends State<_AuditTrailPage> {
   }) {
     final safeValue = options.contains(value) ? value : 'All';
     return DropdownButtonFormField<String>(
-      value: safeValue,
+      initialValue: safeValue,
       isExpanded: true,
       isDense: true,
       style: AppTextStyles.formValue.copyWith(fontSize: AppTextSize.s13),
@@ -9037,7 +8970,7 @@ class _SkuAssigneePageState extends State<_SkuAssigneePage> {
         );
       },
     );
-    if (result == null) return;
+    if (result == null || !mounted) return;
     final confirmed = await confirmDataChange(
       context,
       action: 'Update SKU Assignees?',
@@ -9111,7 +9044,7 @@ class _SkuAssigneePageState extends State<_SkuAssigneePage> {
         ),
         const SizedBox(height: 12),
         DropdownButtonFormField<String>(
-          value: filters.contains(userFilter) ? userFilter : 'All',
+          initialValue: filters.contains(userFilter) ? userFilter : 'All',
           isExpanded: true,
           decoration: _inputDecoration(text.t('Filter by assignee')),
           items: filters.map((value) => DropdownMenuItem(value: value, child: Text(text.t(value)))).toList(),
@@ -9638,7 +9571,7 @@ class _TagSetupPageState extends State<_TagSetupPage> {
                     action: 'Create Tag?',
                     details: 'This will create a new Stock tag for the this business.',
                   );
-                  if (!confirmed || !context.mounted) return;
+                  if (!confirmed || !mounted) return;
 
                   final saved = await runStockRequest(
                     context,
@@ -9652,7 +9585,7 @@ class _TagSetupPageState extends State<_TagSetupPage> {
                       ),
                     ),
                   );
-                  if (!saved || !context.mounted || !sheetContext.mounted) return;
+                  if (!saved || !mounted || !sheetContext.mounted) return;
                   Navigator.of(sheetContext).pop();
                   showSuccessSnackBar(context, text.t('Saved'));
                 },
@@ -10013,9 +9946,9 @@ class _SetupDetailRow extends StatelessWidget {
 
   BoxDecoration editableBoxDecoration() {
     return BoxDecoration(
-      color: AppColours.blueSoft.withOpacity(0.55),
+      color: AppColours.blueSoft.withValues(alpha: 0.55),
       borderRadius: BorderRadius.circular(10),
-      border: Border.all(color: AppColours.blue.withOpacity(0.18)),
+      border: Border.all(color: AppColours.blue.withValues(alpha: 0.18)),
     );
   }
 
@@ -10181,121 +10114,6 @@ class _SkuBalanceSummary extends StatelessWidget {
   }
 }
 
-class _ProofTile extends StatelessWidget {
-  final String title;
-  final String subtitle;
-  final IconData icon;
-  final bool isDone;
-  final VoidCallback onTap;
-  final String? errorText;
-
-  const _ProofTile({
-    required this.title,
-    required this.subtitle,
-    required this.icon,
-    required this.isDone,
-    required this.onTap,
-    this.errorText,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return WhiteCard(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: EdgeInsets.zero,
-      child: Pressable(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(18),
-        child: Padding(
-          padding: const EdgeInsets.all(18),
-          child: Row(
-            children: [
-              Icon(
-                isDone ? Icons.check_circle_rounded : icon,
-                color: isDone ? AppColours.green : (errorText == null ? AppColours.blue : AppColours.red),
-                size: 34,
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: const TextStyle(fontSize: AppTextSize.s20, fontWeight: FontWeight.w700),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      isDone ? AppTextScope.of(context).t('Captured') : subtitle,
-                      style: const TextStyle(
-                        fontSize: AppTextSize.s15,
-                        color: AppColours.textMuted,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    if (errorText != null) ...[
-                      const SizedBox(height: 5),
-                      Text(
-                        errorText!,
-                        style: const TextStyle(
-                          fontSize: AppTextSize.s12,
-                          color: AppColours.red,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _CameraOptionalBox extends StatelessWidget {
-  final String title;
-  final bool isTaken;
-  final VoidCallback onTap;
-
-  const _CameraOptionalBox({
-    required this.title,
-    required this.isTaken,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return _ProofTile(
-      title: title,
-      subtitle: AppTextScope.of(context).t('Optional camera proof'),
-      icon: Icons.camera_alt_outlined,
-      isDone: isTaken,
-      onTap: onTap,
-    );
-  }
-}
-
-class _EmptyCard extends StatelessWidget {
-  final String text;
-
-  const _EmptyCard(this.text);
-
-  @override
-  Widget build(BuildContext context) {
-    return WhiteCard(
-      margin: const EdgeInsets.only(bottom: 14),
-      padding: const EdgeInsets.all(18),
-      child: Text(
-        text,
-        style: const TextStyle(fontSize: AppTextSize.s18, color: AppColours.textMuted),
-      ),
-    );
-  }
-}
-
 class _FieldLabel extends StatelessWidget {
   final String text;
 
@@ -10344,7 +10162,6 @@ class _DialogInput extends StatelessWidget {
   final TextEditingController controller;
   final String hint;
   final String? suffixText;
-  final String? prefixText;
   final String? errorText;
   final ValueChanged<String>? onChanged;
 
@@ -10353,7 +10170,6 @@ class _DialogInput extends StatelessWidget {
     required this.controller,
     required this.hint,
     this.suffixText,
-    this.prefixText,
     this.errorText,
     this.onChanged,
   });
@@ -10368,14 +10184,14 @@ class _DialogInput extends StatelessWidget {
           controller: controller,
           style: AppTextStyles.formValue,
           textInputAction: TextInputAction.done,
-          keyboardType: suffixText == null && prefixText == null
+          keyboardType: suffixText == null
               ? TextInputType.text
               : const TextInputType.numberWithOptions(decimal: true),
           onChanged: onChanged,
           onSubmitted: (_) => FocusManager.instance.primaryFocus?.unfocus(),
           onEditingComplete: () => FocusManager.instance.primaryFocus?.unfocus(),
           onTapOutside: (_) => FocusManager.instance.primaryFocus?.unfocus(),
-          decoration: _inputDecoration(hint, suffixText: suffixText, prefixText: prefixText).copyWith(errorText: errorText),
+          decoration: _inputDecoration(hint, suffixText: suffixText).copyWith(errorText: errorText),
         ),
       ],
     );
@@ -10714,7 +10530,7 @@ void showAddSkuDialog(
                 const SizedBox(height: 14),
                 _FieldLabel(text.t('Tag 1')),
                 DropdownButtonFormField<String>(
-                  value: selectedTag1,
+                  initialValue: selectedTag1,
                   isExpanded: true,
                   items: tagNames
                       .map((tag) => DropdownMenuItem<String>(
@@ -10734,7 +10550,7 @@ void showAddSkuDialog(
                 const SizedBox(height: 14),
                 _FieldLabel(text.t('Tag 2')),
                 DropdownButtonFormField<String>(
-                  value: selectedTag2,
+                  initialValue: selectedTag2,
                   isExpanded: true,
                   items: tagNames
                       .map((tag) => DropdownMenuItem<String>(
@@ -10772,13 +10588,13 @@ void showAddSkuDialog(
                     constraints: const BoxConstraints(minHeight: 92),
                     decoration: BoxDecoration(
                       color: skuPhotoLocalPath == null
-                          ? AppColours.blueSoft.withOpacity(0.55)
+                          ? AppColours.blueSoft.withValues(alpha: 0.55)
                           : Colors.black,
                       borderRadius: BorderRadius.circular(14),
                       border: Border.all(
                         color: photoError == null
                             ? skuPhotoLocalPath == null
-                                ? AppColours.blue.withOpacity(0.18)
+                                ? AppColours.blue.withValues(alpha: 0.18)
                                 : AppColours.green
                             : AppColours.red,
                       ),
@@ -10867,9 +10683,9 @@ void showAddSkuDialog(
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
                     decoration: BoxDecoration(
-                      color: AppColours.blueSoft.withOpacity(0.55),
+                      color: AppColours.blueSoft.withValues(alpha: 0.55),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: resetTimeError == null ? AppColours.blue.withOpacity(0.18) : AppColours.red),
+                      border: Border.all(color: resetTimeError == null ? AppColours.blue.withValues(alpha: 0.18) : AppColours.red),
                     ),
                     child: Row(
                       children: [
@@ -10888,7 +10704,7 @@ void showAddSkuDialog(
                 const SizedBox(height: 14),
                 _FieldLabel(text.t('Unit')),
                 DropdownButtonFormField<String>(
-                  value: unit,
+                  initialValue: unit,
                   decoration: _inputDecoration(''),
                   items: units.map((value) => DropdownMenuItem(value: value, child: Text(value))).toList(),
                   onChanged: (value) {
@@ -10946,9 +10762,9 @@ void showAddSkuDialog(
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
                     decoration: BoxDecoration(
-                      color: AppColours.blueSoft.withOpacity(0.55),
+                      color: AppColours.blueSoft.withValues(alpha: 0.55),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: supplierError == null ? AppColours.blue.withOpacity(0.18) : AppColours.red),
+                      border: Border.all(color: supplierError == null ? AppColours.blue.withValues(alpha: 0.18) : AppColours.red),
                     ),
                     child: Row(
                       children: [
@@ -11018,7 +10834,7 @@ void showAddSkuDialog(
                       details:
                           'This will upload the thumbnail and create a new SKU for the this business.',
                     );
-                    if (!confirmed || !context.mounted) return;
+                    if (!confirmed || !context.mounted || !sheetContext.mounted) return;
 
                     setSheetState(() => saving = true);
                     String photoStorageKey;
@@ -11032,6 +10848,7 @@ void showAddSkuDialog(
                       }
                       return;
                     }
+                    if (!context.mounted || !sheetContext.mounted) return;
 
                     final sku = StockSku(
                       id: 'SKU${DateTime.now().millisecondsSinceEpoch}',
@@ -11279,7 +11096,7 @@ class _StockCameraPageState extends State<_StockCameraPage> {
                                     vertical: 10,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: Colors.black.withOpacity(0.58),
+                                    color: Colors.black.withValues(alpha: 0.58),
                                     borderRadius: BorderRadius.circular(14),
                                   ),
                                   child: Text(

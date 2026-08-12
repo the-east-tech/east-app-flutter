@@ -316,7 +316,7 @@ class _BusinessCard extends StatelessWidget {
                       [
                         tenant.companyCode,
                         'Prefix ${tenant.employeeIdPrefix}',
-                        if (employeeId != null) employeeId!,
+                        ?employeeId,
                       ].join(' · '),
                       style: const TextStyle(
                         fontSize: AppTextSize.s12,
@@ -604,7 +604,6 @@ class _BusinessInput extends StatelessWidget {
   final bool enabled;
   final String? errorText;
   final TextCapitalization textCapitalization;
-  final TextInputType? keyboardType;
   final ValueChanged<String>? onChanged;
 
   const _BusinessInput({
@@ -614,7 +613,6 @@ class _BusinessInput extends StatelessWidget {
     this.enabled = true,
     this.errorText,
     this.textCapitalization = TextCapitalization.none,
-    this.keyboardType,
     this.onChanged,
   });
 
@@ -629,7 +627,6 @@ class _BusinessInput extends StatelessWidget {
           controller: controller,
           enabled: enabled,
           textCapitalization: textCapitalization,
-          keyboardType: keyboardType,
           textInputAction: TextInputAction.next,
           onChanged: onChanged,
           decoration: AppInputStyle.decoration(hint).copyWith(

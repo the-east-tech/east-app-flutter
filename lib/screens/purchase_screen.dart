@@ -40,10 +40,6 @@ class _PurchaseScreenState extends State<PurchaseScreen> {
     super.dispose();
   }
 
-  double _parseDouble(String value, double fallback) {
-    return double.tryParse(value.trim()) ?? fallback;
-  }
-
   Future<void> _createSupplier() async {
     final supplier = SupplierProfile(
       id: 'SUP${DateTime.now().millisecondsSinceEpoch}',
@@ -250,47 +246,6 @@ class _CreateSupplierCard extends StatelessWidget {
 }
 
 
-class _ReadOnlyBalanceBox extends StatelessWidget {
-  final String unit;
-
-  const _ReadOnlyBalanceBox({required this.unit});
-
-  @override
-  Widget build(BuildContext context) {
-    final text = AppTextScope.of(context);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          text.t('Balance'),
-          style: const TextStyle(
-            fontSize: AppTextSize.s20,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-          decoration: BoxDecoration(
-            color: AppColours.mutedBox,
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Text(
-            '0 $unit · ${text.t('Non editable. Manager or Head updates inside Stock Check.')}',
-            style: const TextStyle(
-              fontSize: AppTextSize.s17,
-              color: AppColours.textMuted,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 class _SupplierCard extends StatelessWidget {
   final SupplierProfile supplier;
 
@@ -345,12 +300,10 @@ class _SupplierCard extends StatelessWidget {
 class _SupplierInfoRow extends StatelessWidget {
   final String label;
   final String value;
-  final bool danger;
 
   const _SupplierInfoRow({
     required this.label,
     required this.value,
-    this.danger = false,
   });
 
   @override
@@ -375,7 +328,7 @@ class _SupplierInfoRow extends StatelessWidget {
               style: TextStyle(
                 fontSize: AppTextSize.s17,
                 fontWeight: FontWeight.w700,
-                color: danger ? AppColours.red : AppColours.textMain,
+                color: AppColours.textMain,
               ),
             ),
           ),
@@ -389,13 +342,11 @@ class _PurchaseInput extends StatelessWidget {
   final String label;
   final TextEditingController controller;
   final String hint;
-  final TextInputType? keyboardType;
 
   const _PurchaseInput({
     required this.label,
     required this.controller,
     required this.hint,
-    this.keyboardType,
   });
 
   @override
@@ -410,56 +361,10 @@ class _PurchaseInput extends StatelessWidget {
         const SizedBox(height: 8),
         TextField(
           controller: controller,
-          keyboardType: keyboardType,
           style: AppTextStyles.formValue,
           decoration: AppInputStyle.decoration(
             hint,
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _DropdownInput extends StatelessWidget {
-  final String label;
-  final String value;
-  final List<String> items;
-  final ValueChanged<String?> onChanged;
-
-  const _DropdownInput({
-    required this.label,
-    required this.value,
-    required this.items,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: AppTextStyles.formLabel,
-        ),
-        const SizedBox(height: 8),
-        DropdownButtonFormField<String>(
-          style: AppTextStyles.formValue,
-          value: value,
-          items: items
-              .map(
-                (item) => DropdownMenuItem<String>(
-                  value: item,
-                  child: Text(item, style: AppTextStyles.formValue),
-                ),
-              )
-              .toList(),
-          onChanged: onChanged,
-          decoration: AppInputStyle.decoration(
-            '',
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           ),
         ),
       ],

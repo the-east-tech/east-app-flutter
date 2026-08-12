@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace = "com.jenssen.eastapp.east_app"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 37
     ndkVersion = flutter.ndkVersion
 
     compileOptions {

@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import '../models/google_place_models.dart';
 import '../services/east_app_api.dart';
 import '../theme/app_theme.dart';
-import 'app_components.dart';
 
 Future<EastAppGooglePlaceDetails?> showGooglePlacePicker({
   required BuildContext context,
@@ -43,13 +42,6 @@ class GooglePlaceSelectionCard extends StatelessWidget {
     this.enabled = true,
   });
 
-
-  String _googlePlacesErrorMessage(EastAppApiException apiError) {
-    if (apiError.code == 'GOOGLE_PLACES_NOT_CONFIGURED') {
-      return 'Google Business Location is required. Replace HARDCODED_API_KEY in GooglePlacesProperties.java, restart the backend, then search again.';
-    }
-    return apiError.message;
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -368,7 +360,7 @@ class _GooglePlacePickerSheetState extends State<_GooglePlacePickerSheet> {
                     )
                   : ListView.separated(
                       itemCount: predictions.length,
-                      separatorBuilder: (_, __) => const Divider(height: 1),
+                      separatorBuilder: (_, _) => const Divider(height: 1),
                       itemBuilder: (context, index) {
                         final item = predictions[index];
                         final loading = loadingPlaceId == item.placeId;
@@ -414,7 +406,7 @@ class _GooglePlacePickerSheetState extends State<_GooglePlacePickerSheet> {
               child: Image.network(
                 'https://maps.gstatic.com/mapfiles/api-3/images/powered-by-google-on-white3.png',
                 height: 18,
-                errorBuilder: (_, __, ___) => const Text(
+                errorBuilder: (_, _, _) => const Text(
                   'Google Maps',
                   style: TextStyle(
                     color: AppColours.textMuted,

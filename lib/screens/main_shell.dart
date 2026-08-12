@@ -1256,13 +1256,13 @@ class _MainShellState extends State<MainShell> {
       text.t('People'),
       text.t('Knowledge'),
     ];
-    final safeIndex = selectedIndex.clamp(0, labels.length - 1) as int;
+    final safeIndex = selectedIndex.clamp(0, labels.length - 1);
     return labels[safeIndex];
   }
 
   String buildDebugReport(BuildContext context) {
     return AppDiagnostics.instance.buildReport(
-      appVersion: 'east_app_v272',
+      appVersion: 'east_app_v274',
       role: currentRoleName,
       userName: currentUserName,
       userId: currentUserId,
@@ -1278,7 +1278,7 @@ class _MainShellState extends State<MainShell> {
   Future<void> copyDebugReport(BuildContext context, String report) async {
     AppFeedback.tap();
     await Clipboard.setData(ClipboardData(text: report));
-    if (!mounted) return;
+    if (!context.mounted) return;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
@@ -1317,7 +1317,7 @@ class _MainShellState extends State<MainShell> {
                         width: 38,
                         height: 38,
                         decoration: BoxDecoration(
-                          color: AppColours.blue.withOpacity(0.10),
+                          color: AppColours.blue.withValues(alpha: 0.10),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: const Icon(
@@ -1788,8 +1788,11 @@ class _MainShellState extends State<MainShell> {
             ),
           ];
 
-          return WillPopScope(
-            onWillPop: handleMainBackNavigation,
+          return PopScope(
+            canPop: false,
+            onPopInvokedWithResult: (didPop, result) {
+              if (!didPop) unawaited(handleMainBackNavigation());
+            },
             child: GestureDetector(
               behavior: HitTestBehavior.translucent,
               onHorizontalDragStart: handleMainSwipeStart,

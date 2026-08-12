@@ -666,7 +666,7 @@ class EastAppApi {
   }) async {
     final query = Uri(queryParameters: {
       'date': formatApiDate(date),
-      if (userId != null) 'userId': userId,
+      'userId': ?userId,
     }).query;
     final body = await _requestJson(
       'GET',

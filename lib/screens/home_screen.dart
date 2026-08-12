@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
-import '../data/sample_data.dart';
 import '../localization/app_text_scope.dart';
 import '../models/api_models.dart';
 import '../models/advertisement_models.dart';
@@ -557,7 +556,7 @@ class _ReportSnapshotMetric extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 9),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(.11),
+        color: Colors.white.withValues(alpha: .11),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
@@ -777,7 +776,7 @@ class _GoogleRatingCardState extends State<_GoogleRatingCard> {
                           Image.network(
                             'https://maps.gstatic.com/mapfiles/api-3/images/powered-by-google-on-white3.png',
                             height: 14,
-                            errorBuilder: (_, __, ___) => const Text(
+                            errorBuilder: (_, _, _) => const Text(
                               'Google Maps',
                               style: TextStyle(
                                 fontSize: AppTextSize.s12,
@@ -817,42 +816,6 @@ class _GoogleRatingCardState extends State<_GoogleRatingCard> {
                     ),
                   ],
                 ),
-    );
-  }
-}
-
-class _BlueMiniCard extends StatelessWidget {
-  final String title;
-  final String value;
-
-  const _BlueMiniCard({
-    required this.title,
-    required this.value,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.11),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title, style: const TextStyle(color: Colors.white, fontSize: AppTextSize.s18)),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: AppTextSize.s30,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
@@ -1004,8 +967,6 @@ class _RecentActivityRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const approved = true;
-
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
       decoration: const BoxDecoration(
@@ -1058,14 +1019,14 @@ class _RecentActivityRow extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: approved ? AppColours.greenSoft : const Color(0xFFFFF1D6),
+                  color: AppColours.greenSoft,
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: Text(
                   activity.status,
                   style: TextStyle(
                     fontSize: AppTextSize.s12,
-                    color: approved ? AppColours.green : AppColours.orange,
+                    color: AppColours.green,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -1183,7 +1144,7 @@ class _AdvertisementCarouselState extends State<_AdvertisementCarousel> {
                   ),
                   headers: widget.api.authenticatedImageHeaders,
                   fit: BoxFit.contain,
-                  errorBuilder: (_, __, ___) => const Padding(
+                  errorBuilder: (_, _, _) => const Padding(
                     padding: EdgeInsets.all(40),
                     child: Icon(
                       Icons.broken_image_outlined,
@@ -1254,7 +1215,7 @@ class _AdvertisementCarouselState extends State<_AdvertisementCarousel> {
                             child: CircularProgressIndicator(strokeWidth: 2),
                           );
                         },
-                        errorBuilder: (_, __, ___) => const Center(
+                        errorBuilder: (_, _, _) => const Center(
                           child: Icon(Icons.broken_image_outlined),
                         ),
                       ),
@@ -1444,7 +1405,7 @@ class _AdvertisementManagerScreenState
                   : ListView.separated(
                       padding: const EdgeInsets.all(14),
                       itemCount: items.length,
-                      separatorBuilder: (_, __) =>
+                      separatorBuilder: (_, _) =>
                           const SizedBox(height: 10),
                       itemBuilder: (_, index) {
                         final advertisement = items[index];
@@ -1466,7 +1427,7 @@ class _AdvertisementManagerScreenState
                                   width: 72,
                                   height: 48,
                                   fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) => Container(
+                                  errorBuilder: (_, _, _) => Container(
                                     width: 72,
                                     height: 48,
                                     alignment: Alignment.center,
@@ -1690,7 +1651,7 @@ class _AdvertisementEditorState extends State<_AdvertisementEditor> {
                     widget.api.reportMediaUrl(imageStorageKey!),
                     headers: widget.api.authenticatedImageHeaders,
                     fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => const Center(
+                    errorBuilder: (_, _, _) => const Center(
                       child: Icon(Icons.broken_image_outlined),
                     ),
                   ),
@@ -1723,7 +1684,7 @@ class _AdvertisementEditorState extends State<_AdvertisementEditor> {
               },
             ),
             DropdownButtonFormField<int>(
-              value: displayOrder,
+              initialValue: displayOrder,
               decoration: const InputDecoration(
                 labelText: 'Carousel position',
               ),

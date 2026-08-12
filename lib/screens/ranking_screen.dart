@@ -115,7 +115,7 @@ class _LeaderboardRow extends StatelessWidget {
         children: [
           CircleAvatar(
             radius: 18,
-            backgroundColor: rankColour.withOpacity(0.14),
+            backgroundColor: rankColour.withValues(alpha: 0.14),
             child: Text(
               '#${member.rank}',
               style: TextStyle(

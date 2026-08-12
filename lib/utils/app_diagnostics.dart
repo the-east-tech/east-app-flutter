@@ -275,7 +275,9 @@ class AppDiagnostics {
     if (_faceScanTrace.isEmpty) {
       buffer.writeln('- None captured in this session');
     } else {
-      for (final item in _faceScanTrace) buffer.writeln('- $item');
+      for (final item in _faceScanTrace) {
+        buffer.writeln('- $item');
+      }
     }
 
     buffer

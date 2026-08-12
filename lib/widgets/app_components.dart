@@ -353,7 +353,7 @@ class _SuccessBurstOverlayState extends State<_SuccessBurstOverlay>
                               borderRadius: BorderRadius.circular(999),
                               boxShadow: [
                                 BoxShadow(
-                                  color: AppColours.green.withOpacity(0.28),
+                                  color: AppColours.green.withValues(alpha: 0.28),
                                   blurRadius: 26,
                                   offset: const Offset(0, 12),
                                 ),
@@ -366,7 +366,7 @@ class _SuccessBurstOverlayState extends State<_SuccessBurstOverlay>
                                   width: 30,
                                   height: 30,
                                   decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.22),
+                                    color: Colors.white.withValues(alpha: 0.22),
                                     shape: BoxShape.circle,
                                   ),
                                   child: const Icon(
@@ -504,7 +504,7 @@ void _showAppSnackBar(
                 borderRadius: BorderRadius.circular(15),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.18),
+                    color: Colors.black.withValues(alpha: 0.18),
                     blurRadius: 22,
                     offset: const Offset(0, 10),
                   ),
@@ -535,7 +535,7 @@ void _showAppSnackBar(
                       width: 25,
                       height: 25,
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.16),
+                        color: Colors.white.withValues(alpha: 0.16),
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(
@@ -747,7 +747,7 @@ class SegmentedTabs extends StatelessWidget {
                     fontWeight: FontWeight.w700,
                     color: selected
                         ? AppColours.textMain
-                        : AppColours.textMain.withOpacity(0.85),
+                        : AppColours.textMain.withValues(alpha: 0.85),
                   ),
                 ),
               ),

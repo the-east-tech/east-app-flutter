@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 
@@ -324,8 +326,11 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
   Widget build(BuildContext context) {
     final selected = selectedSop;
     final viewKey = selected != null ? 2 : showSopList ? 1 : 0;
-    return WillPopScope(
-      onWillPop: handleBackNavigation,
+    return PopScope(
+      canPop: selected == null && !showSopList,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) unawaited(handleBackNavigation());
+      },
       child: AnimatedSwitcher(
         duration: const Duration(milliseconds: 180),
         child: KeyedSubtree(
@@ -1046,7 +1051,7 @@ Future<void> showCreateSopDialog(
                       Text(text.t('Tag'), style: AppTextStyles.formLabel),
                       const SizedBox(height: 8),
                       DropdownButtonFormField<String>(
-                        value: selectedTagId,
+                        initialValue: selectedTagId,
                         isExpanded: true,
                         style: AppTextStyles.formValue,
                         decoration: AppInputStyle.decoration(

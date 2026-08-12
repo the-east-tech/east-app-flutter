@@ -271,7 +271,6 @@ class _LoginField extends StatelessWidget {
   final TextEditingController controller;
   final String hint;
   final bool obscureText;
-  final TextInputType? keyboardType;
   final TextCapitalization textCapitalization;
   final TextInputAction? textInputAction;
   final ValueChanged<String>? onSubmitted;
@@ -282,7 +281,6 @@ class _LoginField extends StatelessWidget {
     required this.controller,
     required this.hint,
     this.obscureText = false,
-    this.keyboardType,
     this.textCapitalization = TextCapitalization.none,
     this.textInputAction,
     this.onSubmitted,
@@ -299,7 +297,6 @@ class _LoginField extends StatelessWidget {
         TextField(
           controller: controller,
           obscureText: obscureText,
-          keyboardType: keyboardType,
           textCapitalization: textCapitalization,
           textInputAction: textInputAction,
           onSubmitted: onSubmitted,

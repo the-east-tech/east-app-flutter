@@ -213,7 +213,7 @@ class _PeoplePointsScreenState extends State<PeoplePointsScreen> {
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
-                value: selectedUserId,
+                initialValue: selectedUserId,
                 decoration: const InputDecoration(
                   labelText: 'Active User',
                   border: OutlineInputBorder(),

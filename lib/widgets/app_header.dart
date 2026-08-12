@@ -62,7 +62,7 @@ class AppHeader extends StatelessWidget {
                           const SizedBox(width: 3),
                           Icon(
                             Icons.expand_more_rounded,
-                            color: Colors.white.withOpacity(0.9),
+                            color: Colors.white.withValues(alpha: 0.9),
                             size: 16,
                           ),
                         ],
@@ -83,7 +83,7 @@ class AppHeader extends StatelessWidget {
                         overflow: TextOverflow.visible,
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          color: Colors.white.withOpacity(0.9),
+                          color: Colors.white.withValues(alpha: 0.9),
                           fontSize: AppTextSize.s10,
                           fontWeight: FontWeight.w500,
                           height: 1.0,
@@ -119,7 +119,7 @@ class AppHeader extends StatelessWidget {
                     height: 32,
                     padding: const EdgeInsets.symmetric(horizontal: 9),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.16),
+                      color: Colors.white.withValues(alpha: 0.16),
                       borderRadius: BorderRadius.circular(999),
                     ),
                     child: Row(
