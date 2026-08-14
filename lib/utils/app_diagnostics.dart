@@ -74,9 +74,6 @@ class AppDiagnostics {
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
   String? _latestDeviceInfo;
   String? _latestCameraInfo;
-  String? _latestMlKitSettings;
-  String? _latestFaceScanInfo;
-  final List<String> _faceScanTrace = <String>[];
   final List<_DiagnosticErrorEntry> _recentErrors = <_DiagnosticErrorEntry>[];
   final List<_DiagnosticEventEntry> _recentEvents = <_DiagnosticEventEntry>[];
 
@@ -95,23 +92,6 @@ class AppDiagnostics {
 
   void setDeviceInfo(String info) => _latestDeviceInfo = _stamp(info);
   void setCameraInfo(String info) => _latestCameraInfo = _stamp(info);
-  void setMlKitSettings(String info) => _latestMlKitSettings = _stamp(info);
-  void setFaceScanInfo(String info) => _latestFaceScanInfo = _stamp(info);
-
-  void resetFaceScanTrace() {
-    _faceScanTrace.clear();
-    _latestFaceScanInfo = null;
-  }
-
-  void addFaceScanTrace(String info) {
-    final stamped = _stamp(info);
-    _latestFaceScanInfo = stamped;
-    _faceScanTrace.add(stamped);
-    if (_faceScanTrace.length > 30) {
-      _faceScanTrace.removeRange(0, _faceScanTrace.length - 30);
-    }
-  }
-
   String _stamp(String value) =>
       '[${DateTime.now().toIso8601String()}] ${_truncate(_sanitise(value), 1200)}';
 
@@ -267,20 +247,6 @@ class AppDiagnostics {
       ..writeln('- OS: ${_platformOsText()}')
       ..writeln('- Device: ${_latestDeviceInfo ?? 'No device detail captured yet'}')
       ..writeln('- Camera: ${_latestCameraInfo ?? 'No camera detail captured yet'}')
-      ..writeln('- ML Kit settings: ${_latestMlKitSettings ?? 'No ML Kit settings captured yet'}')
-      ..writeln('- Face scan: ${_latestFaceScanInfo ?? 'No face scan raw captured yet'}')
-      ..writeln('')
-      ..writeln('ML Kit raw trace');
-
-    if (_faceScanTrace.isEmpty) {
-      buffer.writeln('- None captured in this session');
-    } else {
-      for (final item in _faceScanTrace) {
-        buffer.writeln('- $item');
-      }
-    }
-
-    buffer
       ..writeln('')
       ..writeln('Recent Errors — latest 3');
     if (_recentErrors.isEmpty) {

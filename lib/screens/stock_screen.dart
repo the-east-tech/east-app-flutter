@@ -417,7 +417,7 @@ class _StockScreenState extends State<StockScreen> {
       case StockPage.restockMessage:
         return widget.canLoadMoreSuppliers || widget.canLoadMoreSkus;
       case StockPage.review:
-        return widget.canLoadMoreCounts || widget.canLoadMoreReceivings;
+        return false;
       case StockPage.skuSetup:
         return widget.canLoadMoreTags ||
             widget.canLoadMoreSuppliers ||
@@ -427,7 +427,7 @@ class _StockScreenState extends State<StockScreen> {
       case StockPage.tagSetup:
         return widget.canLoadMoreTags;
       case StockPage.assigneeSetup:
-        return widget.canLoadMoreSkus;
+        return false;
       case StockPage.auditTrail:
       case StockPage.home:
         return false;
@@ -460,10 +460,6 @@ class _StockScreenState extends State<StockScreen> {
           ]);
           break;
         case StockPage.review:
-          await Future.wait([
-            if (widget.canLoadMoreCounts) widget.onLoadMoreCounts(),
-            if (widget.canLoadMoreReceivings) widget.onLoadMoreReceivings(),
-          ]);
           break;
         case StockPage.supplierSetup:
           await widget.onLoadMoreSuppliers();
@@ -472,7 +468,6 @@ class _StockScreenState extends State<StockScreen> {
           await widget.onLoadMoreTags();
           break;
         case StockPage.assigneeSetup:
-          await widget.onLoadMoreSkus();
           break;
         case StockPage.auditTrail:
         case StockPage.home:
@@ -578,11 +573,8 @@ class _StockScreenState extends State<StockScreen> {
         );
       case StockPage.review:
         return _StockReviewPage(
+          api: widget.api,
           role: widget.role,
-          suppliers: widget.suppliers,
-          skus: widget.stockSkus,
-          submissions: widget.submissions,
-          receivingRecords: widget.receivingRecords,
           onBack: goHome,
           onReviewReceiving: widget.onReviewReceiving,
           onReviewStockCount: widget.onReviewStockCount,
@@ -634,7 +626,6 @@ class _StockScreenState extends State<StockScreen> {
       case StockPage.assigneeSetup:
         return _SkuAssigneePage(
           api: widget.api,
-          skus: widget.stockSkus,
           onBack: goHome,
           onUpdateSku: widget.onUpdateSku,
         );
@@ -3915,22 +3906,16 @@ Future<void> showCameraOnlyCaptureDialog(
 }
 
 class _StockReviewPage extends StatefulWidget {
+  final EastAppApi api;
   final UserRole role;
-  final List<SupplierProfile> suppliers;
-  final List<StockSku> skus;
-  final List<StockSubmission> submissions;
-  final List<StockReceivingRecord> receivingRecords;
   final VoidCallback onBack;
   final Future<void> Function(StockReceivingRecord record) onReviewReceiving;
   final Future<void> Function(StockSubmission submission) onReviewStockCount;
   final Future<void> Function(List<StockSubmission> submissions) onBulkReviewStockCounts;
 
   const _StockReviewPage({
+    required this.api,
     required this.role,
-    required this.suppliers,
-    required this.skus,
-    required this.submissions,
-    required this.receivingRecords,
     required this.onBack,
     required this.onReviewReceiving,
     required this.onReviewStockCount,
@@ -3942,892 +3927,391 @@ class _StockReviewPage extends StatefulWidget {
 }
 
 class _StockReviewPageState extends State<_StockReviewPage> {
-  late Timer reviewTimer;
-  late DateTime now;
-  final TextEditingController receivingSearchController = TextEditingController();
-  final TextEditingController countSearchController = TextEditingController();
-  final TextEditingController backlogSearchController = TextEditingController();
-  String receivingSupplierFilter = 'All';
-  String countTagFilter = 'All';
-  String backlogStatusFilter = 'All';
-  String? selectedReceivingSupplier;
-  String? selectedCountTag;
-  bool showingBacklogPage = false;
-  String backlogType = 'receiving';
-  bool selectingReceivingRecords = false;
-  bool selectingCountRecords = false;
-  final Set<String> selectedReceivingRecordIds = <String>{};
-  final Set<String> selectedCountRecordIds = <String>{};
-  double reviewSwipeStartX = 0;
-  double reviewSwipeDeltaX = 0;
+  static const int _pageSize = 50;
+  static const List<String> _statusOptions = [
+    'Pending Review',
+    'Approved',
+    'Rejected',
+  ];
+
+  String? activeType;
+  String statusFilter = 'Pending Review';
+  late DateTime rangeStart;
+  late DateTime rangeEnd;
+
+  List<StockReceivingRecord> receivingRecords = const [];
+  List<StockSubmission> countRecords = const [];
+  bool receivingLoaded = false;
+  bool countLoaded = false;
+  bool loading = false;
+  bool loadingMore = false;
+  int loadedPage = -1;
+  int totalElements = 0;
+  bool lastPage = true;
+
+  bool selecting = false;
+  final Set<String> selectedIds = <String>{};
 
   @override
   void initState() {
     super.initState();
-    now = DateTime.now();
-    receivingSearchController.addListener(refreshReviewFilters);
-    countSearchController.addListener(refreshReviewFilters);
-    backlogSearchController.addListener(refreshReviewFilters);
-    reviewTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+    final today = _dateOnly(DateTime.now());
+    rangeEnd = today;
+    rangeStart = today.subtract(const Duration(days: 29));
+  }
+
+  DateTime _dateOnly(DateTime value) => DateTime(value.year, value.month, value.day);
+
+  String _formatDate(DateTime value) {
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    return '${value.day} ${months[value.month - 1]} ${value.year}';
+  }
+
+  String get rangeLabel => '${_formatDate(rangeStart)} – ${_formatDate(rangeEnd)}';
+  bool get isReceiving => activeType == 'receiving';
+  bool get isCount => activeType == 'count';
+  bool get hasLoaded => isReceiving ? receivingLoaded : countLoaded;
+  bool get canReviewSelectedStatus => statusFilter == 'Pending Review';
+
+  void openType(String type) {
+    AppFeedback.select();
+    setState(() {
+      activeType = type;
+      statusFilter = 'Pending Review';
+      final today = _dateOnly(DateTime.now());
+      rangeEnd = today;
+      rangeStart = today.subtract(const Duration(days: 29));
+      receivingRecords = const [];
+      countRecords = const [];
+      receivingLoaded = false;
+      countLoaded = false;
+      loadedPage = -1;
+      totalElements = 0;
+      lastPage = true;
+      selecting = false;
+      selectedIds.clear();
+    });
+  }
+
+  void backToMenu() {
+    AppFeedback.select();
+    setState(() {
+      activeType = null;
+      selecting = false;
+      selectedIds.clear();
+    });
+  }
+
+  Future<void> selectDateRange() async {
+    final text = AppTextScope.of(context);
+    final selected = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2020),
+      lastDate: _dateOnly(DateTime.now()),
+      initialDateRange: DateTimeRange(start: rangeStart, end: rangeEnd),
+      helpText: text.t('Select Date Range'),
+      saveText: text.t('Apply'),
+      switchToInputEntryModeIcon: const Icon(Icons.edit_rounded),
+      builder: (pickerContext, child) {
+        final baseTheme = Theme.of(pickerContext);
+        return Theme(
+          data: baseTheme.copyWith(
+            datePickerTheme: baseTheme.datePickerTheme.copyWith(
+              rangePickerBackgroundColor: AppColours.background,
+              rangePickerHeaderBackgroundColor: AppColours.card,
+              rangePickerHeaderForegroundColor: AppColours.textMain,
+              rangePickerHeaderHelpStyle: AppTextStyles.formLabel.copyWith(
+                fontWeight: FontWeight.w700,
+                color: AppColours.textMain,
+              ),
+              rangePickerHeaderHeadlineStyle: const TextStyle(
+                fontSize: AppTextSize.s22,
+                fontWeight: FontWeight.w800,
+                color: AppColours.textMain,
+              ),
+              confirmButtonStyle: FilledButton.styleFrom(
+                backgroundColor: AppColours.blue,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                textStyle: const TextStyle(
+                  fontSize: AppTextSize.s15,
+                  fontWeight: FontWeight.w800,
+                ),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+            textButtonTheme: TextButtonThemeData(
+              style: TextButton.styleFrom(
+                backgroundColor: AppColours.blue,
+                foregroundColor: Colors.white,
+                disabledBackgroundColor: AppColours.border,
+                disabledForegroundColor: AppColours.textMuted,
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                textStyle: const TextStyle(
+                  fontSize: AppTextSize.s15,
+                  fontWeight: FontWeight.w800,
+                ),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (selected == null || !mounted) return;
+
+    final start = _dateOnly(selected.start);
+    final end = _dateOnly(selected.end);
+    if (end.difference(start).inDays + 1 > 30) {
+      await AppFeedback.warning();
       if (!mounted) return;
-      setState(() => now = DateTime.now());
-    });
-  }
+      showWarningSnackBar(context, text.t('Maximum 30 days.'));
+      return;
+    }
 
-  @override
-  void dispose() {
-    reviewTimer.cancel();
-    receivingSearchController
-      ..removeListener(refreshReviewFilters)
-      ..dispose();
-    countSearchController
-      ..removeListener(refreshReviewFilters)
-      ..dispose();
-    backlogSearchController
-      ..removeListener(refreshReviewFilters)
-      ..dispose();
-    super.dispose();
-  }
-
-  void refreshReviewFilters() {
-    if (!mounted) return;
-    setState(() {});
-  }
-
-  void openReceivingSupplier(String supplierName) {
-    AppFeedback.select();
     setState(() {
-      selectedReceivingSupplier = supplierName;
-      showingBacklogPage = false;
-      selectedReceivingRecordIds.clear();
-      selectingReceivingRecords = false;
+      rangeStart = start;
+      rangeEnd = end;
+      _clearLoadedResults();
     });
   }
 
-  void openCountTag(String tagName) {
-    AppFeedback.select();
+  void _clearLoadedResults() {
+    receivingRecords = const [];
+    countRecords = const [];
+    receivingLoaded = false;
+    countLoaded = false;
+    loadedPage = -1;
+    totalElements = 0;
+    lastPage = true;
+    selecting = false;
+    selectedIds.clear();
+  }
+
+  Future<void> loadRecords({bool reset = true}) async {
+    if (activeType == null || loading || loadingMore || (!reset && lastPage)) return;
     setState(() {
-      selectedCountTag = tagName;
-      showingBacklogPage = false;
-      selectedCountRecordIds.clear();
-      selectingCountRecords = false;
+      if (reset) {
+        loading = true;
+        selecting = false;
+        selectedIds.clear();
+      } else {
+        loadingMore = true;
+      }
     });
-  }
 
-  void openBacklogPage(String type) {
-    AppFeedback.select();
-    setState(() {
-      selectedReceivingSupplier = null;
-      selectedCountTag = null;
-      backlogType = type;
-      showingBacklogPage = true;
-      selectedReceivingRecordIds.clear();
-      selectedCountRecordIds.clear();
-      selectingReceivingRecords = false;
-      selectingCountRecords = false;
-    });
-  }
-
-  void goBackToReviewGroups({bool fromSwipe = false}) {
-    if (fromSwipe) {
-      AppFeedback.swipeBack();
-    } else {
-      AppFeedback.select();
+    try {
+      final page = reset ? 0 : loadedPage + 1;
+      if (isReceiving) {
+        final result = await widget.api.stockReceivings(
+          reviewStatus: statusFilter,
+          from: rangeStart,
+          to: rangeEnd,
+          page: page,
+          size: _pageSize,
+        );
+        if (!mounted) return;
+        setState(() {
+          receivingRecords = reset
+              ? List<StockReceivingRecord>.from(result.content)
+              : [...receivingRecords, ...result.content];
+          receivingLoaded = true;
+          loadedPage = result.page;
+          totalElements = result.totalElements;
+          lastPage = result.last;
+        });
+      } else {
+        final result = await widget.api.stockCounts(
+          mine: false,
+          reviewStatus: statusFilter,
+          from: rangeStart,
+          to: rangeEnd,
+          page: page,
+          size: _pageSize,
+        );
+        if (!mounted) return;
+        setState(() {
+          countRecords = reset
+              ? List<StockSubmission>.from(result.content)
+              : [...countRecords, ...result.content];
+          countLoaded = true;
+          loadedPage = result.page;
+          totalElements = result.totalElements;
+          lastPage = result.last;
+        });
+      }
+    } on EastAppApiException catch (_) {
+      // Global API error UI already presents the failure.
+    } finally {
+      if (mounted) {
+        setState(() {
+          loading = false;
+          loadingMore = false;
+        });
+      }
     }
-    setState(() {
-      selectedReceivingSupplier = null;
-      selectedCountTag = null;
-      showingBacklogPage = false;
-      selectedReceivingRecordIds.clear();
-      selectedCountRecordIds.clear();
-      selectingReceivingRecords = false;
-      selectingCountRecords = false;
-    });
   }
 
-  void handleReviewSwipeStart(DragStartDetails details) {
-    reviewSwipeStartX = details.globalPosition.dx;
-    reviewSwipeDeltaX = 0;
+  StockSku skuForSubmission(StockSubmission submission) {
+    return StockSku(
+      id: submission.stockTaskId,
+      name: submission.skuName.isEmpty ? submission.stockTaskId : submission.skuName,
+      category: submission.skuCategory,
+      unit: submission.skuUnit,
+      minimumBalanceValue: submission.skuMinimumBalanceValue,
+      maximumBalanceValue: submission.skuMaximumBalanceValue,
+      currentBalanceValue: submission.currentBalanceValue,
+      supplierIds: const [],
+      photoPath: submission.skuPhotoPath,
+      location: submission.skuLocation,
+      lastUpdatedAt: submission.submittedAt,
+      lastUpdatedBy: submission.submittedBy,
+    );
   }
 
-  void handleReviewSwipeUpdate(DragUpdateDetails details) {
-    reviewSwipeDeltaX += details.delta.dx;
-  }
-
-  void handleReviewSwipeEnd(DragEndDetails details) {
-    if (selectedReceivingSupplier == null && selectedCountTag == null && !showingBacklogPage) return;
-
-    final isRightSwipe = reviewSwipeDeltaX > 72 || details.primaryVelocity != null && details.primaryVelocity! > 380;
-    final isLeftEdgeSwipe = reviewSwipeStartX <= 48 && (reviewSwipeDeltaX > 32 || details.primaryVelocity != null && details.primaryVelocity! > 180);
-
-    if (isRightSwipe || isLeftEdgeSwipe) {
-      goBackToReviewGroups(fromSwipe: true);
-    }
-  }
-
-  bool get isHead => widget.role == UserRole.head;
-
-  StockSku? skuFor(String id) {
-    for (final sku in widget.skus) {
-      if (sku.id == id) return sku;
-    }
-    return null;
-  }
-
-  SupplierProfile? supplierFor(String id) {
-    for (final supplier in widget.suppliers) {
-      if (supplier.id == id) return supplier;
-    }
-    return null;
-  }
-
-  String supplierNameForSku(StockSku sku) {
-    if (sku.supplierIds.isEmpty) return 'Unassigned';
-    return supplierFor(sku.supplierIds.first)?.supplierName ?? 'Unassigned';
-  }
-
-  String countTagForSku(StockSku sku) {
-    final location = sku.location.trim();
-    if (location.toLowerCase() == 'kitchen' || location.toLowerCase() == 'bar') {
-      return location;
-    }
-
-    final value = '${sku.name} ${sku.category} ${sku.location}'.toLowerCase();
-    if (value.contains('cup') || value.contains('drink') || value.contains('milk') || value.contains('gula') || value.contains('sugar') || value.contains('bar')) {
-      return 'Bar';
-    }
-    return 'Kitchen';
-  }
-
-  List<String> receivingSupplierOptionsFor(List<StockReceivingRecord> records) {
-    final names = records.map((record) => record.supplierName).toSet().toList()..sort();
-    return ['All', ...names];
-  }
-
-  List<String> countTagOptionsFor(List<StockSubmission> submissions) {
-    final names = <String>{};
-    for (final submission in submissions) {
-      final sku = skuFor(submission.stockTaskId);
-      if (sku != null) names.add(countTagForSku(sku));
-    }
-    final sorted = names.toList()..sort();
-    return ['All', ...sorted];
-  }
-
-  List<String> backlogStatusOptions() {
-    return const ['All', 'Overdue', 'Rejected', 'Approved'];
-  }
-
-  bool isActiveReceivingReview(StockReceivingRecord record) {
-    return record.isPendingReview && !isOverdue(record);
-  }
-
-  bool isActiveCountReview(StockSubmission submission) {
-    return submission.isPendingReview && !isCountOverdue(submission);
-  }
-
-  bool matchesBacklogStatus(String status) {
-    return backlogStatusFilter == 'All' || status == backlogStatusFilter;
-  }
-
-  bool receivingMatchesSearch(StockReceivingRecord record, String query) {
-    if (query.isEmpty) return true;
-    final itemText = record.items.map((item) => '${item.skuName} ${item.condition} ${item.note} ${item.receivedQuantity} ${item.unit}').join(' ');
-    final haystack = '${record.supplierName} ${record.receivedBy} ${record.receivedAt} ${record.invoicePhotoName} ${record.goodsPhotoName} $itemText ${statusLabel(record)}'.toLowerCase();
-    return haystack.contains(query);
-  }
-
-  bool countMatchesSearch(StockSubmission submission, StockSku sku, String tagName, String query) {
-    if (query.isEmpty) return true;
-    final supplierName = supplierNameForSku(sku);
-    final haystack = '${sku.name} ${sku.category} ${sku.location} $tagName $supplierName ${submission.submittedBy} ${submission.submittedAt} ${submission.currentBalanceValue} ${submission.previousBalanceValue} ${submission.increasedValue} ${countStatusLabel(submission)} ${submission.remarks.values.join(' ')}'.toLowerCase();
-    return haystack.contains(query);
-  }
-
-  Map<String, List<StockReceivingRecord>> groupReceivingBySupplier(List<StockReceivingRecord> records) {
-    final grouped = <String, List<StockReceivingRecord>>{};
-    for (final record in records) {
-      grouped.putIfAbsent(record.supplierName, () => <StockReceivingRecord>[]).add(record);
-    }
-    return grouped;
-  }
-
-  Map<String, List<StockSubmission>> groupCountsByTag(List<StockSubmission> submissions) {
-    final grouped = <String, List<StockSubmission>>{};
-    for (final submission in submissions) {
-      final sku = skuFor(submission.stockTaskId);
-      if (sku == null) continue;
-      grouped.putIfAbsent(countTagForSku(sku), () => <StockSubmission>[]).add(submission);
-    }
-    return grouped;
-  }
-
-  String formatReviewDateTime(DateTime value) {
-    final hour = value.hour == 0 ? 12 : value.hour > 12 ? value.hour - 12 : value.hour;
-    final minute = value.minute.toString().padLeft(2, '0');
-    final suffix = value.hour >= 12 ? 'PM' : 'AM';
-    return '${value.day}/${value.month}/${value.year} $hour:$minute $suffix';
-  }
-
-  String timerTextFor(StockReceivingRecord record) {
-    if (!record.isPendingReview) return 'Closed';
-    final dueAt = record.capturedAt.add(const Duration(hours: 24));
-    final left = dueAt.difference(now);
-    if (left.isNegative) {
-      return 'Overdue ${formatCountTimer(now.difference(dueAt))}';
-    }
-    return formatCountTimer(left);
-  }
-
-  bool isOverdue(StockReceivingRecord record) {
-    return record.isPendingReview && now.isAfter(record.capturedAt.add(const Duration(hours: 24)));
-  }
-
-  String primaryCondition(StockReceivingRecord record) {
-    if (record.items.isEmpty) return 'Unknown';
-    return record.items.first.condition.trim().isEmpty ? 'Unknown' : record.items.first.condition.trim();
-  }
-
-  bool isGoodCondition(StockReceivingRecord record) {
-    final value = primaryCondition(record).toLowerCase();
-    return value == 'good' || value == 'checked';
-  }
-
-  Color conditionColour(StockReceivingRecord record) {
-    return isGoodCondition(record) ? AppColours.green : AppColours.red;
-  }
-
-  Color statusColour(StockReceivingRecord record) {
-    if (record.isApproved) return AppColours.green;
-    if (record.isRejected) return AppColours.red;
-    if (isOverdue(record)) return AppColours.orange;
+  Color reviewStatusColour(String status) {
+    if (status == 'Approved') return AppColours.green;
+    if (status == 'Rejected') return AppColours.red;
     return AppColours.blue;
   }
 
-  String statusLabel(StockReceivingRecord record) {
-    if (record.isApproved) return 'Approved';
-    if (record.isRejected) return 'Rejected';
-    if (isOverdue(record)) return 'Overdue';
-    return 'Pending Review';
-  }
-
-  bool canSelectReceivingRecord(StockReceivingRecord record) {
-    return isHead && record.isPendingReview && !isOverdue(record);
-  }
-
-  bool canSelectCountRecord(StockSubmission submission) {
-    return isHead && submission.isPendingReview && !isCountOverdue(submission);
-  }
-
-  void toggleReceivingSelection(StockReceivingRecord record) {
-    if (!canSelectReceivingRecord(record)) {
-      if (!selectingReceivingRecords) showRecordDetails(record);
-      return;
+  Color receivingConditionColour(StockReceivingRecord record) {
+    final condition = record.items.isEmpty ? '' : record.items.first.condition.toLowerCase();
+    if (condition.contains('good') || condition.contains('pass') || condition.contains('ok')) {
+      return AppColours.green;
     }
+    if (condition.contains('bad') || condition.contains('reject') || condition.contains('damag')) {
+      return AppColours.red;
+    }
+    return AppColours.orange;
+  }
 
+  String recordDateLabel(DateTime value) => _formatDate(_dateOnly(value));
+
+  void toggleSelection(String id) {
+    if (!canReviewSelectedStatus) return;
     setState(() {
-      if (selectedReceivingRecordIds.contains(record.id)) {
-        selectedReceivingRecordIds.remove(record.id);
+      if (selectedIds.contains(id)) {
+        selectedIds.remove(id);
       } else {
-        selectedReceivingRecordIds.add(record.id);
+        selectedIds.add(id);
       }
     });
   }
 
-  void toggleCountSelection(StockSubmission submission, StockSku sku) {
-    if (!canSelectCountRecord(submission)) {
-      if (!selectingCountRecords) showCountDetails(submission, sku);
-      return;
-    }
-
-    setState(() {
-      if (selectedCountRecordIds.contains(submission.id)) {
-        selectedCountRecordIds.remove(submission.id);
-      } else {
-        selectedCountRecordIds.add(submission.id);
-      }
-    });
-  }
-
-  void startReceivingSelection() {
+  void startSelection() {
+    if (!canReviewSelectedStatus) return;
     AppFeedback.select();
     setState(() {
-      selectingReceivingRecords = true;
-      selectedReceivingRecordIds.clear();
+      selecting = true;
+      selectedIds.clear();
     });
   }
 
-  void startCountSelection() {
+  void cancelSelection() {
     AppFeedback.select();
     setState(() {
-      selectingCountRecords = true;
-      selectedCountRecordIds.clear();
+      selecting = false;
+      selectedIds.clear();
     });
   }
 
-  void cancelReceivingSelection() {
-    AppFeedback.select();
-    setState(() {
-      selectingReceivingRecords = false;
-      selectedReceivingRecordIds.clear();
-    });
-  }
-
-  void cancelCountSelection() {
-    AppFeedback.select();
-    setState(() {
-      selectingCountRecords = false;
-      selectedCountRecordIds.clear();
-    });
-  }
-
-  Future<void> reviewRecord(
-    StockReceivingRecord record,
-    String status,
-  ) async {
-    final text = AppTextScope.of(context);
+  Future<void> reviewReceiving(StockReceivingRecord record, String status) async {
     final confirmed = await confirmDataChange(
       context,
-      action: status == 'Approved'
-          ? 'Approve Receiving Record?'
-          : 'Reject Receiving Record?',
+      action: status == 'Approved' ? 'Approve Receiving Record?' : 'Reject Receiving Record?',
       details: 'This will update the review status of this receiving record.',
     );
     if (!confirmed || !mounted) return;
-
     final updated = record.copyWith(
       reviewStatus: status,
-      reviewedBy: headId,
-      reviewedAt: 'Reviewed just now',
-      reviewNote: status == 'Approved'
-          ? 'Approved by Head after receiving review.'
-          : 'Rejected by Head. Please follow up with supplier.',
+      reviewNote: status == 'Approved' ? 'Approved.' : 'Rejected.',
     );
-    final saved = await runStockRequest(
-      context,
-      () => widget.onReviewReceiving(updated),
-    );
+    final saved = await runStockRequest(context, () => widget.onReviewReceiving(updated));
     if (!saved || !mounted) return;
+    setState(() {
+      receivingRecords = receivingRecords.where((item) => item.id != record.id).toList();
+      totalElements = totalElements > 0 ? totalElements - 1 : 0;
+      selectedIds.remove(record.id);
+    });
     Navigator.of(context).pop();
-    showSuccessSnackBar(
-      context,
-      status == 'Approved'
-          ? text.t('Receiving record approved')
-          : text.t('Receiving record rejected'),
-    );
+    showSuccessSnackBar(context, status == 'Approved' ? 'Receiving record approved' : 'Receiving record rejected');
   }
 
-
-  String timerTextForCount(StockSubmission submission) {
-    if (!submission.isPendingReview) return 'Closed';
-    final dueAt = submission.capturedAt.add(const Duration(hours: 24));
-    final left = dueAt.difference(now);
-    if (left.isNegative) {
-      return 'Overdue ${formatCountTimer(now.difference(dueAt))}';
-    }
-    return formatCountTimer(left);
-  }
-
-  bool isCountOverdue(StockSubmission submission) {
-    return submission.isPendingReview && now.isAfter(submission.capturedAt.add(const Duration(hours: 24)));
-  }
-
-  Color countStatusColour(StockSubmission submission) {
-    if (submission.isApproved) return AppColours.green;
-    if (submission.isRejected) return AppColours.red;
-    if (isCountOverdue(submission)) return AppColours.orange;
-    return AppColours.blue;
-  }
-
-  String countStatusLabel(StockSubmission submission) {
-    if (submission.isApproved) return 'Approved';
-    if (submission.isRejected) return 'Rejected';
-    if (isCountOverdue(submission)) return 'Overdue';
-    return 'Pending Review';
-  }
-
-  Future<void> reviewCountRecord(
-    StockSubmission submission,
-    String status,
-  ) async {
-    final text = AppTextScope.of(context);
+  Future<void> reviewCount(StockSubmission submission, String status) async {
     final confirmed = await confirmDataChange(
       context,
-      action: status == 'Approved'
-          ? 'Approve Daily Count?'
-          : 'Reject Daily Count?',
+      action: status == 'Approved' ? 'Approve Daily Count?' : 'Reject Daily Count?',
       details: 'This will update the review status of this daily stock count.',
     );
     if (!confirmed || !mounted) return;
-
     final updated = submission.copyWith(
       reviewStatus: status,
-      reviewedBy: headId,
-      reviewedAt: 'Reviewed just now',
-      reviewNote: status == 'Approved'
-          ? 'Approved by Head after daily count review.'
-          : 'Rejected by Head. Please recount or clarify.',
+      reviewNote: status == 'Approved' ? 'Approved.' : 'Rejected.',
     );
-    final saved = await runStockRequest(
-      context,
-      () => widget.onReviewStockCount(updated),
-    );
+    final saved = await runStockRequest(context, () => widget.onReviewStockCount(updated));
     if (!saved || !mounted) return;
+    setState(() {
+      countRecords = countRecords.where((item) => item.id != submission.id).toList();
+      totalElements = totalElements > 0 ? totalElements - 1 : 0;
+      selectedIds.remove(submission.id);
+    });
     Navigator.of(context).pop();
-    showSuccessSnackBar(
+    showSuccessSnackBar(context, status == 'Approved' ? 'Daily count approved' : 'Daily count rejected');
+  }
+
+  Future<void> bulkReview(String status) async {
+    if (selectedIds.isEmpty || !canReviewSelectedStatus) return;
+    final selectedCount = selectedIds.length;
+    final confirmed = await confirmDataChange(
       context,
-      status == 'Approved'
-          ? text.t('Daily count approved')
-          : text.t('Daily count rejected'),
+      action: status == 'Approved' ? 'Approve $selectedCount records?' : 'Reject $selectedCount records?',
+      details: 'This will update all selected records.',
     );
-  }
+    if (!confirmed || !mounted) return;
 
-
-  List<StockReceivingRecord> selectedReceivingRecordsFrom(List<StockReceivingRecord> records) {
-    return records
-        .where((record) => selectedReceivingRecordIds.contains(record.id) && canSelectReceivingRecord(record))
-        .toList();
-  }
-
-  List<StockSubmission> selectedCountRecordsFrom(List<StockSubmission> submissions) {
-    return submissions
-        .where((submission) => selectedCountRecordIds.contains(submission.id) && canSelectCountRecord(submission))
-        .toList();
-  }
-
-  Future<void> applyBulkReceivingReview(
-    List<StockReceivingRecord> records,
-    String status,
-  ) async {
-    final text = AppTextScope.of(context);
-    for (final record in records) {
-      final saved = await runStockRequest(
-        context,
-        () => widget.onReviewReceiving(
-          record.copyWith(
+    if (isReceiving) {
+      final selected = receivingRecords.where((item) => selectedIds.contains(item.id)).toList();
+      final ok = await runStockRequest(context, () async {
+        for (final record in selected) {
+          await widget.onReviewReceiving(record.copyWith(
             reviewStatus: status,
-            reviewedBy: headId,
-            reviewedAt: 'Reviewed just now',
-            reviewNote: status == 'Approved'
-                ? 'Approved by Head after bulk receiving review.'
-                : 'Rejected by Head after bulk receiving review.',
-          ),
-        ),
-      );
-      if (!saved || !mounted) return;
+            reviewNote: status == 'Approved' ? 'Approved.' : 'Rejected.',
+          ));
+        }
+      });
+      if (!ok || !mounted) return;
+      setState(() {
+        receivingRecords = receivingRecords.where((item) => !selectedIds.contains(item.id)).toList();
+        totalElements = (totalElements - selected.length).clamp(0, totalElements).toInt();
+      });
+    } else {
+      final selected = countRecords.where((item) => selectedIds.contains(item.id)).toList();
+      final updated = selected.map((item) => item.copyWith(
+        reviewStatus: status,
+        reviewNote: status == 'Approved' ? 'Approved.' : 'Rejected.',
+      )).toList();
+      final ok = await runStockRequest(context, () => widget.onBulkReviewStockCounts(updated));
+      if (!ok || !mounted) return;
+      setState(() {
+        countRecords = countRecords.where((item) => !selectedIds.contains(item.id)).toList();
+        totalElements = (totalElements - selected.length).clamp(0, totalElements).toInt();
+      });
     }
 
     setState(() {
-      selectingReceivingRecords = false;
-      selectedReceivingRecordIds.clear();
+      selecting = false;
+      selectedIds.clear();
     });
-    Navigator.of(context).pop();
-    showSuccessSnackBar(
-      context,
-      status == 'Approved'
-          ? text.t('Receiving records approved')
-          : text.t('Receiving records rejected'),
-    );
+    showSuccessSnackBar(context, status == 'Approved' ? 'Selected records approved' : 'Selected records rejected');
   }
 
-
-  Future<void> applyBulkCountReview(
-    List<StockSubmission> submissions,
-    String status,
-  ) async {
-    final text = AppTextScope.of(context);
-    final updated = submissions
-        .map(
-          (submission) => submission.copyWith(
-            reviewStatus: status,
-            reviewedBy: headId,
-            reviewedAt: 'Reviewed just now',
-            reviewNote: status == 'Approved'
-                ? 'Approved by Head after bulk daily count review.'
-                : 'Rejected by Head after bulk daily count review.',
-          ),
-        )
-        .toList(growable: false);
-
-    final saved = await runStockRequest(
-      context,
-      () => widget.onBulkReviewStockCounts(updated),
-    );
-    if (!saved || !mounted) return;
-
-    setState(() {
-      selectingCountRecords = false;
-      selectedCountRecordIds.clear();
-    });
-    Navigator.of(context).pop();
-    showSuccessSnackBar(
-      context,
-      status == 'Approved'
-          ? text.t('Daily count records approved')
-          : text.t('Daily count records rejected'),
-    );
-  }
-
-
-  void showBulkReceivingConfirmation(List<StockReceivingRecord> records, String status) {
-    final text = AppTextScope.of(context);
-    if (records.isEmpty) {
-      showWarningSnackBar(context, text.t('Select at least one record'));
-      return;
-    }
-
-    showStockBottomSheet<void>(
-      context,
-      maxHeightFactor: 0.86,
-      builder: (sheetContext) {
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              stockBottomSheetHandle(),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      status == 'Approved' ? text.t('Confirm Approve All') : text.t('Confirm Reject All'),
-                      style: const TextStyle(fontSize: AppTextSize.s22, fontWeight: FontWeight.w800),
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.of(sheetContext).pop(),
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              if (status == 'Approved') ...[
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: AppColours.orange.withValues(alpha: 0.10),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: AppColours.orange.withValues(alpha: 0.30)),
-                  ),
-                  child: const Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(Icons.warning_amber_rounded, color: AppColours.orange, size: 20),
-                      SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'Bulk approval is risky. Check every record. This action cannot be undone.\n批量批准有风险。请逐项确认。此操作无法撤回。',
-                          style: TextStyle(fontSize: AppTextSize.s12, color: AppColours.orange, fontWeight: FontWeight.w800, height: 1.25),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 10),
-              ],
-              Text(
-                text.t('Please confirm these receiving records before applying bulk action.'),
-                style: const TextStyle(fontSize: AppTextSize.s13, color: AppColours.textMuted, fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: 12),
-              Flexible(
-                child: SingleChildScrollView(
-                  child: Table(
-                    border: TableBorder.all(color: AppColours.border),
-                    defaultColumnWidth: const FlexColumnWidth(),
-                    children: [
-                      TableRow(
-                        decoration: const BoxDecoration(color: AppColours.background),
-                        children: const [
-                          _BulkSummaryCell('SKU', header: true),
-                          _BulkSummaryCell('Receive', header: true),
-                          _BulkSummaryCell('Invoice', header: true),
-                          _BulkSummaryCell('State', header: true),
-                        ],
-                      ),
-                      ...records.map((record) {
-                        final item = record.items.isNotEmpty ? record.items.first : null;
-                        return TableRow(
-                          children: [
-                            _BulkSummaryCell(item?.skuName ?? '-'),
-                            _BulkSummaryCell(item == null ? '-' : '${formatStockNumber(item.receivedQuantity)} ${item.unit}'),
-                            _BulkSummaryCell(item == null ? '-' : '${formatStockNumber(item.invoiceQuantity)} ${item.unit}'),
-                            _BulkSummaryCell(item?.condition ?? '-'),
-                          ],
-                        );
-                      }),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 14),
-              Row(
-                children: [
-                  Expanded(
-                    child: PrimaryButton(
-                      text: text.t('Cancel'),
-                      icon: Icons.close_rounded,
-                      outlined: true,
-                      onPressed: () => Navigator.of(sheetContext).pop(),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: PrimaryButton(
-                      text: text.t('Confirm'),
-                      icon: status == 'Approved' ? Icons.check_rounded : Icons.block_rounded,
-                      onPressed: () => applyBulkReceivingReview(records, status),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  void showBulkCountConfirmation(List<StockSubmission> submissions, String status) {
-    final text = AppTextScope.of(context);
-    if (submissions.isEmpty) {
-      showWarningSnackBar(context, text.t('Select at least one record'));
-      return;
-    }
-
-    showStockBottomSheet<void>(
-      context,
-      maxHeightFactor: 0.86,
-      builder: (sheetContext) {
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              stockBottomSheetHandle(),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      status == 'Approved' ? text.t('Confirm Approve All') : text.t('Confirm Reject All'),
-                      style: const TextStyle(fontSize: AppTextSize.s22, fontWeight: FontWeight.w800),
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.of(sheetContext).pop(),
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              if (status == 'Approved') ...[
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: AppColours.orange.withValues(alpha: 0.10),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: AppColours.orange.withValues(alpha: 0.30)),
-                  ),
-                  child: const Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(Icons.warning_amber_rounded, color: AppColours.orange, size: 20),
-                      SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'Bulk approval is risky. Check every record. This action cannot be undone.\n批量批准有风险。请逐项确认。此操作无法撤回。',
-                          style: TextStyle(fontSize: AppTextSize.s12, color: AppColours.orange, fontWeight: FontWeight.w800, height: 1.25),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 10),
-              ],
-              Text(
-                text.t('Please confirm these daily count records before applying bulk action.'),
-                style: const TextStyle(fontSize: AppTextSize.s13, color: AppColours.textMuted, fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: 12),
-              Flexible(
-                child: SingleChildScrollView(
-                  child: Table(
-                    border: TableBorder.all(color: AppColours.border),
-                    defaultColumnWidth: const FlexColumnWidth(),
-                    children: [
-                      TableRow(
-                        decoration: const BoxDecoration(color: AppColours.background),
-                        children: const [
-                          _BulkSummaryCell('SKU', header: true),
-                          _BulkSummaryCell('Min', header: true),
-                          _BulkSummaryCell('Past', header: true),
-                          _BulkSummaryCell('Vary', header: true),
-                          _BulkSummaryCell('Now', header: true),
-                          _BulkSummaryCell('By', header: true),
-                        ],
-                      ),
-                      ...submissions.map((submission) {
-                        final sku = skuFor(submission.stockTaskId);
-                        final changed = submission.increasedValue;
-                        return TableRow(
-                          children: [
-                            _BulkSummaryCell(sku?.name ?? '-'),
-                            _BulkSummaryCell(sku == null ? '-' : '${formatStockNumber(sku.minimumBalanceValue)} ${sku.unit}'),
-                            _BulkSummaryCell(sku == null ? '-' : '${formatStockNumber(submission.previousBalanceValue)} ${sku.unit}'),
-                            _BulkSummaryCell(sku == null ? '-' : '${changed >= 0 ? '+' : ''}${formatStockNumber(changed)} ${sku.unit}'),
-                            _BulkSummaryCell(sku == null ? '-' : '${formatStockNumber(submission.currentBalanceValue)} ${sku.unit}'),
-                            _BulkSummaryCell(submission.submittedBy),
-                          ],
-                        );
-                      }),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 14),
-              Row(
-                children: [
-                  Expanded(
-                    child: PrimaryButton(
-                      text: text.t('Cancel'),
-                      icon: Icons.close_rounded,
-                      outlined: true,
-                      onPressed: () => Navigator.of(sheetContext).pop(),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: PrimaryButton(
-                      text: text.t('Confirm'),
-                      icon: status == 'Approved' ? Icons.check_rounded : Icons.block_rounded,
-                      onPressed: () => applyBulkCountReview(submissions, status),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget buildReviewSelectToolbar({
-    required bool selecting,
-    required int selectedCount,
-    required int selectableCount,
-    required VoidCallback onSelect,
-    required VoidCallback onCancel,
-    required VoidCallback onApproveAll,
-    required VoidCallback onRejectAll,
-  }) {
-    if (!isHead) return const SizedBox.shrink();
-
-    if (!selecting) {
-      return Row(
-        children: [
-          const Spacer(),
-          TextButton.icon(
-            onPressed: selectableCount == 0 ? null : onSelect,
-            icon: const Icon(Icons.check_circle_outline_rounded, size: 19),
-            label: Text(AppTextScope.of(context).t('Select')),
-          ),
-        ],
-      );
-    }
-
-    return Row(
-      children: [
-        TextButton(
-          onPressed: onCancel,
-          child: Text(AppTextScope.of(context).t('Cancel')),
-        ),
-        Expanded(
-          child: Text(
-            '$selectedCount selected',
-            textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: AppTextSize.s13, color: AppColours.textMuted, fontWeight: FontWeight.w800),
-          ),
-        ),
-        TextButton(
-          onPressed: selectedCount == 0 ? null : onRejectAll,
-          child: Text(
-            AppTextScope.of(context).t('Reject All'),
-            style: TextStyle(
-              color: selectedCount == 0 ? AppColours.textMuted : AppColours.red,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ),
-        TextButton(
-          onPressed: selectedCount == 0 ? null : onApproveAll,
-          child: Text(
-            AppTextScope.of(context).t('Approve All'),
-            style: TextStyle(
-              color: selectedCount == 0 ? AppColours.textMuted : AppColours.green,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  void showSkuPhotoZoom(StockSku sku) {
-    showStockBottomSheet<void>(
-      context,
-      maxHeightFactor: 0.84,
-      builder: (sheetContext) {
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              stockBottomSheetHandle(),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      sku.name,
-                      style: const TextStyle(fontSize: AppTextSize.s22, fontWeight: FontWeight.w800),
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.of(sheetContext).pop(),
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              SizedBox(
-                height: 320,
-                child: Center(
-                  child: InteractiveViewer(
-                    minScale: 1,
-                    maxScale: 4,
-                    child: _SkuPhotoThumb(sku: sku, size: 280),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  void showCountDetails(StockSubmission submission, StockSku sku) {
-    final text = AppTextScope.of(context);
-    final overdue = isCountOverdue(submission);
-    final increased = submission.increasedValue;
-    final increasedText = '${increased >= 0 ? '+' : ''}${formatStockNumber(increased)} ${sku.unit}';
-
+  void showReceivingDetails(StockReceivingRecord record) {
+    final conditionColour = receivingConditionColour(record);
     showStockBottomSheet<void>(
       context,
       maxHeightFactor: 0.92,
@@ -4843,105 +4327,40 @@ class _StockReviewPageState extends State<_StockReviewPage> {
                 const SizedBox(height: 12),
                 Row(
                   children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            text.t('Daily Count Review'),
-                            style: const TextStyle(fontSize: AppTextSize.s24, fontWeight: FontWeight.w800),
-                          ),
-                          const SizedBox(height: 3),
-                          Text(
-                            submission.submittedBy,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: AppTextSize.s14,
-                              color: AppColours.textMuted,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ],
-                      ),
+                    const Expanded(
+                      child: Text('Receiving Review', style: TextStyle(fontSize: AppTextSize.s24, fontWeight: FontWeight.w800)),
                     ),
-                    IconButton(
-                      onPressed: () => Navigator.of(sheetContext).pop(),
-                      icon: const Icon(Icons.close_rounded),
-                    ),
+                    IconButton(onPressed: () => Navigator.of(sheetContext).pop(), icon: const Icon(Icons.close_rounded)),
                   ],
                 ),
                 const SizedBox(height: 12),
                 WhiteCard(
-                  padding: const EdgeInsets.all(14),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      if (overdue) ...[
-                        Row(
-                          children: const [
-                            Icon(Icons.warning_amber_rounded, color: AppColours.orange, size: 21),
-                            SizedBox(width: 9),
-                            Expanded(
-                              child: Text(
-                                'Warning: more than 24 hours without Head review.',
-                                style: TextStyle(fontSize: AppTextSize.s14, color: AppColours.orange, fontWeight: FontWeight.w800),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        const Divider(height: 1),
-                        const SizedBox(height: 12),
-                      ],
-                      _ReviewInfoRows(
-                        rows: [
-                          _ReviewInfoRow(label: text.t('Review Status'), value: countStatusLabel(submission), valueColour: countStatusColour(submission)),
-                          _ReviewInfoRow(label: text.t('Timer'), value: timerTextForCount(submission), valueColour: overdue ? AppColours.orange : AppColours.textMuted),
-                          _ReviewInfoRow(label: text.t('SKU'), value: sku.name),
-                          _ReviewInfoRow(label: text.t('Current Balance'), value: '${formatStockNumber(submission.currentBalanceValue)} ${sku.unit}', valueColour: submission.belowMinimumBalance ? AppColours.red : AppColours.green),
-                          _ReviewInfoRow(label: text.t('Min'), value: '${formatStockNumber(sku.minimumBalanceValue)} ${sku.unit}'),
-                          _ReviewInfoRow(label: text.t('Max'), value: '${formatStockNumber(sku.maximumBalanceValue)} ${sku.unit}'),
-                          _ReviewInfoRow(label: text.t('Changed Value'), value: increasedText, valueColour: increased >= 0 ? AppColours.green : AppColours.red),
-                          _ReviewInfoRow(label: text.t('Previous Value'), value: '${formatStockNumber(submission.previousBalanceValue)} ${sku.unit}'),
-                          _ReviewInfoRow(label: text.t('Captured'), value: formatReviewDateTime(submission.capturedAt)),
-                          _ReviewInfoRow(label: text.t('Counted By'), value: submission.submittedBy),
-                          if ((submission.remarks['note'] ?? '').trim().isNotEmpty) _ReviewInfoRow(label: text.t('Remark'), value: submission.remarks['note']!),
-                          if (submission.reviewedBy.isNotEmpty) _ReviewInfoRow(label: text.t('Reviewed By'), value: submission.reviewedBy),
-                          if (submission.reviewedAt.isNotEmpty) _ReviewInfoRow(label: text.t('Reviewed At'), value: submission.reviewedAt),
-                          if (submission.reviewNote.isNotEmpty) _ReviewInfoRow(label: text.t('Review Note'), value: submission.reviewNote),
-                        ],
-                      ),
+                      _ReviewInfoRows(rows: [
+                        _ReviewInfoRow(label: 'Review Status', value: record.reviewStatus, valueColour: reviewStatusColour(record.reviewStatus)),
+                        _ReviewInfoRow(label: 'Supplier', value: record.supplierName),
+                        _ReviewInfoRow(label: 'Captured', value: recordDateLabel(record.capturedAt)),
+                        _ReviewInfoRow(label: 'Received By', value: record.receivedBy),
+                        for (final item in record.items)
+                          _ReviewInfoRow(label: item.skuName, value: '${formatStockNumber(item.receivedQuantity)} ${item.unit} · ${item.condition}'),
+                        if (record.reviewedBy.isNotEmpty) _ReviewInfoRow(label: 'Reviewed By', value: record.reviewedBy),
+                        if (record.reviewedAt.isNotEmpty) _ReviewInfoRow(label: 'Reviewed At', value: record.reviewedAt),
+                        if (record.reviewNote.isNotEmpty) _ReviewInfoRow(label: 'Review Note', value: record.reviewNote),
+                      ]),
                       const SizedBox(height: 12),
-                      const Divider(height: 1),
-                      const SizedBox(height: 12),
-                      _CountReviewPhotoPreview(
-                        sku: sku,
-                        onTap: () => showSkuPhotoZoom(sku),
-                      ),
+                      _ReviewPhotoGrid(record: record, conditionColour: conditionColour),
                     ],
                   ),
                 ),
-                if (isHead && canSelectCountRecord(submission)) ...[
-                  const SizedBox(height: 16),
+                if (record.reviewStatus == 'Pending Review') ...[
+                  const SizedBox(height: 14),
                   Row(
                     children: [
-                      Expanded(
-                        child: PrimaryButton(
-                          text: text.t('Reject'),
-                          icon: Icons.close_rounded,
-                          outlined: true,
-                          onPressed: () => reviewCountRecord(submission, 'Rejected'),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: PrimaryButton(
-                          text: text.t('Approve'),
-                          icon: Icons.check_rounded,
-                          onPressed: () => reviewCountRecord(submission, 'Approved'),
-                        ),
-                      ),
+                      Expanded(child: PrimaryButton(text: 'Reject', outlined: true, icon: Icons.close_rounded, onPressed: () => reviewReceiving(record, 'Rejected'))),
+                      const SizedBox(width: 10),
+                      Expanded(child: PrimaryButton(text: 'Approve', icon: Icons.check_rounded, onPressed: () => reviewReceiving(record, 'Approved'))),
                     ],
                   ),
                 ],
@@ -4953,14 +4372,13 @@ class _StockReviewPageState extends State<_StockReviewPage> {
     );
   }
 
-  void showRecordDetails(StockReceivingRecord record) {
-    final text = AppTextScope.of(context);
-    final overdue = isOverdue(record);
-    final item = record.items.isNotEmpty ? record.items.first : null;
-
+  void showCountDetails(StockSubmission submission) {
+    final sku = skuForSubmission(submission);
+    final increased = submission.increasedValue;
+    final increasedText = '${increased >= 0 ? '+' : ''}${formatStockNumber(increased)} ${sku.unit}';
     showStockBottomSheet<void>(
       context,
-      maxHeightFactor: 0.94,
+      maxHeightFactor: 0.92,
       builder: (sheetContext) {
         return Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
@@ -4973,112 +4391,44 @@ class _StockReviewPageState extends State<_StockReviewPage> {
                 const SizedBox(height: 12),
                 Row(
                   children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            text.t('Receiving Review'),
-                            style: const TextStyle(
-                              fontSize: AppTextSize.s24,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                          const SizedBox(height: 3),
-                          Text(
-                            record.supplierName,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: AppTextSize.s14,
-                              color: AppColours.textMuted,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ],
-                      ),
+                    const Expanded(
+                      child: Text('Daily Count Review', style: TextStyle(fontSize: AppTextSize.s24, fontWeight: FontWeight.w800)),
                     ),
-                    IconButton(
-                      onPressed: () => Navigator.of(sheetContext).pop(),
-                      icon: const Icon(Icons.close_rounded),
-                    ),
+                    IconButton(onPressed: () => Navigator.of(sheetContext).pop(), icon: const Icon(Icons.close_rounded)),
                   ],
                 ),
                 const SizedBox(height: 12),
                 WhiteCard(
-                  padding: const EdgeInsets.all(14),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      if (overdue) ...[
-                        Row(
-                          children: const [
-                            Icon(Icons.warning_amber_rounded, color: AppColours.orange, size: 21),
-                            SizedBox(width: 9),
-                            Expanded(
-                              child: Text(
-                                'Warning: more than 24 hours without Head review.',
-                                style: TextStyle(
-                                  fontSize: AppTextSize.s14,
-                                  color: AppColours.orange,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        const Divider(height: 1),
-                        const SizedBox(height: 12),
-                      ],
-                      _ReviewInfoRows(
-                        rows: [
-                          _ReviewInfoRow(label: text.t('Review Status'), value: statusLabel(record), valueColour: statusColour(record)),
-                          _ReviewInfoRow(label: text.t('Timer'), value: timerTextFor(record), valueColour: overdue ? AppColours.orange : AppColours.textMuted),
-                          _ReviewInfoRow(label: text.t('Supplier'), value: record.supplierName),
-                          if (item != null) _ReviewInfoRow(label: text.t('SKU'), value: item.skuName),
-                          if (item != null) _ReviewInfoRow(label: text.t('Invoice Qty'), value: '${formatStockNumber(item.invoiceQuantity)} ${item.unit}'),
-                          if (item != null) _ReviewInfoRow(label: text.t('Received Qty'), value: '${formatStockNumber(item.receivedQuantity)} ${item.unit}'),
-                          if (item != null) _ReviewInfoRow(label: text.t('Checklist'), value: item.condition, valueColour: conditionColour(record)),
-                          if (item != null && item.note.trim().isNotEmpty) _ReviewInfoRow(label: text.t('Remark'), value: item.note),
-                          _ReviewInfoRow(label: text.t('Captured'), value: formatReviewDateTime(record.capturedAt)),
-                          _ReviewInfoRow(label: text.t('Received At'), value: record.receivedAt),
-                          _ReviewInfoRow(label: text.t('Received By'), value: record.receivedBy),
-                          if (record.reviewedBy.isNotEmpty) _ReviewInfoRow(label: text.t('Reviewed By'), value: record.reviewedBy),
-                          if (record.reviewedAt.isNotEmpty) _ReviewInfoRow(label: text.t('Reviewed At'), value: record.reviewedAt),
-                          if (record.reviewNote.isNotEmpty) _ReviewInfoRow(label: text.t('Review Note'), value: record.reviewNote),
-                        ],
-                      ),
+                      _ReviewInfoRows(rows: [
+                        _ReviewInfoRow(label: 'Review Status', value: submission.reviewStatus, valueColour: reviewStatusColour(submission.reviewStatus)),
+                        _ReviewInfoRow(label: 'SKU', value: sku.name),
+                        _ReviewInfoRow(label: 'Current Balance', value: '${formatStockNumber(submission.currentBalanceValue)} ${sku.unit}'),
+                        _ReviewInfoRow(label: 'Min', value: '${formatStockNumber(sku.minimumBalanceValue)} ${sku.unit}'),
+                        _ReviewInfoRow(label: 'Max', value: '${formatStockNumber(sku.maximumBalanceValue)} ${sku.unit}'),
+                        _ReviewInfoRow(label: 'Changed Value', value: increasedText, valueColour: increased >= 0 ? AppColours.green : AppColours.red),
+                        _ReviewInfoRow(label: 'Previous Value', value: '${formatStockNumber(submission.previousBalanceValue)} ${sku.unit}'),
+                        _ReviewInfoRow(label: 'Captured', value: recordDateLabel(submission.capturedAt)),
+                        _ReviewInfoRow(label: 'Counted By', value: submission.submittedBy),
+                        if ((submission.remarks['note'] ?? '').trim().isNotEmpty) _ReviewInfoRow(label: 'Remark', value: submission.remarks['note']!),
+                        if (submission.reviewedBy.isNotEmpty) _ReviewInfoRow(label: 'Reviewed By', value: submission.reviewedBy),
+                        if (submission.reviewedAt.isNotEmpty) _ReviewInfoRow(label: 'Reviewed At', value: submission.reviewedAt),
+                        if (submission.reviewNote.isNotEmpty) _ReviewInfoRow(label: 'Review Note', value: submission.reviewNote),
+                      ]),
                       const SizedBox(height: 12),
-                      const Divider(height: 1),
-                      const SizedBox(height: 12),
-                      _ReviewPhotoGrid(
-                        record: record,
-                        conditionColour: conditionColour(record),
-                      ),
+                      _CountReviewPhotoPreview(sku: sku, onTap: () {}),
                     ],
                   ),
                 ),
-                if (isHead && canSelectReceivingRecord(record)) ...[
-                  const SizedBox(height: 16),
+                if (submission.reviewStatus == 'Pending Review') ...[
+                  const SizedBox(height: 14),
                   Row(
                     children: [
-                      Expanded(
-                        child: PrimaryButton(
-                          text: text.t('Reject'),
-                          icon: Icons.close_rounded,
-                          outlined: true,
-                          onPressed: () => reviewRecord(record, 'Rejected'),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: PrimaryButton(
-                          text: text.t('Approve'),
-                          icon: Icons.check_rounded,
-                          onPressed: () => reviewRecord(record, 'Approved'),
-                        ),
-                      ),
+                      Expanded(child: PrimaryButton(text: 'Reject', outlined: true, icon: Icons.close_rounded, onPressed: () => reviewCount(submission, 'Rejected'))),
+                      const SizedBox(width: 10),
+                      Expanded(child: PrimaryButton(text: 'Approve', icon: Icons.check_rounded, onPressed: () => reviewCount(submission, 'Approved'))),
                     ],
                   ),
                 ],
@@ -5090,408 +4440,198 @@ class _StockReviewPageState extends State<_StockReviewPage> {
     );
   }
 
-  List<Widget> buildReceivingGroupRows(Map<String, List<StockReceivingRecord>> groups) {
-    final rows = <Widget>[];
-    final entries = groups.entries.toList()..sort((a, b) => a.key.compareTo(b.key));
-    for (var i = 0; i < entries.length; i++) {
-      final entry = entries[i];
-      rows.add(_ReviewFolderRow(
-        title: entry.key,
-        count: entry.value.length,
-        onTap: () => openReceivingSupplier(entry.key),
-      ));
-      if (i != entries.length - 1) rows.add(const Divider(height: 1));
-    }
-    return rows;
+  Widget statusDropdown() {
+    return DropdownButtonFormField<String>(
+      initialValue: statusFilter,
+      isExpanded: true,
+      decoration: _inputDecoration('Status').copyWith(
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      ),
+      items: _statusOptions.map((status) => DropdownMenuItem(value: status, child: Text(status))).toList(),
+      onChanged: (value) {
+        if (value == null || value == statusFilter) return;
+        setState(() {
+          statusFilter = value;
+          _clearLoadedResults();
+        });
+      },
+    );
   }
 
-  List<Widget> buildReceivingRecordRows(List<StockReceivingRecord> records) {
-    final rows = <Widget>[];
-    final sorted = [...records]..sort((a, b) => b.capturedAt.compareTo(a.capturedAt));
-    for (var i = 0; i < sorted.length; i++) {
-      final record = sorted[i];
-      final selectable = canSelectReceivingRecord(record);
-      rows.add(_ReceivingReviewRow(
-        record: record,
-        timerText: timerTextFor(record),
-        statusText: statusLabel(record),
-        statusColour: statusColour(record),
-        conditionColour: conditionColour(record),
-        overdue: isOverdue(record),
-        selectMode: selectingReceivingRecords,
-        selectable: selectable,
-        selected: selectedReceivingRecordIds.contains(record.id),
-        onSelectToggle: () => toggleReceivingSelection(record),
-        onTap: () => showRecordDetails(record),
-      ));
-      if (i != sorted.length - 1) rows.add(const Divider(height: 1));
-    }
-    return rows;
-  }
-
-  List<Widget> buildCountGroupRows(Map<String, List<StockSubmission>> groups) {
-    final rows = <Widget>[];
-    final entries = groups.entries.toList()..sort((a, b) => a.key.compareTo(b.key));
-    for (var i = 0; i < entries.length; i++) {
-      final entry = entries[i];
-      rows.add(_ReviewFolderRow(
-        title: entry.key,
-        count: entry.value.length,
-        onTap: () => openCountTag(entry.key),
-      ));
-      if (i != entries.length - 1) rows.add(const Divider(height: 1));
-    }
-    return rows;
-  }
-
-  List<Widget> buildCountRecordRows(List<StockSubmission> submissions) {
-    final rows = <Widget>[];
-    final sorted = [...submissions]..sort((a, b) => b.capturedAt.compareTo(a.capturedAt));
-    for (var i = 0; i < sorted.length; i++) {
-      final submission = sorted[i];
-      final sku = skuFor(submission.stockTaskId);
-      if (sku == null) continue;
-      final selectable = canSelectCountRecord(submission);
-      rows.add(_DailyCountReviewRow(
-        submission: submission,
-        sku: sku,
-        timerText: timerTextForCount(submission),
-        statusText: countStatusLabel(submission),
-        statusColour: countStatusColour(submission),
-        overdue: isCountOverdue(submission),
-        selectMode: selectingCountRecords,
-        selectable: selectable,
-        selected: selectedCountRecordIds.contains(submission.id),
-        onSelectToggle: () => toggleCountSelection(submission, sku),
-        onTap: () => showCountDetails(submission, sku),
-      ));
-      if (i != sorted.length - 1) rows.add(const Divider(height: 1));
-    }
-    return rows;
-  }
-
-  List<Widget> buildBacklogRows({
-    required List<StockReceivingRecord> receivingRecords,
-    required List<StockSubmission> countRecords,
-  }) {
-    final rows = <Widget>[];
-
-    if (receivingRecords.isNotEmpty) {
-      rows.add(_ReviewGroupHeader(title: 'Receiving Records', count: receivingRecords.length));
-      final sortedReceiving = [...receivingRecords]..sort((a, b) => b.capturedAt.compareTo(a.capturedAt));
-      for (var i = 0; i < sortedReceiving.length; i++) {
-        final record = sortedReceiving[i];
-        rows.add(_ReceivingReviewRow(
-          record: record,
-          timerText: timerTextFor(record),
-          statusText: statusLabel(record),
-          statusColour: statusColour(record),
-          conditionColour: conditionColour(record),
-          overdue: isOverdue(record),
-          selectMode: false,
-          selectable: false,
-          selected: false,
-          onSelectToggle: () {},
-          onTap: () => showRecordDetails(record),
-        ));
-        if (i != sortedReceiving.length - 1) rows.add(const Divider(height: 1));
-      }
-    }
-
-    if (receivingRecords.isNotEmpty && countRecords.isNotEmpty) {
-      rows.add(const Divider(height: 1));
-    }
-
-    if (countRecords.isNotEmpty) {
-      rows.add(_ReviewGroupHeader(title: 'Daily Count Records', count: countRecords.length));
-      final sortedCounts = [...countRecords]..sort((a, b) => b.capturedAt.compareTo(a.capturedAt));
-      for (var i = 0; i < sortedCounts.length; i++) {
-        final submission = sortedCounts[i];
-        final sku = skuFor(submission.stockTaskId);
-        if (sku == null) continue;
-        rows.add(_DailyCountReviewRow(
-          submission: submission,
-          sku: sku,
-          timerText: timerTextForCount(submission),
-          statusText: countStatusLabel(submission),
-          statusColour: countStatusColour(submission),
-          overdue: isCountOverdue(submission),
-          selectMode: false,
-          selectable: false,
-          selected: false,
-          onSelectToggle: () {},
-          onTap: () => showCountDetails(submission, sku),
-        ));
-        if (i != sortedCounts.length - 1) rows.add(const Divider(height: 1));
-      }
-    }
-
-    return rows;
+  Widget selectionToolbar() {
+    return WhiteCard(
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              '${selectedIds.length} selected',
+              style: const TextStyle(fontSize: AppTextSize.s14, fontWeight: FontWeight.w800),
+            ),
+          ),
+          TextButton(onPressed: cancelSelection, child: const Text('Cancel')),
+          const SizedBox(width: 4),
+          FilledButton.tonal(onPressed: selectedIds.isEmpty ? null : () => bulkReview('Rejected'), child: const Text('Reject')),
+          const SizedBox(width: 6),
+          FilledButton(onPressed: selectedIds.isEmpty ? null : () => bulkReview('Approved'), child: const Text('Approve')),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final text = AppTextScope.of(context);
-    final allDailySubmissions = widget.submissions.where((item) => skuFor(item.stockTaskId) != null).toList()
-      ..sort((a, b) => b.capturedAt.compareTo(a.capturedAt));
-    final allReceiving = [...widget.receivingRecords]
-      ..sort((a, b) => b.capturedAt.compareTo(a.capturedAt));
 
-    final activeReceiving = allReceiving.where(isActiveReceivingReview).toList();
-    final activeCounts = allDailySubmissions.where(isActiveCountReview).toList();
-    final backlogReceiving = allReceiving.where((record) => !isActiveReceivingReview(record)).toList();
-    final backlogCounts = allDailySubmissions.where((submission) => !isActiveCountReview(submission)).toList();
-
-    final receivingSupplierOptions = receivingSupplierOptionsFor(activeReceiving);
-    if (!receivingSupplierOptions.contains(receivingSupplierFilter)) {
-      receivingSupplierFilter = 'All';
-    }
-    final countTagOptions = countTagOptionsFor(activeCounts);
-    if (!countTagOptions.contains(countTagFilter)) {
-      countTagFilter = 'All';
-    }
-    final backlogStatusOptionsList = backlogStatusOptions();
-    if (!backlogStatusOptionsList.contains(backlogStatusFilter)) {
-      backlogStatusFilter = 'All';
-    }
-
-    final receivingQuery = receivingSearchController.text.trim().toLowerCase();
-    final countQuery = countSearchController.text.trim().toLowerCase();
-    final backlogQuery = backlogSearchController.text.trim().toLowerCase();
-
-    final filteredReceiving = activeReceiving.where((record) {
-      final matchesSupplier = receivingSupplierFilter == 'All' || record.supplierName == receivingSupplierFilter;
-      return matchesSupplier && receivingMatchesSearch(record, receivingQuery);
-    }).toList();
-
-    final filteredCounts = activeCounts.where((submission) {
-      final sku = skuFor(submission.stockTaskId);
-      if (sku == null) return false;
-      final tagName = countTagForSku(sku);
-      final matchesTag = countTagFilter == 'All' || tagName == countTagFilter;
-      return matchesTag && countMatchesSearch(submission, sku, tagName, countQuery);
-    }).toList();
-
-    final filteredBacklogReceiving = backlogReceiving.where((record) {
-      return matchesBacklogStatus(statusLabel(record)) && receivingMatchesSearch(record, backlogQuery);
-    }).toList();
-
-    final filteredBacklogCounts = backlogCounts.where((submission) {
-      final sku = skuFor(submission.stockTaskId);
-      if (sku == null) return false;
-      final tagName = countTagForSku(sku);
-      return matchesBacklogStatus(countStatusLabel(submission)) && countMatchesSearch(submission, sku, tagName, backlogQuery);
-    }).toList();
-
-    final receivingGroups = groupReceivingBySupplier(filteredReceiving);
-    final countGroups = groupCountsByTag(filteredCounts);
-    final showingReceivingBacklog = backlogType == 'receiving';
-    final backlogRows = buildBacklogRows(
-      receivingRecords: showingReceivingBacklog ? filteredBacklogReceiving : const <StockReceivingRecord>[],
-      countRecords: showingReceivingBacklog ? const <StockSubmission>[] : filteredBacklogCounts,
-    );
-
-    if (selectedReceivingSupplier != null) {
-      final supplierName = selectedReceivingSupplier!;
-      final supplierRecords = allReceiving.where((record) {
-        return record.supplierName == supplierName && receivingMatchesSearch(record, receivingQuery);
-      }).toList();
-      return GestureDetector(
-        behavior: HitTestBehavior.translucent,
-        onHorizontalDragStart: handleReviewSwipeStart,
-        onHorizontalDragUpdate: handleReviewSwipeUpdate,
-        onHorizontalDragEnd: handleReviewSwipeEnd,
-        child: _PageScaffold(
-          title: text.t('Receiving Records'),
-          subtitle: supplierName,
-          onBack: () => goBackToReviewGroups(),
-          children: [
-            buildReviewSelectToolbar(
-              selecting: selectingReceivingRecords,
-              selectedCount: selectedReceivingRecordsFrom(supplierRecords).length,
-              selectableCount: supplierRecords.where(canSelectReceivingRecord).length,
-              onSelect: startReceivingSelection,
-              onCancel: cancelReceivingSelection,
-              onApproveAll: () => showBulkReceivingConfirmation(selectedReceivingRecordsFrom(supplierRecords), 'Approved'),
-              onRejectAll: () => showBulkReceivingConfirmation(selectedReceivingRecordsFrom(supplierRecords), 'Rejected'),
-            ),
-            const SizedBox(height: 8),
-            _ReviewSearchBar(
-              searchController: receivingSearchController,
-              searchHint: text.t('Search receiving'),
-            ),
-            const SizedBox(height: 8),
-            WhiteCard(
-              padding: EdgeInsets.zero,
-              child: Column(
-                children: [
-                  if (supplierRecords.isEmpty)
-                    _ReviewEmptyMessage(text.t('No receiving records found.'))
-                  else
-                    ...buildReceivingRecordRows(supplierRecords),
-                ],
+    if (activeType == null) {
+      return _PageScaffold(
+        title: text.t('Review'),
+        subtitle: text.t('Review daily counts and receiving records.'),
+        onBack: widget.onBack,
+        children: [
+          _StockMenuGrid(
+            children: [
+              _StockMenuCard(
+                title: text.t('Receiving Records'),
+                subtitle: text.t('Review submitted receiving records'),
+                icon: Icons.inventory_2_outlined,
+                onTap: () => openType('receiving'),
               ),
-            ),
-          ],
-        ),
+              _StockMenuCard(
+                title: text.t('Daily Count Records'),
+                subtitle: text.t('Review submitted daily stock counts'),
+                icon: Icons.fact_check_outlined,
+                onTap: () => openType('count'),
+              ),
+            ],
+          ),
+        ],
       );
     }
 
-    if (selectedCountTag != null) {
-      final tagName = selectedCountTag!;
-      final tagRecords = allDailySubmissions.where((submission) {
-        final sku = skuFor(submission.stockTaskId);
-        return sku != null && countTagForSku(sku) == tagName && countMatchesSearch(submission, sku, tagName, countQuery);
-      }).toList();
-      return GestureDetector(
-        behavior: HitTestBehavior.translucent,
-        onHorizontalDragStart: handleReviewSwipeStart,
-        onHorizontalDragUpdate: handleReviewSwipeUpdate,
-        onHorizontalDragEnd: handleReviewSwipeEnd,
-        child: _PageScaffold(
-          title: text.t('Daily Count Records'),
-          subtitle: tagName,
-          onBack: () => goBackToReviewGroups(),
-          children: [
-            buildReviewSelectToolbar(
-              selecting: selectingCountRecords,
-              selectedCount: selectedCountRecordsFrom(tagRecords).length,
-              selectableCount: tagRecords.where(canSelectCountRecord).length,
-              onSelect: startCountSelection,
-              onCancel: cancelCountSelection,
-              onApproveAll: () => showBulkCountConfirmation(selectedCountRecordsFrom(tagRecords), 'Approved'),
-              onRejectAll: () => showBulkCountConfirmation(selectedCountRecordsFrom(tagRecords), 'Rejected'),
-            ),
-            const SizedBox(height: 8),
-            _ReviewSearchBar(
-              searchController: countSearchController,
-              searchHint: text.t('Search daily count'),
-            ),
-            const SizedBox(height: 8),
-            WhiteCard(
-              padding: EdgeInsets.zero,
-              child: Column(
-                children: [
-                  if (tagRecords.isEmpty)
-                    _ReviewEmptyMessage(text.t('No daily count found.'))
-                  else
-                    ...buildCountRecordRows(tagRecords),
-                ],
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    if (showingBacklogPage) {
-      return GestureDetector(
-        behavior: HitTestBehavior.translucent,
-        onHorizontalDragStart: handleReviewSwipeStart,
-        onHorizontalDragUpdate: handleReviewSwipeUpdate,
-        onHorizontalDragEnd: handleReviewSwipeEnd,
-        child: _PageScaffold(
-          title: showingReceivingBacklog ? text.t('Receiving Backlog') : text.t('Daily Count Backlog'),
-          subtitle: text.t('Overdue, rejected and approved records.'),
-          onBack: () => goBackToReviewGroups(),
-          children: [
-            _ReviewFilterBar(
-              searchController: backlogSearchController,
-              searchHint: text.t('Search backlog'),
-              filterLabel: text.t('Status'),
-              filterValue: backlogStatusFilter,
-              filterOptions: backlogStatusOptionsList,
-              onFilterChanged: (value) => setState(() => backlogStatusFilter = value),
-            ),
-            const SizedBox(height: 8),
-            WhiteCard(
-              padding: EdgeInsets.zero,
-              child: Column(
-                children: [
-                  if (backlogRows.isEmpty)
-                    _ReviewEmptyMessage(text.t('No backlog records found.'))
-                  else
-                    ...backlogRows,
-                ],
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
+    final recordsCount = isReceiving ? receivingRecords.length : countRecords.length;
     return _PageScaffold(
-      title: text.t('Review'),
-      subtitle: text.t('Review daily counts and receiving records.'),
-      onBack: widget.onBack,
+      title: text.t(isReceiving ? 'Receiving Records' : 'Daily Count Records'),
+      subtitle: text.t('Select Status AND Date, then press Search.'),
+      onBack: backToMenu,
+      trailing: hasLoaded && canReviewSelectedStatus && recordsCount > 0 && !selecting
+          ? TextButton.icon(
+              onPressed: startSelection,
+              icon: const Icon(Icons.checklist_rounded),
+              label: const Text('Select'),
+            )
+          : null,
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(2, 0, 2, 8),
-          child: _SectionTitle(text.t('Receiving Records')),
-        ),
-        _ReviewFilterBar(
-          searchController: receivingSearchController,
-          searchHint: text.t('Search supplier'),
-          filterLabel: text.t('Supplier'),
-          filterValue: receivingSupplierFilter,
-          filterOptions: receivingSupplierOptions,
-          onFilterChanged: (value) => setState(() => receivingSupplierFilter = value),
-        ),
-        const SizedBox(height: 8),
-        WhiteCard(
-          padding: EdgeInsets.zero,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (filteredReceiving.isEmpty)
-                _ReviewEmptyMessage(text.t('No receiving records found.'))
-              else
-                ...buildReceivingGroupRows(receivingGroups),
-              const Divider(height: 1),
-              _ReviewFolderRow(
-                title: text.t('Backlog'),
-                count: backlogReceiving.length,
-                onTap: () => openBacklogPage('receiving'),
-              ),
-            ],
+        statusDropdown(),
+        const SizedBox(height: 10),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: selectDateRange,
+            icon: const Icon(Icons.date_range_rounded, size: 20),
+            label: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    rangeLabel,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: AppTextSize.s13, fontWeight: FontWeight.w800),
+                  ),
+                ),
+                const Icon(Icons.chevron_right_rounded, size: 20),
+              ],
+            ),
+            style: OutlinedButton.styleFrom(
+              alignment: Alignment.centerLeft,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
           ),
         ),
-        const SizedBox(height: 16),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(2, 0, 2, 8),
-          child: _SectionTitle(text.t('Daily Count Records')),
+        const SizedBox(height: 12),
+        PrimaryButton(
+          text: loading ? 'Searching...' : hasLoaded ? 'Search Again' : 'Search',
+          icon: loading ? null : Icons.search_rounded,
+          onPressed: loading ? null : () => loadRecords(reset: true),
         ),
-        _ReviewFilterBar(
-          searchController: countSearchController,
-          searchHint: text.t('Search tag'),
-          filterLabel: text.t('Tag'),
-          filterValue: countTagFilter,
-          filterOptions: countTagOptions,
-          onFilterChanged: (value) => setState(() => countTagFilter = value),
-        ),
-        const SizedBox(height: 8),
-        WhiteCard(
-          padding: EdgeInsets.zero,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        const SizedBox(height: 14),
+        if (!hasLoaded)
+          WhiteCard(
+            child: Text(
+              'No records are loaded by default. Select Status and Date, then press Search.',
+              style: const TextStyle(fontSize: AppTextSize.s15, color: AppColours.textMuted, fontWeight: FontWeight.w600),
+            ),
+          )
+        else ...[
+          if (selecting) ...[
+            selectionToolbar(),
+            const SizedBox(height: 10),
+          ],
+          Row(
             children: [
-              if (filteredCounts.isEmpty)
-                _ReviewEmptyMessage(text.t('No daily count found.'))
-              else
-                ...buildCountGroupRows(countGroups),
-              const Divider(height: 1),
-              _ReviewFolderRow(
-                title: text.t('Backlog'),
-                count: backlogCounts.length,
-                onTap: () => openBacklogPage('count'),
-              ),
+              Expanded(child: _MiniMetric(label: 'Results', value: '$totalElements', icon: Icons.manage_search_rounded)),
+              const SizedBox(width: 10),
+              Expanded(child: _MiniMetric(label: 'Loaded', value: '$recordsCount', icon: Icons.download_done_rounded)),
             ],
           ),
-        ),
+          const SizedBox(height: 12),
+          if (recordsCount == 0)
+            WhiteCard(
+              child: Text(
+                isReceiving ? 'No receiving records found.' : 'No daily count records found.',
+                style: const TextStyle(fontSize: AppTextSize.s16, fontWeight: FontWeight.w700),
+              ),
+            )
+          else
+            WhiteCard(
+              padding: EdgeInsets.zero,
+              child: Column(
+                children: isReceiving
+                    ? receivingRecords.map((record) {
+                        final selected = selectedIds.contains(record.id);
+                        return _ReceivingReviewRow(
+                          record: record,
+                          timerText: recordDateLabel(record.capturedAt),
+                          statusText: record.reviewStatus,
+                          statusColour: reviewStatusColour(record.reviewStatus),
+                          conditionColour: receivingConditionColour(record),
+                          selectMode: selecting,
+                          selectable: canReviewSelectedStatus,
+                          selected: selected,
+                          onTap: () => showReceivingDetails(record),
+                          onSelectToggle: () => toggleSelection(record.id),
+                        );
+                      }).toList()
+                    : countRecords.map((submission) {
+                        final sku = skuForSubmission(submission);
+                        final selected = selectedIds.contains(submission.id);
+                        return _DailyCountReviewRow(
+                          submission: submission,
+                          sku: sku,
+                          timerText: recordDateLabel(submission.capturedAt),
+                          statusText: submission.reviewStatus,
+                          statusColour: reviewStatusColour(submission.reviewStatus),
+                          selectMode: selecting,
+                          selectable: canReviewSelectedStatus,
+                          selected: selected,
+                          onTap: () => showCountDetails(submission),
+                          onSelectToggle: () => toggleSelection(submission.id),
+                        );
+                      }).toList(),
+              ),
+            ),
+          if (!lastPage) ...[
+            const SizedBox(height: 12),
+            PrimaryButton(
+              text: loadingMore ? 'Loading...' : 'Load More',
+              icon: loadingMore ? null : Icons.expand_more_rounded,
+              onPressed: loadingMore ? null : () => loadRecords(reset: false),
+            ),
+          ],
+        ],
       ],
     );
   }
-
 }
 
 
@@ -5757,7 +4897,6 @@ class _ReceivingReviewRow extends StatelessWidget {
   final String statusText;
   final Color statusColour;
   final Color conditionColour;
-  final bool overdue;
   final bool selectMode;
   final bool selectable;
   final bool selected;
@@ -5770,7 +4909,6 @@ class _ReceivingReviewRow extends StatelessWidget {
     required this.statusText,
     required this.statusColour,
     required this.conditionColour,
-    required this.overdue,
     required this.selectMode,
     required this.selectable,
     required this.selected,
@@ -5822,10 +4960,6 @@ class _ReceivingReviewRow extends StatelessWidget {
                             ),
                           ),
                         ),
-                        if (overdue) ...[
-                          const SizedBox(width: 6),
-                          const Icon(Icons.warning_amber_rounded, color: AppColours.orange, size: 18),
-                        ],
                         const SizedBox(width: 6),
                         Text(
                           statusText,
@@ -5887,7 +5021,6 @@ class _DailyCountReviewRow extends StatelessWidget {
   final String timerText;
   final String statusText;
   final Color statusColour;
-  final bool overdue;
   final bool selectMode;
   final bool selectable;
   final bool selected;
@@ -5900,7 +5033,6 @@ class _DailyCountReviewRow extends StatelessWidget {
     required this.timerText,
     required this.statusText,
     required this.statusColour,
-    required this.overdue,
     required this.selectMode,
     required this.selectable,
     required this.selected,
@@ -5941,10 +5073,6 @@ class _DailyCountReviewRow extends StatelessWidget {
                             style: const TextStyle(fontSize: AppTextSize.s16, fontWeight: FontWeight.w800),
                           ),
                         ),
-                        if (overdue) ...[
-                          const SizedBox(width: 6),
-                          const Icon(Icons.warning_amber_rounded, color: AppColours.orange, size: 18),
-                        ],
                         const SizedBox(width: 6),
                         Text(
                           statusText,
@@ -8744,13 +7872,11 @@ class _AuditChangeRow extends StatelessWidget {
 
 class _SkuAssigneePage extends StatefulWidget {
   final EastAppApi api;
-  final List<StockSku> skus;
   final VoidCallback onBack;
   final Future<void> Function(StockSku sku) onUpdateSku;
 
   const _SkuAssigneePage({
     required this.api,
-    required this.skus,
     required this.onBack,
     required this.onUpdateSku,
   });
@@ -8763,19 +7889,24 @@ class _SkuAssigneePageState extends State<_SkuAssigneePage> {
   static const int _pageSize = 50;
 
   final searchController = TextEditingController();
+  final List<StockSku> loadedSkus = [];
   final List<EastAppUser> availableUsers = [];
+
+  String assignmentFilter = 'Assigned';
+  bool hasLoaded = false;
+  bool skusLoading = false;
+  bool skusLoadingMore = false;
+  String? skusError;
+  int skusPage = 0;
+  int totalSkus = 0;
+  bool skusLastPage = true;
+
+  bool usersLoaded = false;
   int usersPage = 0;
   bool usersLastPage = true;
   bool usersLoading = false;
   bool usersLoadingMore = false;
   String? usersError;
-  String userFilter = 'All';
-
-  @override
-  void initState() {
-    super.initState();
-    unawaited(loadUsers(reset: true));
-  }
 
   @override
   void dispose() {
@@ -8783,8 +7914,63 @@ class _SkuAssigneePageState extends State<_SkuAssigneePage> {
     super.dispose();
   }
 
-  Future<void> loadUsers({required bool reset}) async {
-    if (usersLoading || usersLoadingMore) return;
+  void _clearLoadedResults() {
+    if (!hasLoaded && loadedSkus.isEmpty && skusError == null) return;
+    setState(() {
+      hasLoaded = false;
+      loadedSkus.clear();
+      skusError = null;
+      skusPage = 0;
+      totalSkus = 0;
+      skusLastPage = true;
+    });
+  }
+
+  Future<void> loadSkus({required bool reset}) async {
+    if (skusLoading || skusLoadingMore) return;
+    final nextPage = reset ? 0 : skusPage + 1;
+    setState(() {
+      if (reset) {
+        skusLoading = true;
+        skusError = null;
+      } else {
+        skusLoadingMore = true;
+      }
+    });
+
+    try {
+      final result = await widget.api.stockSkus(
+        search: searchController.text.trim(),
+        active: true,
+        assigned: assignmentFilter == 'Assigned',
+        page: nextPage,
+        size: _pageSize,
+        forceRefresh: true,
+      );
+      if (!mounted) return;
+      setState(() {
+        if (reset) loadedSkus.clear();
+        loadedSkus.addAll(result.content);
+        skusPage = result.page;
+        totalSkus = result.totalElements;
+        skusLastPage = result.last;
+        hasLoaded = true;
+        skusLoading = false;
+        skusLoadingMore = false;
+      });
+    } on EastAppApiException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        skusError = error.message;
+        hasLoaded = true;
+        skusLoading = false;
+        skusLoadingMore = false;
+      });
+    }
+  }
+
+  Future<bool> loadUsers({required bool reset}) async {
+    if (usersLoading || usersLoadingMore) return false;
     final nextPage = reset ? 0 : usersPage + 1;
     setState(() {
       if (reset) {
@@ -8800,56 +7986,54 @@ class _SkuAssigneePageState extends State<_SkuAssigneePage> {
         page: nextPage,
         size: _pageSize,
       );
-      if (!mounted) return;
+      if (!mounted) return false;
       setState(() {
         if (reset) availableUsers.clear();
         availableUsers.addAll(result.content);
         usersPage = result.page;
         usersLastPage = result.last;
+        usersLoaded = true;
         usersLoading = false;
         usersLoadingMore = false;
+        usersError = null;
       });
+      return true;
     } on EastAppApiException catch (error) {
-      if (!mounted) return;
+      if (!mounted) return false;
       setState(() {
         usersError = error.message;
         usersLoading = false;
         usersLoadingMore = false;
       });
+      return false;
     }
   }
 
   List<String> get assigneeOptions {
     final values = <String>{
-      ...availableUsers.map((user) => user.fullName),
+      ...availableUsers
+          .map((user) => user.fullName.trim())
+          .where((value) => value.isNotEmpty),
     };
-    for (final sku in widget.skus) {
-      values.addAll(sku.assignedStaffNames.where((value) => value.trim().isNotEmpty));
-    }
-    final sorted = values.toList()..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    final sorted = values.toList()
+      ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
     return sorted;
-  }
-
-  List<String> get filterOptions => ['All', 'Unassigned', ...assigneeOptions];
-
-  List<StockSku> get filteredSkus {
-    final query = searchController.text.trim().toLowerCase();
-    return widget.skus.where((sku) {
-      final matchesSearch = query.isEmpty ||
-          sku.name.toLowerCase().contains(query) ||
-          sku.category.toLowerCase().contains(query) ||
-          sku.location.toLowerCase().contains(query) ||
-          sku.assignedStaffName.toLowerCase().contains(query);
-      final matchesUser = userFilter == 'All' ||
-          (userFilter == 'Unassigned' && sku.assignedStaffNames.isEmpty) ||
-          sku.assignedStaffNames.contains(userFilter);
-      return matchesSearch && matchesUser;
-    }).toList();
   }
 
   Future<void> openAssigneePicker(StockSku sku) async {
     final text = AppTextScope.of(context);
-    final options = assigneeOptions;
+
+    // Users are intentionally loaded only after the user explicitly opens
+    // the assignee action. Opening the Assignee page itself performs no fetch.
+    if (!usersLoaded) {
+      final loaded = await loadUsers(reset: true);
+      if (!mounted) return;
+      if (!loaded && usersError != null) {
+        showErrorSnackBar(context, usersError!);
+        return;
+      }
+    }
+
     final result = await showStockBottomSheet<List<String>>(
       context,
       maxHeightFactor: 0.72,
@@ -8857,6 +8041,7 @@ class _SkuAssigneePageState extends State<_SkuAssigneePage> {
         final temp = sku.assignedStaffNames.toSet();
         return StatefulBuilder(
           builder: (context, setSheetState) {
+            final options = assigneeOptions;
             return Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -8871,7 +8056,10 @@ class _SkuAssigneePageState extends State<_SkuAssigneePage> {
                           Expanded(
                             child: Text(
                               text.t('Assignee'),
-                              style: const TextStyle(fontSize: AppTextSize.s24, fontWeight: FontWeight.w700),
+                              style: const TextStyle(
+                                fontSize: AppTextSize.s24,
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
                           ),
                           IconButton(
@@ -8886,7 +8074,11 @@ class _SkuAssigneePageState extends State<_SkuAssigneePage> {
                           sku.name,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: AppTextSize.s14, color: AppColours.textMuted, fontWeight: FontWeight.w700),
+                          style: const TextStyle(
+                            fontSize: AppTextSize.s14,
+                            color: AppColours.textMuted,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ),
                     ],
@@ -8896,7 +8088,10 @@ class _SkuAssigneePageState extends State<_SkuAssigneePage> {
                   child: options.isEmpty
                       ? Padding(
                           padding: const EdgeInsets.all(16),
-                          child: Text(text.t('No user available.'), style: AppTextStyles.formValue),
+                          child: Text(
+                            text.t('No user available.'),
+                            style: AppTextStyles.formValue,
+                          ),
                         )
                       : ListView(
                           shrinkWrap: true,
@@ -8933,10 +8128,16 @@ class _SkuAssigneePageState extends State<_SkuAssigneePage> {
                                       ? const SizedBox(
                                           width: 16,
                                           height: 16,
-                                          child: CircularProgressIndicator(strokeWidth: 2),
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                          ),
                                         )
                                       : const Icon(Icons.expand_more_rounded),
-                                  label: Text(usersLoadingMore ? 'Loading...' : 'Load more users'),
+                                  label: Text(
+                                    usersLoadingMore
+                                        ? text.t('Loading...')
+                                        : text.t('Load more users'),
+                                  ),
                                 ),
                               ),
                           ],
@@ -8950,7 +8151,8 @@ class _SkuAssigneePageState extends State<_SkuAssigneePage> {
                         child: PrimaryButton(
                           text: text.t('Clear'),
                           outlined: true,
-                          onPressed: () => Navigator.of(sheetContext).pop(<String>[]),
+                          onPressed: () =>
+                              Navigator.of(sheetContext).pop(<String>[]),
                         ),
                       ),
                       const SizedBox(width: 10),
@@ -8958,7 +8160,8 @@ class _SkuAssigneePageState extends State<_SkuAssigneePage> {
                         child: PrimaryButton(
                           text: text.t('Save'),
                           icon: Icons.save_outlined,
-                          onPressed: () => Navigator.of(sheetContext).pop(temp.toList()),
+                          onPressed: () =>
+                              Navigator.of(sheetContext).pop(temp.toList()),
                         ),
                       ),
                     ],
@@ -8971,6 +8174,7 @@ class _SkuAssigneePageState extends State<_SkuAssigneePage> {
       },
     );
     if (result == null || !mounted) return;
+
     final confirmed = await confirmDataChange(
       context,
       action: 'Update SKU Assignees?',
@@ -8978,91 +8182,173 @@ class _SkuAssigneePageState extends State<_SkuAssigneePage> {
     );
     if (!confirmed || !mounted) return;
 
+    final updatedSku = sku.copyWith(assignedStaffNames: result);
     final saved = await runStockRequest(
       context,
-      () => widget.onUpdateSku(
-        sku.copyWith(assignedStaffNames: result),
-      ),
+      () => widget.onUpdateSku(updatedSku),
     );
     if (!saved || !mounted) return;
+
+    final stillMatches = assignmentFilter == 'Assigned'
+        ? updatedSku.assignedStaffNames.isNotEmpty
+        : updatedSku.assignedStaffNames.isEmpty;
+    setState(() {
+      final index = loadedSkus.indexWhere((item) => item.id == sku.id);
+      if (index >= 0) {
+        if (stillMatches) {
+          loadedSkus[index] = updatedSku;
+        } else {
+          loadedSkus.removeAt(index);
+          if (totalSkus > 0) totalSkus -= 1;
+        }
+      }
+    });
     showSuccessSnackBar(context, text.t('Assignee updated'));
   }
 
   @override
   Widget build(BuildContext context) {
     final text = AppTextScope.of(context);
-    final skus = filteredSkus;
-    final assignedCount = widget.skus.where((sku) => sku.assignedStaffNames.isNotEmpty).length;
-    final unassignedCount = widget.skus.length - assignedCount;
-    final filters = filterOptions;
 
     return _PageScaffold(
       title: text.t('Assignee'),
-      subtitle: text.t('Assign SKU to user.'),
+      subtitle: text.t('Load Assigned or Unassigned SKU only when needed.'),
       onBack: widget.onBack,
       children: [
-        if (usersLoading)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 20),
-            child: Center(child: CircularProgressIndicator()),
-          )
-        else if (usersError != null)
-          WhiteCard(
-            child: Row(
-              children: [
-                const Icon(Icons.error_outline_rounded, color: AppColours.red),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    usersError!,
-                    style: const TextStyle(
-                      color: AppColours.red,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
+        DropdownButtonFormField<String>(
+          initialValue: assignmentFilter,
+          isExpanded: true,
+          decoration: _inputDecoration(text.t('Assignment status')),
+          items: const ['Assigned', 'Unassigned']
+              .map(
+                (value) => DropdownMenuItem(
+                  value: value,
+                  child: Text(text.t(value)),
                 ),
-                TextButton(
-                  onPressed: () => loadUsers(reset: true),
-                  child: const Text('Retry'),
-                ),
-              ],
-            ),
-          ),
-        Row(
-          children: [
-            Expanded(child: _MiniMetric(label: text.t('Assigned'), value: '$assignedCount', icon: Icons.assignment_ind_outlined)),
-            const SizedBox(width: 10),
-            Expanded(child: _MiniMetric(label: text.t('Unassigned'), value: '$unassignedCount', icon: Icons.person_off_outlined, danger: unassignedCount > 0)),
-          ],
+              )
+              .toList(),
+          onChanged: (value) {
+            if (value == null || value == assignmentFilter) return;
+            setState(() => assignmentFilter = value);
+            _clearLoadedResults();
+          },
         ),
         const SizedBox(height: 12),
         TextField(
           controller: searchController,
           style: AppTextStyles.formValue,
-          onChanged: (_) => setState(() {}),
-          decoration: _inputDecoration(text.t('Search SKU or user')).copyWith(prefixIcon: const Icon(Icons.search_rounded)),
+          onChanged: (_) => _clearLoadedResults(),
+          onSubmitted: (_) {},
+          textInputAction: TextInputAction.search,
+          decoration: _inputDecoration(text.t('Search SKU (optional)')).copyWith(
+            prefixIcon: const Icon(Icons.search_rounded),
+          ),
         ),
         const SizedBox(height: 12),
-        DropdownButtonFormField<String>(
-          initialValue: filters.contains(userFilter) ? userFilter : 'All',
-          isExpanded: true,
-          decoration: _inputDecoration(text.t('Filter by assignee')),
-          items: filters.map((value) => DropdownMenuItem(value: value, child: Text(text.t(value)))).toList(),
-          onChanged: (value) => setState(() => userFilter = value ?? 'All'),
+        PrimaryButton(
+          text: text.t('Load'),
+          icon: Icons.download_rounded,
+          onPressed: skusLoading ? null : () => loadSkus(reset: true),
         ),
         const SizedBox(height: 14),
-        if (skus.isEmpty)
-          WhiteCard(child: Text(text.t('No SKU matches the selected filters.'), style: const TextStyle(fontSize: AppTextSize.s16, fontWeight: FontWeight.w700)))
-        else
+        if (skusLoading)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 24),
+            child: Center(child: CircularProgressIndicator()),
+          )
+        else if (skusError != null)
+          WhiteCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.error_outline_rounded,
+                      color: AppColours.red,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        skusError!,
+                        style: const TextStyle(
+                          color: AppColours.red,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                PrimaryButton(
+                  text: text.t('Retry'),
+                  outlined: true,
+                  onPressed: () => loadSkus(reset: true),
+                ),
+              ],
+            ),
+          )
+        else if (!hasLoaded)
+          WhiteCard(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.touch_app_outlined, color: AppColours.blue),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    text.t(
+                      'Nothing is loaded by default. Select Assigned or Unassigned, then press Load.',
+                    ),
+                    style: const TextStyle(
+                      fontSize: AppTextSize.s14,
+                      fontWeight: FontWeight.w600,
+                      color: AppColours.textMuted,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          )
+        else if (loadedSkus.isEmpty)
+          WhiteCard(
+            child: Text(
+              text.t('No SKU matches the selected criteria.'),
+              style: const TextStyle(
+                fontSize: AppTextSize.s16,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          )
+        else ...[
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              '${text.t('Results')}: $totalSkus',
+              style: const TextStyle(
+                fontSize: AppTextSize.s13,
+                fontWeight: FontWeight.w700,
+                color: AppColours.textMuted,
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
           WhiteCard(
             padding: EdgeInsets.zero,
             child: Column(
-              children: skus.map((sku) {
+              children: loadedSkus.map((sku) {
                 final currentAssignee = sku.assignedStaffName;
                 final selectedCount = sku.assignedStaffNames.length;
                 return Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: AppColours.border))),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  decoration: const BoxDecoration(
+                    border: Border(
+                      bottom: BorderSide(color: AppColours.border),
+                    ),
+                  ),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
@@ -9073,11 +8359,37 @@ class _SkuAssigneePageState extends State<_SkuAssigneePage> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text(sku.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: AppTextSize.s16, fontWeight: FontWeight.w700)),
+                            Text(
+                              sku.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: AppTextSize.s16,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
                             const SizedBox(height: 2),
-                            Text('${sku.category} · ${sku.location}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: AppTextSize.s13, color: AppColours.textMuted, fontWeight: FontWeight.w600)),
+                            Text(
+                              '${sku.category} · ${sku.location}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: AppTextSize.s13,
+                                color: AppColours.textMuted,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
                             const SizedBox(height: 2),
-                            Text(currentAssignee, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: AppTextSize.s12, color: AppColours.textMuted, fontWeight: FontWeight.w700)),
+                            Text(
+                              currentAssignee,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: AppTextSize.s12,
+                                color: AppColours.textMuted,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -9087,10 +8399,19 @@ class _SkuAssigneePageState extends State<_SkuAssigneePage> {
                         child: OutlinedButton.icon(
                           onPressed: () => openAssigneePicker(sku),
                           icon: const Icon(Icons.group_add_outlined, size: 18),
-                          label: Text(selectedCount == 0 ? text.t('Assign') : '$selectedCount ${text.t('user')}'),
+                          label: Text(
+                            selectedCount == 0
+                                ? text.t('Assign')
+                                : '$selectedCount ${text.t('user')}',
+                          ),
                           style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 10,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                           ),
                         ),
                       ),
@@ -9100,6 +8421,19 @@ class _SkuAssigneePageState extends State<_SkuAssigneePage> {
               }).toList(),
             ),
           ),
+          if (!skusLastPage) ...[
+            const SizedBox(height: 12),
+            PrimaryButton(
+              text: skusLoadingMore
+                  ? text.t('Loading...')
+                  : text.t('Load more'),
+              outlined: true,
+              icon: Icons.expand_more_rounded,
+              onPressed:
+                  skusLoadingMore ? null : () => loadSkus(reset: false),
+            ),
+          ],
+        ],
       ],
     );
   }

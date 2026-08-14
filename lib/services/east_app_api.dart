@@ -959,253 +959,42 @@ class EastAppApi {
 
   Future<EastAppAttendanceEvent> createAttendanceEvent({
     required String clientEventId,
-    required String eventType,
     required DateTime deviceCapturedAt,
     required double latitude,
     required double longitude,
     required double accuracyMeters,
-    required bool cameraCaptureValid,
-    required bool faceValid,
-    required int faceCount,
-    required int faceAttemptCount,
-    required bool faceVerificationBypassed,
-    double? faceBoxWidth,
-    double? faceBoxHeight,
-    double? faceYaw,
-    double? faceRoll,
-    double? facePitch,
-    required bool qrCheckpointValid,
+    required String qrPayload,
     required String devicePlatform,
     String? deviceOsVersion,
     required String appVersion,
-    required String validationMethod,
   }) async {
     final body = await _requestJson(
       'POST',
       '/api/v1/attendance/events',
       body: {
         'clientEventId': clientEventId,
-        'eventType': eventType,
         'deviceCapturedAt': deviceCapturedAt.toUtc().toIso8601String(),
         'latitude': latitude,
         'longitude': longitude,
         'accuracyMeters': accuracyMeters,
-        'cameraCaptureValid': cameraCaptureValid,
-        'faceValid': faceValid,
-        'faceCount': faceCount,
-        'faceAttemptCount': faceAttemptCount,
-        'faceVerificationBypassed': faceVerificationBypassed,
-        'faceBoxWidth': faceBoxWidth,
-        'faceBoxHeight': faceBoxHeight,
-        'faceYaw': faceYaw,
-        'faceRoll': faceRoll,
-        'facePitch': facePitch,
-        'qrCheckpointValid': qrCheckpointValid,
+        'qrPayload': qrPayload,
         'devicePlatform': devicePlatform,
         'deviceOsVersion': deviceOsVersion,
         'appVersion': appVersion,
-        'validationMethod': validationMethod,
       },
     ) as Map<String, dynamic>;
     return EastAppAttendanceEvent.fromJson(body);
   }
 
-  Future<EastAppAttendanceFaceAttempt> createAttendanceFaceAttempt({
-    required String clientAttemptId,
-    required String intendedEventType,
-    required DateTime deviceAttemptedAt,
-    required double latitude,
-    required double longitude,
-    required double accuracyMeters,
-    required String failureReason,
-    required int faceCount,
-    required int faceAttemptNumber,
-    double? faceBoxWidth,
-    double? faceBoxHeight,
-    double? faceYaw,
-    double? faceRoll,
-    double? facePitch,
-    required String devicePlatform,
-    String? deviceOsVersion,
-    required String appVersion,
-    required String validationMethod,
-    Uint8List? photoBytes,
+  Future<EastAppAttendanceQrCode> generateAttendanceQrCode({
+    required String eventType,
   }) async {
-    _beginProcessingRequest();
-    final stopwatch = Stopwatch()..start();
-    try {
-      const method = 'POST';
-      const path = '/api/v1/attendance/face-attempts';
-      final token = _token;
-      if (token == null || token.isEmpty) {
-        throw EastAppApiException(
-          statusCode: 401,
-          code: 'MISSING_SESSION',
-          message: 'Login required.',
-          method: method,
-          path: path,
-          durationMs: stopwatch.elapsedMilliseconds,
-        );
-      }
-
-      final request = http.MultipartRequest(method, Uri.parse('$baseUrl$path'))
-        ..headers['Accept'] = 'application/json'
-        ..headers['Authorization'] = 'Bearer $token'
-        ..fields.addAll({
-          'clientAttemptId': clientAttemptId,
-          'intendedEventType': intendedEventType,
-          'deviceAttemptedAt': deviceAttemptedAt.toUtc().toIso8601String(),
-          'latitude': '$latitude',
-          'longitude': '$longitude',
-          'accuracyMeters': '$accuracyMeters',
-          'failureReason': failureReason,
-          'faceCount': '$faceCount',
-          'faceAttemptNumber': '$faceAttemptNumber',
-          if (faceBoxWidth != null) 'faceBoxWidth': '$faceBoxWidth',
-          if (faceBoxHeight != null) 'faceBoxHeight': '$faceBoxHeight',
-          if (faceYaw != null) 'faceYaw': '$faceYaw',
-          if (faceRoll != null) 'faceRoll': '$faceRoll',
-          if (facePitch != null) 'facePitch': '$facePitch',
-          'devicePlatform': devicePlatform,
-          if (deviceOsVersion != null && deviceOsVersion.trim().isNotEmpty)
-            'deviceOsVersion': deviceOsVersion.trim(),
-          'appVersion': appVersion,
-          'validationMethod': validationMethod,
-        });
-      if (photoBytes != null && photoBytes.isNotEmpty) {
-        request.files.add(http.MultipartFile.fromBytes(
-          'photo',
-          photoBytes,
-          filename: 'failed-face-attempt.jpg',
-        ));
-      }
-
-      late http.Response response;
-      try {
-        final streamed = await _client.send(request).timeout(_requestTimeout);
-        response = await http.Response.fromStream(streamed);
-      } on TimeoutException {
-        final error = const EastAppApiException(
-          statusCode: null,
-          code: 'REQUEST_TIMEOUT',
-          message: 'The application server did not respond within 15 seconds.',
-          method: method,
-          path: path,
-        );
-        _reportApiError(error);
-        throw error;
-      } on http.ClientException catch (clientError) {
-        final error = EastAppApiException(
-          statusCode: null,
-          code: 'NETWORK_ERROR',
-          message: clientError.message,
-          method: method,
-          path: path,
-        );
-        _reportApiError(error);
-        throw error;
-      }
-      if (response.statusCode < 200 || response.statusCode >= 300) {
-        final error = _apiException(
-          response,
-          method: method,
-          path: path,
-          durationMs: stopwatch.elapsedMilliseconds,
-        );
-        _reportApiError(error);
-        if (error.invalidatesSession) {
-          useToken(null);
-          final callback = onSessionInvalidated;
-          if (callback != null) unawaited(callback());
-        }
-        throw error;
-      }
-      final body = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
-      return EastAppAttendanceFaceAttempt.fromJson(body);
-    } finally {
-      _endProcessingRequest();
-    }
-  }
-
-  Future<EastAppPage<EastAppAttendanceFaceAttempt>> attendanceFaceAttempts({
-    required String userId,
-    required AttendanceAuditPeriod period,
-    required DateTime anchor,
-    int page = 0,
-    int size = 100,
-  }) async {
-    final query = Uri(queryParameters: {
-      'period': period.apiValue,
-      'anchor': formatIsoDate(anchor),
-      'page': '$page',
-      'size': '$size',
-    }).query;
     final body = await _requestJson(
-      'GET',
-      '/api/v1/attendance/users/$userId/face-attempts?$query',
+      'POST',
+      '/api/v1/attendance/qr-codes',
+      body: {'eventType': eventType},
     ) as Map<String, dynamic>;
-    return EastAppPage.fromJson(body, EastAppAttendanceFaceAttempt.fromJson);
-  }
-
-  Future<Uint8List> attendanceFaceAttemptPhotoBytes(String attemptId) async {
-    final stopwatch = Stopwatch()..start();
-    const method = 'GET';
-    final path = '/api/v1/attendance/face-attempts/${Uri.encodeComponent(attemptId)}/photo';
-    final token = _token;
-    if (token == null || token.isEmpty) {
-      final error = EastAppApiException(
-        statusCode: 401,
-        code: 'MISSING_SESSION',
-        message: 'Login required.',
-        method: method,
-        path: path,
-      );
-      _reportApiError(error);
-      final callback = onSessionInvalidated;
-      if (callback != null) unawaited(callback());
-      throw error;
-    }
-    late http.Response response;
-    try {
-      response = await _client.get(
-        Uri.parse('$baseUrl$path'),
-        headers: {
-          'Accept': 'image/jpeg,image/png',
-          'Authorization': 'Bearer $token',
-        },
-      ).timeout(_requestTimeout);
-    } on TimeoutException {
-      final error = EastAppApiException(
-        statusCode: null,
-        code: 'REQUEST_TIMEOUT',
-        message: 'The application server did not respond within 15 seconds.',
-        method: method,
-        path: path,
-      );
-      _reportApiError(error);
-      throw error;
-    } on http.ClientException catch (clientError) {
-      final error = EastAppApiException(
-        statusCode: null,
-        code: 'NETWORK_ERROR',
-        message: clientError.message,
-        method: method,
-        path: path,
-      );
-      _reportApiError(error);
-      throw error;
-    }
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      final error = _apiException(
-          response,
-          method: method,
-          path: path,
-          durationMs: stopwatch.elapsedMilliseconds,
-        );
-      _reportApiError(error);
-      throw error;
-    }
-    return Uint8List.fromList(response.bodyBytes);
+    return EastAppAttendanceQrCode.fromJson(body);
   }
 
   Future<EastAppAttendanceAudit> attendanceAudit({
@@ -1335,6 +1124,7 @@ class EastAppApi {
   Future<EastAppPage<StockSku>> stockSkus({
     String search = '',
     bool? active,
+    bool? assigned,
     int page = 0,
     int size = 50,
     String? tenantId,
@@ -1343,6 +1133,7 @@ class EastAppApi {
     final query = Uri(queryParameters: {
       if (search.trim().isNotEmpty) 'search': search.trim(),
       if (active != null) 'active': '$active',
+      if (assigned != null) 'assigned': '$assigned',
       'page': '$page',
       'size': '$size',
     }).query;

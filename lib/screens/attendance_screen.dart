@@ -1,15 +1,11 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
-import 'dart:ui' as ui;
 
-import 'package:camera/camera.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 import '../localization/app_text_scope.dart';
 import '../models/app_models.dart';
@@ -20,7 +16,6 @@ import '../models/points_models.dart';
 import '../models/organisation_models.dart';
 import '../services/east_app_api.dart';
 import '../theme/app_theme.dart';
-import '../utils/app_diagnostics.dart';
 import '../widgets/app_components.dart';
 import '../widgets/app_feedback.dart';
 import '../widgets/phone_number_field.dart';
@@ -94,7 +89,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   String? rolesError;
 
   EastAppAttendanceToday? todayAttendance;
-  bool attendanceLoading = true;
+  bool attendanceLoading = false;
   String? attendanceError;
   _PeoplePage page = _PeoplePage.home;
   double peopleSwipeStartX = 0;
@@ -113,16 +108,12 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   String get currentSelfUserName => widget.currentUser.fullName;
 
   @override
-  void initState() {
-    super.initState();
-    unawaited(loadTodayAttendance());
-  }
-
-  @override
   void didUpdateWidget(covariant AttendanceScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.currentUser.id != widget.currentUser.id) {
-      unawaited(loadTodayAttendance());
+      todayAttendance = null;
+      attendanceLoading = false;
+      attendanceError = null;
     }
     final couldManageBefore = oldWidget.role == UserRole.head ||
         oldWidget.role == UserRole.manager;
@@ -144,26 +135,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     }
   }
 
-  Future<void> loadTodayAttendance() async {
-    setState(() {
-      attendanceLoading = true;
-      attendanceError = null;
-    });
-    try {
-      final value = await widget.api.attendanceToday();
-      if (!mounted) return;
-      setState(() {
-        todayAttendance = value;
-        attendanceLoading = false;
-      });
-    } on EastAppApiException catch (error) {
-      if (!mounted) return;
-      setState(() {
-        attendanceError = error.message;
-        attendanceLoading = false;
-      });
-    }
-  }
 
   Future<void> loadUsers({
     bool reset = true,
@@ -401,68 +372,140 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   }
 
 
+  bool get canGenerateAttendanceQr => isOwner || isHead || isManager;
+
   void openAttendanceOptions() {
-    unawaited(_openAttendanceOptions());
-  }
-
-  Future<void> _openAttendanceOptions() async {
     AppFeedback.tap();
-    final hasAccess = await _ensureAttendanceAccess();
-    if (!hasAccess || !mounted) return;
-
-    if (attendanceLoading) {
-      showWarningSnackBar(context, 'Loading attendance status.');
-      return;
-    }
-    if (attendanceError != null) {
-      showErrorSnackBar(context, attendanceError!);
-      return;
-    }
-
-    openFaceScanSheet();
+    _showPeopleBottomSheet<void>(
+      context,
+      heightFactor: 0.58,
+      child: _AttendanceMenuSheet(
+        canGenerateQr: canGenerateAttendanceQr,
+        onCheckInOut: () {
+          Navigator.of(context).pop();
+          Future.microtask(_openAttendanceCheckInOut);
+        },
+        onQrCode: () {
+          if (!canGenerateAttendanceQr) {
+            showWarningSnackBar(
+              context,
+              'Only Owner, Head and Manager can generate attendance QR codes.',
+            );
+            return;
+          }
+          Navigator.of(context).pop();
+          Future.microtask(_openAttendanceQrGenerator);
+        },
+      ),
+    );
   }
 
-  Future<bool> _ensureAttendanceAccess() async {
-    AppDiagnostics.instance.log('Attendance permission gate started: request location permission, then request camera permission, then decide whether Attendance Verification can open');
+  Future<void> _openAttendanceCheckInOut() async {
+    AppFeedback.select();
+    setState(() {
+      attendanceLoading = true;
+      attendanceError = null;
+    });
+    try {
+      final value = await widget.api.attendanceToday();
+      if (!mounted) return;
+      setState(() {
+        todayAttendance = value;
+        attendanceLoading = false;
+      });
+      await _showPeopleBottomSheet<void>(
+        context,
+        heightFactor: 0.70,
+        child: _AttendanceCheckInOutSheet(
+          attendance: value,
+          onClockIn: value.hasClockedIn
+              ? null
+              : () => _scanAndSubmitAttendance('Clock In'),
+          onClockOut: value.hasClockedIn && !value.hasClockedOut
+              ? () => _scanAndSubmitAttendance('Clock Out')
+              : null,
+        ),
+      );
+    } on EastAppApiException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        attendanceError = error.message;
+        attendanceLoading = false;
+      });
+      showErrorSnackBar(context, error.message);
+    }
+  }
+
+  Future<void> _openAttendanceQrGenerator() async {
+    if (!canGenerateAttendanceQr) {
+      showWarningSnackBar(
+        context,
+        'Only Owner, Head and Manager can generate attendance QR codes.',
+      );
+      return;
+    }
+    await _showPeopleBottomSheet<void>(
+      context,
+      heightFactor: 0.94,
+      child: _AttendanceQrGeneratorSheet(api: widget.api),
+    );
+  }
+
+  Future<void> _scanAndSubmitAttendance(String actionLabel) async {
+    final qrPayload = await _showPeopleBottomSheet<String>(
+      context,
+      heightFactor: 0.86,
+      child: _AttendanceQrScannerSheet(actionLabel: actionLabel),
+    );
+    if (qrPayload == null || qrPayload.trim().isEmpty || !mounted) return;
 
     final locationIssue = await _checkLocationAccessForAttendance();
-    final cameraIssue = await _checkCameraAccessForAttendance();
-
-    final issues = <String>[
-      ?locationIssue,
-      ?cameraIssue,
-    ];
-
-    if (issues.isNotEmpty) {
-      AppFeedback.warning();
-      AppDiagnostics.instance.log(jsonEncode({
-        'source': 'EastApp.attendancePermissionGate.response',
-        'accepted': false,
-        'location.accepted': locationIssue == null,
-        'camera.accepted': cameraIssue == null,
-        'location.issue': locationIssue,
-        'camera.issue': cameraIssue,
-        'rule': 'request_location_then_camera_before_opening_verification',
-        'opensAttendanceVerification': false,
-      }));
-      if (mounted) _showAttendanceAccessRequired(issues);
-      return false;
+    if (!mounted) return;
+    if (locationIssue != null) {
+      _showAttendanceAccessRequired([locationIssue]);
+      return;
     }
 
-    AppDiagnostics.instance.log(jsonEncode({
-      'source': 'EastApp.attendancePermissionGate.response',
-      'accepted': true,
-      'location.accepted': true,
-      'camera.accepted': true,
-      'rule': 'request_location_then_camera_before_opening_verification',
-      'opensAttendanceVerification': true,
-    }));
-    return true;
+    try {
+      final capturedLocation = await _captureAttendanceLocation();
+      if (!mounted) return;
+      final event = await widget.api.createAttendanceEvent(
+        clientEventId: _newAttendanceClientEventId(),
+        deviceCapturedAt: DateTime.now(),
+        latitude: capturedLocation.latitude,
+        longitude: capturedLocation.longitude,
+        accuracyMeters: capturedLocation.accuracyMeters.toDouble(),
+        qrPayload: qrPayload.trim(),
+        devicePlatform: Platform.isIOS
+            ? 'IOS'
+            : Platform.isAndroid
+                ? 'ANDROID'
+                : Platform.operatingSystem.toUpperCase(),
+        deviceOsVersion: Platform.operatingSystemVersion.replaceAll('\n', ' '),
+        appVersion: 'east_app_v275',
+      );
+
+      final refreshed = await widget.api.attendanceToday();
+      if (!mounted) return;
+      setState(() => todayAttendance = refreshed);
+      Navigator.of(context).pop();
+      showSuccessSnackBar(
+        context,
+        event.eventType == 'CLOCK_OUT'
+            ? 'Clock out completed'
+            : 'Clock in completed',
+      );
+    } on _LocationCaptureException catch (error) {
+      if (!mounted) return;
+      showErrorSnackBar(context, error.message);
+    } on EastAppApiException catch (error) {
+      if (!mounted) return;
+      showErrorSnackBar(context, error.message);
+    }
   }
 
   Future<String?> _checkLocationAccessForAttendance() async {
     final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-
     var permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
@@ -480,91 +523,53 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     return null;
   }
 
-  Future<String?> _checkCameraAccessForAttendance() async {
-    CameraController? probeController;
-    try {
-      final cameras = await availableCameras();
-      if (cameras.isEmpty) {
-        return jsonEncode({
-          'source': 'camera.permissionGate.availableCameras.response',
-          'availableCameras.length': 0,
-          'availableCameras': <Object?>[],
-        });
-      }
-
-      final camera = cameras.firstWhere(
-        (item) => item.lensDirection == CameraLensDirection.front,
-        orElse: () => cameras.first,
+  Future<_CapturedAttendanceLocation> _captureAttendanceLocation() async {
+    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      throw _LocationCaptureException(
+        'Location service is off. Turn on Location Services to continue Attendance.',
       );
-      AppDiagnostics.instance.setDeviceInfo(jsonEncode({
-        'source': 'dart:io.Platform.permissionGate',
-        'operatingSystem': Platform.operatingSystem,
-        'operatingSystemVersion': Platform.operatingSystemVersion.replaceAll('\n', ' '),
-      }));
-      AppDiagnostics.instance.setCameraInfo(jsonEncode({
-        'source': 'camera.permissionGate.availableCameras.response',
-        'permissionGate.intent': 'request_camera_permission_before_opening_attendance',
-        'permissionGate.initialisesCamera': true,
-        'permissionGate.initialisesCamera.reason': 'camera plugin exposes permission through CameraController.initialize',
-        'permissionGate.resolutionPreset': 'low',
-        'availableCameras.length': cameras.length,
-        'availableCameras': cameras.map((item) => {
-              'name': item.name,
-              'lensDirection': item.lensDirection.name,
-              'sensorOrientation': item.sensorOrientation,
-            }).toList(),
-        'selectedCamera.name': camera.name,
-        'selectedCamera.lensDirection': camera.lensDirection.name,
-        'selectedCamera.sensorOrientation': camera.sensorOrientation,
-      }));
-
-      probeController = CameraController(
-        camera,
-        ResolutionPreset.low,
-        enableAudio: false,
-      );
-      await probeController.initialize();
-      AppDiagnostics.instance.setCameraInfo(jsonEncode({
-        'source': 'CameraController.initialize.permissionGate.response',
-        'permissionGate.intent': 'camera_permission_granted_before_opening_attendance',
-        'permissionGate.initialisesCamera': true,
-        'permissionGate.resolutionPreset': 'low',
-        'availableCameras.length': cameras.length,
-        'availableCameras': cameras.map((item) => {
-              'name': item.name,
-              'lensDirection': item.lensDirection.name,
-              'sensorOrientation': item.sensorOrientation,
-            }).toList(),
-        'selectedCamera.name': camera.name,
-        'selectedCamera.lensDirection': camera.lensDirection.name,
-        'selectedCamera.sensorOrientation': camera.sensorOrientation,
-        'controller.value.isInitialized': probeController.value.isInitialized,
-        'controller.value.previewSize': probeController.value.previewSize?.toString(),
-      }));
-      return null;
-    } on CameraException catch (error) {
-      return jsonEncode({
-        'source': 'CameraController.initialize.permissionGate.catch',
-        'permissionGate.intent': 'request_camera_permission_before_opening_attendance',
-        'error.runtimeType': error.runtimeType.toString(),
-        'error.code': error.code,
-        'error.description': error.description,
-      });
-    } catch (error) {
-      return jsonEncode({
-        'source': 'CameraController.initialize.permissionGate.catch',
-        'permissionGate.intent': 'request_camera_permission_before_opening_attendance',
-        'error.runtimeType': error.runtimeType.toString(),
-        'error.toString': error.toString(),
-      });
-    } finally {
-      await probeController?.dispose();
-      await Future<void>.delayed(const Duration(milliseconds: 220));
     }
+
+    final permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      throw _LocationCaptureException(
+        'Location permission is required to continue Attendance.',
+      );
+    }
+    if (permission == LocationPermission.deniedForever) {
+      throw _LocationCaptureException(
+        'Location permission is permanently denied. Open app settings and allow location access.',
+      );
+    }
+
+    Position position;
+    try {
+      position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.medium,
+          timeLimit: Duration(seconds: 8),
+        ),
+      );
+    } on TimeoutException {
+      final lastKnown = await Geolocator.getLastKnownPosition();
+      if (lastKnown == null) {
+        throw _LocationCaptureException(
+          'Unable to capture the current GPS location. Please try again.',
+        );
+      }
+      position = lastKnown;
+    }
+
+    return _CapturedAttendanceLocation(
+      latitude: position.latitude,
+      longitude: position.longitude,
+      accuracyMeters: position.accuracy.round(),
+    );
   }
 
   void _showAttendanceAccessRequired(List<String> issues) {
-    _showPeopleBottomSheet(
+    _showPeopleBottomSheet<void>(
       context,
       heightFactor: 0.48,
       child: Padding(
@@ -584,12 +589,15 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                     color: AppColours.orange.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(14),
                   ),
-                  child: const Icon(Icons.lock_person_outlined, color: AppColours.orange),
+                  child: const Icon(
+                    Icons.location_off_outlined,
+                    color: AppColours.orange,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 const Expanded(
                   child: Text(
-                    'Attendance access required',
+                    'Location access required',
                     style: TextStyle(
                       fontSize: AppTextSize.s22,
                       fontWeight: FontWeight.w800,
@@ -604,7 +612,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
             ),
             const SizedBox(height: 12),
             const Text(
-              'Camera and location are required before using Attendance.',
+              'GPS location is required for attendance and is recorded with each Check In / Out.',
               style: TextStyle(
                 fontSize: AppTextSize.s14,
                 color: AppColours.textMuted,
@@ -619,7 +627,11 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.error_outline_rounded, size: 18, color: AppColours.orange),
+                    const Icon(
+                      Icons.error_outline_rounded,
+                      size: 18,
+                      color: AppColours.orange,
+                    ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
@@ -667,61 +679,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     final timestamp = DateTime.now().microsecondsSinceEpoch;
     final random = math.Random.secure().nextInt(0x7fffffff);
     return '${widget.currentUser.id}-$timestamp-$random';
-  }
-
-  void openFaceScanSheet() {
-    final initialMode = todayAttendance?.hasClockedIn == true &&
-            todayAttendance?.hasClockedOut != true
-        ? 'Clock Out'
-        : 'Clock In';
-
-    _showPeopleBottomSheet(
-      context,
-      heightFactor: 0.94,
-      child: _FaceScanSheet(
-        api: widget.api,
-        workLocation: widget.workLocation,
-        branchName: widget.workLocation.name,
-        initialMode: initialMode,
-        onSubmit: (modeLabel, capturedLocation, submissionData) async {
-          await widget.api.createAttendanceEvent(
-            clientEventId: _newAttendanceClientEventId(),
-            eventType: modeLabel == 'Clock Out' ? 'CLOCK_OUT' : 'CLOCK_IN',
-            deviceCapturedAt: submissionData.deviceCapturedAt,
-            latitude: capturedLocation.latitude,
-            longitude: capturedLocation.longitude,
-            accuracyMeters: capturedLocation.accuracyMeters.toDouble(),
-            cameraCaptureValid: true,
-            faceValid: submissionData.faceValid,
-            faceCount: submissionData.faceCount,
-            faceAttemptCount: submissionData.faceAttemptCount,
-            faceVerificationBypassed: submissionData.faceVerificationBypassed,
-            faceBoxWidth: submissionData.faceBoxWidth,
-            faceBoxHeight: submissionData.faceBoxHeight,
-            faceYaw: submissionData.faceYaw,
-            faceRoll: submissionData.faceRoll,
-            facePitch: submissionData.facePitch,
-            qrCheckpointValid: true,
-            devicePlatform: submissionData.devicePlatform,
-            deviceOsVersion: submissionData.deviceOsVersion,
-            appVersion: 'east_app_v274',
-            validationMethod: submissionData.faceVerificationBypassed
-                ? 'FACE_DETECTION_BYPASSED_AFTER_3_ATTEMPTS'
-                : 'ML_KIT_FACE_DETECTION',
-          );
-
-          await loadTodayAttendance();
-          if (!mounted) return;
-          Navigator.of(context).pop();
-          showSuccessSnackBar(
-            context,
-            modeLabel == 'Clock Out'
-                ? 'Clock out completed'
-                : 'Clock in completed',
-          );
-        },
-      ),
-    );
   }
 
   Future<void> openUserForm() async {
@@ -935,9 +892,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
   Widget buildPeopleHome(BuildContext context) {
     final text = AppTextScope.of(context);
-    final selfCheckedIn = todayAttendance?.hasClockedIn ?? false;
-    final selfCheckedOut = todayAttendance?.hasClockedOut ?? false;
-
     return ListView(
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 24),
       children: [
@@ -962,10 +916,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
               subtitle: text.t('Clock in/out'),
               icon: Icons.work_history_outlined,
               onTap: openAttendanceOptions,
-              badgeWidget: _AttendanceProgressBadge(
-                inDone: selfCheckedIn,
-                outDone: selfCheckedOut,
-              ),
             ),
             _PeopleMenuCard(
               title: text.t('Schedule'),
@@ -1786,80 +1736,6 @@ class _PeopleRoleRow extends StatelessWidget {
   }
 }
 
-class _IosStillPhotoCandidate {
-  final int rotationQuarterTurns;
-  final bool mirror;
-
-  const _IosStillPhotoCandidate({
-    required this.rotationQuarterTurns,
-    required this.mirror,
-  });
-
-  int get normalisedQuarterTurns => rotationQuarterTurns % 4;
-
-  String get fileSuffix => 'r${normalisedQuarterTurns * 90}_${mirror ? 'mirror' : 'normal'}';
-}
-
-class _FaceScanResult {
-  final List<Face> faces;
-  final Size frameSize;
-  final Uint8List? photoBytes;
-  final String source;
-  final String rawResponse;
-
-  const _FaceScanResult({
-    required this.faces,
-    required this.frameSize,
-    required this.photoBytes,
-    required this.source,
-    required this.rawResponse,
-  });
-}
-
-class _NormalisedImageFile {
-  final File file;
-  final Uint8List bytes;
-  final Size frameSize;
-
-  const _NormalisedImageFile({
-    required this.file,
-    required this.bytes,
-    required this.frameSize,
-  });
-}
-
-class _StillPhotoByteCandidate {
-  final int rotationQuarterTurns;
-  final bool mirror;
-
-  const _StillPhotoByteCandidate({
-    required this.rotationQuarterTurns,
-    required this.mirror,
-  });
-
-  int get normalisedQuarterTurns => rotationQuarterTurns % 4;
-
-  String get label => 'r${normalisedQuarterTurns * 90}_${mirror ? 'mirror' : 'normal'}';
-}
-
-class _MlKitBitmapImage {
-  final Uint8List rgbaBytes;
-  final Uint8List pngBytes;
-  final Size frameSize;
-  final int width;
-  final int height;
-  final _StillPhotoByteCandidate candidate;
-
-  const _MlKitBitmapImage({
-    required this.rgbaBytes,
-    required this.pngBytes,
-    required this.frameSize,
-    required this.width,
-    required this.height,
-    required this.candidate,
-  });
-}
-
 class _CapturedAttendanceLocation {
   final double latitude;
   final double longitude;
@@ -1872,2281 +1748,647 @@ class _CapturedAttendanceLocation {
   });
 }
 
-class _AttendanceSubmissionData {
-  final DateTime deviceCapturedAt;
-  final bool faceValid;
-  final int faceCount;
-  final int faceAttemptCount;
-  final bool faceVerificationBypassed;
-  final double? faceBoxWidth;
-  final double? faceBoxHeight;
-  final double? faceYaw;
-  final double? faceRoll;
-  final double? facePitch;
-  final String devicePlatform;
-  final String deviceOsVersion;
-
-  const _AttendanceSubmissionData({
-    required this.deviceCapturedAt,
-    required this.faceValid,
-    required this.faceCount,
-    required this.faceAttemptCount,
-    required this.faceVerificationBypassed,
-    required this.faceBoxWidth,
-    required this.faceBoxHeight,
-    required this.faceYaw,
-    required this.faceRoll,
-    required this.facePitch,
-    required this.devicePlatform,
-    required this.deviceOsVersion,
-  });
-}
-
 class _LocationCaptureException implements Exception {
   final String message;
 
   const _LocationCaptureException(this.message);
 }
 
-class _FaceScanSheet extends StatefulWidget {
-  final EastAppApi api;
-  final WorkLocation workLocation;
-  final String branchName;
-  final String initialMode;
-  final Future<void> Function(
-    String modeLabel,
-    _CapturedAttendanceLocation capturedLocation,
-    _AttendanceSubmissionData submissionData,
-  ) onSubmit;
+class _AttendanceMenuSheet extends StatelessWidget {
+  final bool canGenerateQr;
+  final VoidCallback onCheckInOut;
+  final VoidCallback onQrCode;
 
-  const _FaceScanSheet({
-    required this.api,
-    required this.workLocation,
-    required this.branchName,
-    required this.initialMode,
-    required this.onSubmit,
+  const _AttendanceMenuSheet({
+    required this.canGenerateQr,
+    required this.onCheckInOut,
+    required this.onQrCode,
   });
 
   @override
-  State<_FaceScanSheet> createState() => _FaceScanSheetState();
-}
-
-class _FaceScanSheetState extends State<_FaceScanSheet> {
-  CameraController? cameraController;
-  FaceDetector? faceDetector;
-  CameraDescription? selectedCamera;
-  Size? latestFrameSize;
-  bool cameraReady = false;
-  bool verifying = false;
-  bool submitting = false;
-  bool facePresencePassed = false;
-  bool singleFacePassed = false;
-  bool faceSizePassed = false;
-  bool faceAnglePassed = false;
-  bool faceFramingPassed = false;
-  bool locationCaptured = false;
-  bool qrCaptured = false;
-  bool verificationReady = false;
-  bool faceVerificationBypassed = false;
-  int faceAttemptCount = 0;
-  DateTime? verifiedAt;
-  DateTime? qrCapturedAt;
-  int detectedFaceCount = 0;
-  double? detectedFaceBoxWidth;
-  double? detectedFaceBoxHeight;
-  double? detectedFaceYaw;
-  double? detectedFaceRoll;
-  double? detectedFacePitch;
-  String faceBoxText = '-';
-  String faceAngleText = '-';
-  String faceFramingText = '-';
-  String qrCheckpointText = '-';
-  String gpsAddressText = 'Location not captured';
-  String gpsCoordinatesText = '-';
-  String gpsAccuracyText = '-';
-  String distanceStatusText = 'Calculated after submission';
-  _CapturedAttendanceLocation? capturedLocation;
-  Uint8List? capturedFaceBytes;
-  Uint8List? capturedStillPreviewBytes;
-  String? selectedMode;
-  String statusText = 'Initialising camera...';
-  String? errorText;
-  String? lastCameraFrameInfo;
-
-  // Raw ML Kit detector options.
-  static const FaceDetectorMode _mlKitPerformanceMode = FaceDetectorMode.accurate;
-  static const bool _mlKitEnableClassification = false;
-  static const bool _mlKitEnableLandmarks = false;
-  static const bool _mlKitEnableContours = false;
-  static const double _mlKitMinFaceSize = 0.02;
-
-  // User-friendly face verification tolerance.
-  static const double _minimumFaceAbsolutePx = 64.0;
-  static const double _minimumFaceShortSideFactor = 0.12;
-  static const double _advisoryHeadYaw = 50.0;
-  static const double _advisoryHeadRoll = 50.0;
-  static const double _advisoryHeadPitch = 50.0;
-
-  @override
-  void initState() {
-    super.initState();
-    selectedMode = widget.initialMode;
-    initialiseFaceDetector();
-  }
-
-  @override
-  void dispose() {
-    cameraController?.dispose();
-    faceDetector?.close();
-    super.dispose();
-  }
-
-  Future<void> initialiseFaceDetector() async {
-    AppDiagnostics.instance.setMlKitSettings(_rawJson(_mlKitSettingsRaw('FaceDetectorOptions.initialise')));
-    faceDetector = FaceDetector(
-      options: FaceDetectorOptions(
-        performanceMode: _mlKitPerformanceMode,
-        enableClassification: _mlKitEnableClassification,
-        enableLandmarks: _mlKitEnableLandmarks,
-        enableContours: _mlKitEnableContours,
-        minFaceSize: _mlKitMinFaceSize,
-      ),
-    );
-
-    try {
-      final cameras = await availableCameras();
-      if (cameras.isEmpty) {
-        throw CameraException('NoCamera', 'No camera found on this device.');
-      }
-
-      selectedCamera = cameras.firstWhere(
-        (camera) => camera.lensDirection == CameraLensDirection.front,
-        orElse: () => cameras.first,
-      );
-
-      final controller = CameraController(
-        selectedCamera!,
-        ResolutionPreset.medium,
-        enableAudio: false,
-      );
-      cameraController = controller;
-      await controller.initialize();
-      var zoomText = 'default';
-      try {
-        final minZoom = await controller.getMinZoomLevel();
-        await controller.setZoomLevel(minZoom);
-        zoomText = minZoom.toStringAsFixed(2);
-      } catch (error) {
-        AppDiagnostics.instance.log(_rawJson({'source': 'CameraController.getMinZoomLevel/setZoomLevel', 'error': _errorRaw(error)}));
-      }
-      final previewSize = controller.value.previewSize;
-      final previewText = previewSize == null
-          ? 'unknown'
-          : '${previewSize.width.round()}x${previewSize.height.round()}';
-      AppDiagnostics.instance.setDeviceInfo(_rawJson({
-        'source': 'dart:io.Platform',
-        'operatingSystem': Platform.operatingSystem,
-        'operatingSystemVersion': Platform.operatingSystemVersion,
-        'defaultTargetPlatform': defaultTargetPlatform.name,
-      }));
-      AppDiagnostics.instance.setCameraInfo(_rawJson({
-        'source': 'camera.availableCameras.CameraController.initialize.response',
-        'availableCameras.length': cameras.length,
-        'availableCameras': _camerasRaw(cameras),
-        'selectedCamera.name': selectedCamera!.name,
-        'selectedCamera.lensDirection': selectedCamera!.lensDirection.name,
-        'selectedCamera.sensorOrientation': selectedCamera!.sensorOrientation,
-        'resolutionPreset': 'medium',
-        'zoomLevel': zoomText,
-        'controller.value.isInitialized': controller.value.isInitialized,
-        'controller.value.previewSize': previewText,
-      }));
-
-      if (!mounted) return;
-      setState(() {
-        cameraReady = true;
-        statusText = 'Select action, then capture face';
-        errorText = null;
-      });
-    } on CameraException catch (error) {
-      final rawError = _rawJson({'source': 'CameraController.initialize.catch', 'error': _errorRaw(error)});
-      AppDiagnostics.instance.log(rawError);
-      AppDiagnostics.instance.setCameraInfo(rawError);
-      if (!mounted) return;
-      setState(() {
-        cameraReady = false;
-        statusText = 'Camera unavailable';
-        errorText = rawError;
-      });
-    } catch (error) {
-      final rawError = _rawJson({'source': 'initialiseFaceDetector.catch', 'error': _errorRaw(error)});
-      AppDiagnostics.instance.log(rawError);
-      AppDiagnostics.instance.setCameraInfo(rawError);
-      if (!mounted) return;
-      setState(() {
-        cameraReady = false;
-        statusText = 'Camera unavailable';
-        errorText = rawError;
-      });
-    }
-  }
-
-  void resetFaceChecks() {
-    facePresencePassed = false;
-    singleFacePassed = false;
-    faceSizePassed = false;
-    faceAnglePassed = false;
-    faceFramingPassed = false;
-    locationCaptured = false;
-    verificationReady = false;
-    faceVerificationBypassed = false;
-    verifiedAt = null;
-    detectedFaceCount = 0;
-    detectedFaceBoxWidth = null;
-    detectedFaceBoxHeight = null;
-    detectedFaceYaw = null;
-    detectedFaceRoll = null;
-    detectedFacePitch = null;
-    faceBoxText = '-';
-    faceAngleText = '-';
-    faceFramingText = '-';
-    gpsAddressText = 'Location not captured';
-    gpsCoordinatesText = '-';
-    gpsAccuracyText = '-';
-    distanceStatusText = 'Calculated after submission';
-    capturedLocation = null;
-    capturedFaceBytes = null;
-    capturedStillPreviewBytes = null;
-  }
-
-  Future<void> verifyFacePresence() async {
-    final controller = cameraController;
-    final detector = faceDetector;
-    if (controller == null || detector == null || !controller.value.isInitialized) {
-      AppFeedback.warning();
-      setState(() {
-        statusText = 'Camera not ready';
-        errorText = 'Wait for camera initialisation, then try again.';
-      });
-      return;
-    }
-
-    if (verifying || submitting) return;
-    if (faceAttemptCount >= 3 && faceVerificationBypassed) {
-      AppFeedback.warning();
-      setState(() {
-        statusText = 'Face verification already completed';
-        errorText = 'Three attempts were unsuccessful. Attendance may continue and will be flagged in the audit.';
-      });
-      return;
-    }
-
-    AppFeedback.tap();
-    setState(() {
-      verifying = true;
-      resetFaceChecks();
-      faceAttemptCount += 1;
-      statusText = 'Capturing camera photo · attempt $faceAttemptCount of 3...';
-      errorText = null;
-    });
-
-    try {
-      final scanResult = await _captureStillFaceScan(controller, detector);
-      if (!mounted) return;
-
-      final faces = scanResult.faces;
-      detectedFaceCount = faces.length;
-      if (faces.isEmpty) {
-        await _recordFaceAttemptFailure(
-          userMessage: 'No face was detected.',
-          diagnosticMessage: scanResult.rawResponse,
-          photoBytes: scanResult.photoBytes,
-        );
-        return;
-      }
-
-      setState(() => facePresencePassed = true);
-
-      if (faces.length > 1) {
-        await _recordFaceAttemptFailure(
-          userMessage: 'More than one face was detected.',
-          diagnosticMessage: scanResult.rawResponse,
-          photoBytes: scanResult.photoBytes,
-        );
-        return;
-      }
-
-      setState(() => singleFacePassed = true);
-
-      final face = faces.first;
-      final faceWidth = face.boundingBox.width.abs();
-      final faceHeight = face.boundingBox.height.abs();
-      final frameShortSide = math.min(scanResult.frameSize.width, scanResult.frameSize.height);
-      final minimumFaceSide = math.max(_minimumFaceAbsolutePx, frameShortSide * _minimumFaceShortSideFactor);
-      final faceRatio = faceWidth / math.max(faceHeight, 1.0);
-      final headYaw = (face.headEulerAngleY ?? 0).abs();
-      final headRoll = (face.headEulerAngleZ ?? 0).abs();
-      final headPitch = (face.headEulerAngleX ?? 0).abs();
-
-      setState(() {
-        detectedFaceCount = 1;
-        detectedFaceBoxWidth = faceWidth;
-        detectedFaceBoxHeight = faceHeight;
-        detectedFaceYaw = headYaw;
-        detectedFaceRoll = headRoll;
-        detectedFacePitch = headPitch;
-        faceBoxText = '${faceWidth.round()} × ${faceHeight.round()} px';
-        faceAngleText = 'Yaw ${headYaw.toStringAsFixed(0)}°, roll ${headRoll.toStringAsFixed(0)}°, pitch ${headPitch.toStringAsFixed(0)}°';
-      });
-
-      if (faceWidth < minimumFaceSide || faceHeight < minimumFaceSide) {
-        final raw = _rawJson({
-          'source': 'EastApp.faceSizeValidation.response',
-          'accepted': false,
-          'reason': 'face_box_smaller_than_minimum_side',
-          'face.boundingBox.width': faceWidth,
-          'face.boundingBox.height': faceHeight,
-          'faceRatio': faceRatio,
-          'accepted.minimumFaceSide': minimumFaceSide,
-          'accepted.rule': 'minimum_side_only',
-        });
-        await _recordFaceAttemptFailure(
-          userMessage: 'Move closer so the face is clearer.',
-          diagnosticMessage: raw,
-          photoBytes: scanResult.photoBytes,
-        );
-        return;
-      }
-
-      AppDiagnostics.instance.addFaceScanTrace(_rawJson({
-        'source': 'EastApp.faceSizeValidation.response',
-        'accepted': true,
-        'reason': 'face_box_meets_minimum_side',
-        'face.boundingBox.width': faceWidth,
-        'face.boundingBox.height': faceHeight,
-        'faceRatio': faceRatio,
-        'accepted.minimumFaceSide': minimumFaceSide,
-        'accepted.rule': 'minimum_side_only',
-        'removed.blockingRule': 'face_ratio_out_of_range',
-      }));
-
-      AppDiagnostics.instance.addFaceScanTrace(_rawJson({
-        'source': 'EastApp.faceAngleValidation.response',
-        'accepted': true,
-        'reason': 'angle_is_advisory_only',
-        'headEulerAngleY.abs.yaw': headYaw,
-        'headEulerAngleZ.abs.roll': headRoll,
-        'headEulerAngleX.abs.pitch': headPitch,
-        'advisory.maxHeadYaw': _advisoryHeadYaw,
-        'advisory.maxHeadRoll': _advisoryHeadRoll,
-        'advisory.maxHeadPitch': _advisoryHeadPitch,
-      }));
-
-      var photoBytes = scanResult.photoBytes;
-      final acceptedStillPreviewBytes = photoBytes;
-      final faceThumbnailBytes = await _cropFaceThumbnailPng(photoBytes, face, scanResult.frameSize);
-      if (faceThumbnailBytes != null) {
-        photoBytes = faceThumbnailBytes;
-      }
-
-      setState(() {
-        faceSizePassed = true;
-        faceFramingPassed = true;
-        faceAnglePassed = true;
-        faceVerificationBypassed = false;
-        faceFramingText = 'Visual guide only · face box accepted';
-        capturedFaceBytes = photoBytes;
-        capturedStillPreviewBytes = acceptedStillPreviewBytes;
-        statusText = 'Face accepted. Capturing GPS location...';
-      });
-
-      await WidgetsBinding.instance.endOfFrame;
-      final locationResult = await _captureAttendanceLocation();
-      if (!mounted) return;
-
-      final now = DateTime.now();
-      setState(() {
-        locationCaptured = true;
-        verificationReady = true;
-        verifiedAt = now;
-        capturedLocation = locationResult;
-        gpsAddressText = 'Resolved by the server after submission';
-        gpsCoordinatesText = '${locationResult.latitude.toStringAsFixed(6)}, ${locationResult.longitude.toStringAsFixed(6)}';
-        gpsAccuracyText = '±${locationResult.accuracyMeters} m';
-        distanceStatusText = 'Calculated by the server from ${widget.workLocation.name}';
-        verifying = false;
-        statusText = 'Face and GPS captured. Capture QR, then submit.';
-      });
-      AppDiagnostics.instance.log(_rawJson({
-        'source': 'EastApp.faceValidation',
-        'accepted': true,
-        'attempt': faceAttemptCount,
-        'scanResult.source': scanResult.source,
-        'faces.length': faces.length,
-        'frame.width': scanResult.frameSize.width.round(),
-        'frame.height': scanResult.frameSize.height.round(),
-        'face.boundingBox.width': faceWidth.round(),
-        'face.boundingBox.height': faceHeight.round(),
-      }));
-      AppFeedback.success();
-    } on _LocationCaptureException catch (error) {
-      if (!mounted) return;
-      _failValidation(error.message);
-    } on CameraException catch (error) {
-      final rawError = _rawJson({'source': 'CameraController.takePicture.catch', 'error': _errorRaw(error)});
-      AppDiagnostics.instance.log(rawError);
-      if (!mounted) return;
-      setState(() {
-        verifying = false;
-        faceAttemptCount = math.max(0, faceAttemptCount - 1);
-        statusText = 'Camera capture failed';
-        errorText = 'The camera could not capture a photo. Try again.';
-      });
-    } catch (error) {
-      final rawError = _rawJson({'source': 'FaceDetector.processImage.catch', 'error': _errorRaw(error)});
-      AppDiagnostics.instance.log(rawError);
-      AppDiagnostics.instance.addFaceScanTrace(rawError);
-      if (!mounted) return;
-      await _recordFaceAttemptFailure(
-        userMessage: 'Face detection could not complete on this device.',
-        diagnosticMessage: rawError,
-      );
-    }
-  }
-
-  Future<void> _recordFaceAttemptFailure({
-    required String userMessage,
-    required String diagnosticMessage,
-    Uint8List? photoBytes,
-  }) async {
-    AppFeedback.warning();
-    final attemptedAt = DateTime.now();
-    AppDiagnostics.instance.log(_rawJson({
-      'source': 'EastApp.faceAttempt.failed',
-      'attempt': faceAttemptCount,
-      'maximumAttempts': 3,
-      'willBypass': faceAttemptCount >= 3,
-      'diagnostic': diagnosticMessage,
-    }));
-
-    if (!mounted) return;
-    setState(() {
-      capturedStillPreviewBytes = photoBytes;
-      capturedFaceBytes = null;
-      statusText = 'Face verification failed. Capturing GPS location...';
-      errorText = userMessage;
-    });
-
-    _CapturedAttendanceLocation locationResult;
-    try {
-      locationResult = await _captureAttendanceLocation();
-    } on _LocationCaptureException catch (error) {
-      if (!mounted) return;
-      setState(() {
-        verifying = false;
-        verificationReady = false;
-        locationCaptured = false;
-        statusText = 'Face verification and GPS capture failed';
-        errorText = '$userMessage ${error.message}';
-      });
-      return;
-    } on TimeoutException {
-      if (!mounted) return;
-      setState(() {
-        verifying = false;
-        verificationReady = false;
-        locationCaptured = false;
-        statusText = 'Face verification failed · GPS timed out';
-        errorText = '$userMessage GPS location could not be captured. Try again.';
-      });
-      return;
-    }
-
-    if (!mounted) return;
-    setState(() {
-      locationCaptured = true;
-      capturedLocation = locationResult;
-      gpsAddressText = 'Resolved by the server for the failed attempt';
-      gpsCoordinatesText = '${locationResult.latitude.toStringAsFixed(6)}, ${locationResult.longitude.toStringAsFixed(6)}';
-      gpsAccuracyText = '±${locationResult.accuracyMeters} m';
-      distanceStatusText = 'Calculated by the server from ${widget.workLocation.name}';
-    });
-
-    String? auditSaveError;
-    try {
-      final timestamp = DateTime.now().microsecondsSinceEpoch;
-      final random = math.Random.secure().nextInt(0x7fffffff);
-      await widget.api.createAttendanceFaceAttempt(
-        clientAttemptId: 'face-attempt-$timestamp-$random',
-        intendedEventType: selectedMode == 'Clock Out' ? 'CLOCK_OUT' : 'CLOCK_IN',
-        deviceAttemptedAt: attemptedAt,
-        latitude: locationResult.latitude,
-        longitude: locationResult.longitude,
-        accuracyMeters: locationResult.accuracyMeters.toDouble(),
-        failureReason: userMessage,
-        faceCount: detectedFaceCount,
-        faceAttemptNumber: faceAttemptCount,
-        faceBoxWidth: detectedFaceBoxWidth,
-        faceBoxHeight: detectedFaceBoxHeight,
-        faceYaw: detectedFaceYaw,
-        faceRoll: detectedFaceRoll,
-        facePitch: detectedFacePitch,
-        devicePlatform: Platform.isIOS
-            ? 'IOS'
-            : Platform.isAndroid
-                ? 'ANDROID'
-                : Platform.operatingSystem.toUpperCase(),
-        deviceOsVersion: Platform.operatingSystemVersion.replaceAll('\n', ' '),
-        appVersion: 'east_app_v274',
-        validationMethod: 'ML_KIT_FACE_DETECTION_FAILED',
-        photoBytes: photoBytes,
-      );
-    } on EastAppApiException catch (error) {
-      auditSaveError = error.message;
-      AppDiagnostics.instance.log(_rawJson({
-        'source': 'EastApp.faceAttempt.auditSave.failed',
-        'attempt': faceAttemptCount,
-        'error': error.technicalDetails,
-      }));
-    }
-
-    if (!mounted) return;
-    if (faceAttemptCount < 3) {
-      setState(() {
-        verifying = false;
-        verificationReady = false;
-        statusText = 'Face failed · GPS captured · attempt $faceAttemptCount of 3';
-        errorText = auditSaveError == null
-            ? '$userMessage Location was captured and recorded. Try again.'
-            : '$userMessage Location was captured, but the failed-attempt audit could not be saved: $auditSaveError';
-      });
-      return;
-    }
-
-    final now = DateTime.now();
-    setState(() {
-      faceVerificationBypassed = true;
-      locationCaptured = true;
-      verificationReady = true;
-      verifiedAt = now;
-      capturedLocation = locationResult;
-      verifying = false;
-      statusText = 'Face bypassed after 3 attempts. GPS captured. Capture QR, then submit.';
-      errorText = auditSaveError == null
-          ? 'Face verification did not pass after three attempts. The failed attempt and location were recorded for audit.'
-          : 'Face verification did not pass. GPS was captured, but the failed-attempt audit could not be saved: $auditSaveError';
-    });
-  }
-
-  Future<_CapturedAttendanceLocation> _captureAttendanceLocation() async {
-    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      throw _LocationCaptureException('Location service is off. Turn on Location Services to continue Attendance.');
-    }
-
-    final permission = await Geolocator.checkPermission();
-    AppDiagnostics.instance.log(_rawJson({
-      'source': 'EastApp.locationCapture.permissionCheckOnly',
-      'permission': permission.name,
-      'requestPermission.insideVerificationSheet': false,
-      'reason': 'permissions are requested only before opening Attendance Verification',
-    }));
-
-    if (permission == LocationPermission.denied) {
-      throw _LocationCaptureException('Location permission was not granted before Attendance Verification opened. Close Attendance and tap Attendance again.');
-    }
-
-    if (permission == LocationPermission.deniedForever) {
-      throw _LocationCaptureException('Location permission is permanently denied. Open app settings and allow location access to continue Attendance.');
-    }
-
-    Position position;
-    var locationSource = 'Geolocator.getCurrentPosition';
-    try {
-      position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.medium,
-          timeLimit: Duration(seconds: 6),
-        ),
-      );
-    } on TimeoutException catch (error) {
-      final lastKnownPosition = await Geolocator.getLastKnownPosition();
-      if (lastKnownPosition == null) {
-        AppDiagnostics.instance.log(_rawJson({
-          'source': 'EastApp.locationCapture.timeout',
-          'error.runtimeType': error.runtimeType.toString(),
-          'timeout.seconds': 6,
-          'fallback': 'Geolocator.getLastKnownPosition',
-          'fallback.result': null,
-        }));
-        rethrow;
-      }
-      position = lastKnownPosition;
-      locationSource = 'Geolocator.getLastKnownPosition.afterTimeout';
-      AppDiagnostics.instance.log(_rawJson({
-        'source': 'EastApp.locationCapture.fallback',
-        'reason': 'current_position_timeout',
-        'timeout.seconds': 6,
-        'fallback': locationSource,
-        'position.latitude': position.latitude,
-        'position.longitude': position.longitude,
-        'position.accuracy': position.accuracy,
-      }));
-    }
-
-    AppDiagnostics.instance.log(_rawJson({
-      'source': 'EastApp.locationCapture.response',
-      'location.source': locationSource,
-      'accuracy.requested': 'medium',
-      'timeout.seconds': 6,
-      'position.latitude': position.latitude,
-      'position.longitude': position.longitude,
-      'position.accuracy': position.accuracy,
-    }));
-
-    return _CapturedAttendanceLocation(
-      latitude: position.latitude,
-      longitude: position.longitude,
-      accuracyMeters: position.accuracy.round(),
-    );
-  }
-
-  Future<_FaceScanResult> _captureStillFaceScan(CameraController controller, FaceDetector detector) async {
-    final tempFiles = <File>[];
-    AppDiagnostics.instance.resetFaceScanTrace();
-    final mlKitSettings = _mlKitSettingsRaw('FaceDetectorOptions.capture');
-    AppDiagnostics.instance.setMlKitSettings(_rawJson(mlKitSettings));
-    AppDiagnostics.instance.addFaceScanTrace(_rawJson(mlKitSettings));
-
-    if (mounted) {
-      setState(() => statusText = 'Capturing camera photo...');
-    }
-
-    final capture = await controller.takePicture();
-    final tempFile = File(capture.path);
-    tempFiles.add(tempFile);
-    final photoBytes = await tempFile.readAsBytes();
-    if (mounted) {
-      setState(() => statusText = 'Processing captured photo...');
-    }
-    final frameSize = await _decodeImageSize(photoBytes);
-    latestFrameSize = frameSize;
-    lastCameraFrameInfo = 'still_capture_jpeg, size=${frameSize.width.round()}x${frameSize.height.round()}';
-    AppDiagnostics.instance.addFaceScanTrace(_rawJson({
-      'source': 'CameraController.takePicture',
-      'XFile.path': capture.path,
-      'file.exists': await tempFile.exists(),
-      'file.lengthBytes': photoBytes.length,
-      'decodedImage.width': frameSize.width.round(),
-      'decodedImage.height': frameSize.height.round(),
-      'jpeg.exifOrientation': _jpegExifOrientation(photoBytes),
-      'jpeg.exifOrientationLabel': _jpegExifOrientationLabel(_jpegExifOrientation(photoBytes)),
-      'platform.operatingSystem': Platform.operatingSystem,
-      'camera.name': selectedCamera?.name,
-      'camera.lensDirection': selectedCamera?.lensDirection.name,
-      'camera.sensorOrientation': selectedCamera?.sensorOrientation,
-      'controller.value.previewSize.width': controller.value.previewSize?.width.round(),
-      'controller.value.previewSize.height': controller.value.previewSize?.height.round(),
-    }));
-
-    final exifOrientation = _jpegExifOrientation(photoBytes);
-    final exifOrientationLabel = _jpegExifOrientationLabel(exifOrientation);
-
-    if (Platform.isAndroid) {
-      final androidResult = await _tryAndroidStillPhotoBitmapCandidates(
-        detector: detector,
-        photoBytes: photoBytes,
-        sourcePath: capture.path,
-        exifOrientation: exifOrientation,
-        exifOrientationLabel: exifOrientationLabel,
-      );
-      if (androidResult != null) {
-        await _deleteCaptureTempFiles(tempFiles);
-        return androidResult;
-      }
-
-      final rawResponse = _rawJson({
-        'source': 'FaceDetector.processImage.response',
-        'inputImage.constructor': 'InputImage.fromBitmap',
-        'platform.operatingSystem': Platform.operatingSystem,
-        'candidate.count': _androidStillPhotoBitmapCandidates.length,
-        'faces.length': 0,
-        'reason': 'android_still_photo_bitmap_candidates_no_face',
-      });
-      AppDiagnostics.instance.log(rawResponse);
-      AppDiagnostics.instance.addFaceScanTrace(rawResponse);
-      await _deleteCaptureTempFiles(tempFiles);
-      return _FaceScanResult(
-        faces: <Face>[],
-        frameSize: frameSize,
-        photoBytes: photoBytes,
-        source: 'InputImage.fromBitmap.androidRgba.noFace',
-        rawResponse: rawResponse,
-      );
-    }
-
-    final inputImage = InputImage.fromFilePath(capture.path);
-    AppDiagnostics.instance.addFaceScanTrace(_rawJson({
-      'source': 'FaceDetector.processImage.request',
-      'inputImage.constructor': 'InputImage.fromFilePath',
-      'inputImage.filePath': capture.path,
-      'file.lengthBytes': photoBytes.length,
-      'decodedImage.width': frameSize.width.round(),
-      'decodedImage.height': frameSize.height.round(),
-      'jpeg.exifOrientation': exifOrientation,
-      'jpeg.exifOrientationLabel': exifOrientationLabel,
-    }));
-    final faces = await detector.processImage(inputImage);
-    final responseRaw = _rawJson({
-      'source': 'FaceDetector.processImage.response',
-      'inputImage.constructor': 'InputImage.fromFilePath',
-      'faces.length': faces.length,
-      'faces': _facesRaw(faces),
-    });
-    AppDiagnostics.instance.log(responseRaw);
-    AppDiagnostics.instance.addFaceScanTrace(responseRaw);
-
-    if (faces.isNotEmpty || !Platform.isIOS || exifOrientation == null || exifOrientation == 1) {
-      await _deleteCaptureTempFiles(tempFiles);
-      return _FaceScanResult(
-        faces: faces,
-        frameSize: frameSize,
-        photoBytes: photoBytes,
-        source: 'InputImage.fromFilePath',
-        rawResponse: responseRaw,
-      );
-    }
-
-    final normalisedImage = await _writeExifOrientationNormalisedPng(
-      photoBytes: photoBytes,
-      exifOrientation: exifOrientation,
-      sourcePath: capture.path,
-    );
-    if (normalisedImage == null) {
-      await _deleteCaptureTempFiles(tempFiles);
-      return _FaceScanResult(
-        faces: faces,
-        frameSize: frameSize,
-        photoBytes: photoBytes,
-        source: 'InputImage.fromFilePath',
-        rawResponse: responseRaw,
-      );
-    }
-    tempFiles.add(normalisedImage.file);
-
-    AppDiagnostics.instance.addFaceScanTrace(_rawJson({
-      'source': 'FaceDetector.processImage.request',
-      'inputImage.constructor': 'InputImage.fromFilePath',
-      'inputImage.filePath': normalisedImage.file.path,
-      'normalised.from': capture.path,
-      'normalised.reason': 'ios_jpeg_exif_orientation',
-      'normalised.format': 'png',
-      'normalised.appliedExifOrientation': exifOrientation,
-      'normalised.appliedExifOrientationLabel': exifOrientationLabel,
-      'file.lengthBytes': normalisedImage.bytes.length,
-      'decodedImage.width': normalisedImage.frameSize.width.round(),
-      'decodedImage.height': normalisedImage.frameSize.height.round(),
-    }));
-    final normalisedFaces = await detector.processImage(InputImage.fromFilePath(normalisedImage.file.path));
-    final normalisedResponseRaw = _rawJson({
-      'source': 'FaceDetector.processImage.response',
-      'inputImage.constructor': 'InputImage.fromFilePath',
-      'inputImage.filePath': normalisedImage.file.path,
-      'normalised.from': capture.path,
-      'normalised.reason': 'ios_jpeg_exif_orientation',
-      'normalised.appliedExifOrientation': exifOrientation,
-      'normalised.appliedExifOrientationLabel': exifOrientationLabel,
-      'faces.length': normalisedFaces.length,
-      'faces': _facesRaw(normalisedFaces),
-    });
-    AppDiagnostics.instance.log(normalisedResponseRaw);
-    AppDiagnostics.instance.addFaceScanTrace(normalisedResponseRaw);
-
-    if (normalisedFaces.isNotEmpty) {
-      await _deleteCaptureTempFiles(tempFiles);
-      return _FaceScanResult(
-        faces: normalisedFaces,
-        frameSize: normalisedImage.frameSize,
-        photoBytes: normalisedImage.bytes,
-        source: 'InputImage.fromFilePath.normalisedPng',
-        rawResponse: normalisedResponseRaw,
-      );
-    }
-
-    final iosCandidateResult = await _tryIosStillPhotoOrientationCandidates(
-      detector: detector,
-      photoBytes: photoBytes,
-      sourcePath: capture.path,
-      tempFiles: tempFiles,
-      exifOrientation: exifOrientation,
-      exifOrientationLabel: exifOrientationLabel,
-    );
-    if (iosCandidateResult != null) {
-      await _deleteCaptureTempFiles(tempFiles);
-      return iosCandidateResult;
-    }
-
-    await _deleteCaptureTempFiles(tempFiles);
-    return _FaceScanResult(
-      faces: normalisedFaces,
-      frameSize: normalisedImage.frameSize,
-      photoBytes: normalisedImage.bytes,
-      source: 'InputImage.fromFilePath.normalisedPng',
-      rawResponse: normalisedResponseRaw,
-    );
-  }
-
-
-  static const List<_StillPhotoByteCandidate> _androidStillPhotoBitmapCandidates = <_StillPhotoByteCandidate>[
-    _StillPhotoByteCandidate(rotationQuarterTurns: 0, mirror: false),
-    _StillPhotoByteCandidate(rotationQuarterTurns: 0, mirror: true),
-    _StillPhotoByteCandidate(rotationQuarterTurns: 1, mirror: false),
-    _StillPhotoByteCandidate(rotationQuarterTurns: 3, mirror: false),
-    _StillPhotoByteCandidate(rotationQuarterTurns: 2, mirror: false),
-    _StillPhotoByteCandidate(rotationQuarterTurns: 1, mirror: true),
-    _StillPhotoByteCandidate(rotationQuarterTurns: 3, mirror: true),
-    _StillPhotoByteCandidate(rotationQuarterTurns: 2, mirror: true),
-  ];
-
-  Future<_FaceScanResult?> _tryAndroidStillPhotoBitmapCandidates({
-    required FaceDetector detector,
-    required Uint8List photoBytes,
-    required String sourcePath,
-    required int? exifOrientation,
-    required String? exifOrientationLabel,
-  }) async {
-    AppDiagnostics.instance.addFaceScanTrace(_rawJson({
-      'source': 'EastApp.androidStillPhotoBitmapFallback.start',
-      'reason': 'Use InputImage.fromBitmap to bypass Android InputImage.fromBytes NV21 converter crashes',
-      'input.constructor.removed': 'InputImage.fromBytes',
-      'input.constructor.active': 'InputImage.fromBitmap',
-      'candidate.count': _androidStillPhotoBitmapCandidates.length,
-      'source.filePath': sourcePath,
-      'source.bytes.length': photoBytes.length,
-      'source.jpeg.exifOrientation': exifOrientation,
-      'source.jpeg.exifOrientationLabel': exifOrientationLabel,
-    }));
-
-    String? lastResponseRaw;
-    for (final candidate in _androidStillPhotoBitmapCandidates) {
-      final bitmapImage = await _buildMlKitBitmapImage(
-        photoBytes: photoBytes,
-        candidate: candidate,
-        sourcePath: sourcePath,
-        exifOrientation: exifOrientation,
-        exifOrientationLabel: exifOrientationLabel,
-      );
-
-      AppDiagnostics.instance.addFaceScanTrace(_rawJson({
-        'source': 'FaceDetector.processImage.request',
-        'inputImage.constructor': 'InputImage.fromBitmap',
-        'inputImage.bitmap.format': 'rawRgba',
-        'inputImage.bitmap.rotation': 0,
-        'inputImage.bitmap.width': bitmapImage.width,
-        'inputImage.bitmap.height': bitmapImage.height,
-        'candidate.reason': 'android_still_photo_bitmap_candidate',
-        'candidate.label': candidate.label,
-        'candidate.rotationQuarterTurns': candidate.normalisedQuarterTurns,
-        'candidate.rotationDegrees': candidate.normalisedQuarterTurns * 90,
-        'candidate.mirror': candidate.mirror,
-        'source.filePath': sourcePath,
-        'source.jpeg.exifOrientation': exifOrientation,
-        'source.jpeg.exifOrientationLabel': exifOrientationLabel,
-        'rgba.bytes.length': bitmapImage.rgbaBytes.length,
-        'png.bytes.length': bitmapImage.pngBytes.length,
-        'decodedImage.width': bitmapImage.width,
-        'decodedImage.height': bitmapImage.height,
-      }));
-
-      final inputImage = InputImage.fromBitmap(
-        bitmap: bitmapImage.rgbaBytes,
-        width: bitmapImage.width,
-        height: bitmapImage.height,
-        rotation: 0,
-      );
-      final faces = await detector.processImage(inputImage);
-      final responseRaw = _rawJson({
-        'source': 'FaceDetector.processImage.response',
-        'inputImage.constructor': 'InputImage.fromBitmap',
-        'inputImage.bitmap.format': 'rawRgba',
-        'inputImage.bitmap.rotation': 0,
-        'candidate.reason': 'android_still_photo_bitmap_candidate',
-        'candidate.label': candidate.label,
-        'candidate.rotationQuarterTurns': candidate.normalisedQuarterTurns,
-        'candidate.rotationDegrees': candidate.normalisedQuarterTurns * 90,
-        'candidate.mirror': candidate.mirror,
-        'source.filePath': sourcePath,
-        'source.jpeg.exifOrientation': exifOrientation,
-        'source.jpeg.exifOrientationLabel': exifOrientationLabel,
-        'faces.length': faces.length,
-        'faces': _facesRaw(faces),
-      });
-      lastResponseRaw = responseRaw;
-      AppDiagnostics.instance.log(responseRaw);
-      AppDiagnostics.instance.addFaceScanTrace(responseRaw);
-
-      if (faces.isNotEmpty) {
-        latestFrameSize = bitmapImage.frameSize;
-        lastCameraFrameInfo = 'android_still_photo_bitmap, candidate=${candidate.label}, size=${bitmapImage.width}x${bitmapImage.height}';
-        return _FaceScanResult(
-          faces: faces,
-          frameSize: bitmapImage.frameSize,
-          photoBytes: bitmapImage.pngBytes,
-          source: 'InputImage.fromBitmap.androidRgba.${candidate.label}',
-          rawResponse: responseRaw,
-        );
-      }
-    }
-
-    AppDiagnostics.instance.addFaceScanTrace(_rawJson({
-      'source': 'EastApp.androidStillPhotoBitmapFallback.end',
-      'candidate.count': _androidStillPhotoBitmapCandidates.length,
-      'faces.length': 0,
-      'lastResponse': lastResponseRaw,
-    }));
-    return null;
-  }
-
-  Future<_MlKitBitmapImage> _buildMlKitBitmapImage({
-    required Uint8List photoBytes,
-    required _StillPhotoByteCandidate candidate,
-    required String sourcePath,
-    required int? exifOrientation,
-    required String? exifOrientationLabel,
-  }) async {
-    ui.Codec? codec;
-    ui.Image? sourceImage;
-    ui.Image? outputImage;
-    ui.Picture? picture;
-    codec = await ui.instantiateImageCodec(photoBytes);
-    final frame = await codec.getNextFrame();
-    sourceImage = frame.image;
-
-    final sourceWidth = sourceImage.width.toDouble();
-    final sourceHeight = sourceImage.height.toDouble();
-    final quarterTurns = candidate.normalisedQuarterTurns;
-    final swapsAxis = quarterTurns.isOdd;
-    final outputWidth = swapsAxis ? sourceHeight : sourceWidth;
-    final outputHeight = swapsAxis ? sourceWidth : sourceHeight;
-
-    try {
-      final recorder = ui.PictureRecorder();
-      final canvas = Canvas(recorder, Rect.fromLTWH(0, 0, outputWidth, outputHeight));
-      canvas.translate(outputWidth / 2, outputHeight / 2);
-      canvas.rotate(quarterTurns * math.pi / 2);
-      if (candidate.mirror) {
-        canvas.scale(-1, 1);
-      }
-      canvas.drawImageRect(
-        sourceImage,
-        Rect.fromLTWH(0, 0, sourceWidth, sourceHeight),
-        Rect.fromCenter(center: Offset.zero, width: sourceWidth, height: sourceHeight),
-        Paint()..filterQuality = FilterQuality.high,
-      );
-      picture = recorder.endRecording();
-      outputImage = await picture.toImage(outputWidth.round(), outputHeight.round());
-      final pngByteData = await outputImage.toByteData(format: ui.ImageByteFormat.png);
-      final rawByteData = await outputImage.toByteData(format: ui.ImageByteFormat.rawRgba);
-      final pngBytes = pngByteData!.buffer.asUint8List();
-      final rgbaBytes = rawByteData!.buffer.asUint8List();
-      final width = outputImage.width;
-      final height = outputImage.height;
-
-      AppDiagnostics.instance.addFaceScanTrace(_rawJson({
-        'source': 'EastApp.androidStillPhotoBitmapCandidate.response',
-        'input.filePath': sourcePath,
-        'input.bytes.length': photoBytes.length,
-        'input.decodedImage.width': sourceImage.width,
-        'input.decodedImage.height': sourceImage.height,
-        'source.jpeg.exifOrientation': exifOrientation,
-        'source.jpeg.exifOrientationLabel': exifOrientationLabel,
-        'candidate.label': candidate.label,
-        'candidate.rotationQuarterTurns': quarterTurns,
-        'candidate.rotationDegrees': quarterTurns * 90,
-        'candidate.mirror': candidate.mirror,
-        'output.format': 'rawRgba',
-        'output.width': width,
-        'output.height': height,
-        'output.bytes.length': rgbaBytes.length,
-        'previewPng.bytes.length': pngBytes.length,
-      }));
-
-      return _MlKitBitmapImage(
-        rgbaBytes: rgbaBytes,
-        pngBytes: pngBytes,
-        frameSize: Size(width.toDouble(), height.toDouble()),
-        width: width,
-        height: height,
-        candidate: candidate,
-      );
-    } finally {
-      outputImage?.dispose();
-      picture?.dispose();
-      sourceImage.dispose();
-      codec.dispose();
-    }
-  }
-
-  Future<void> _deleteCaptureTempFiles(List<File> tempFiles) async {
-    for (final file in tempFiles) {
-      if (await file.exists()) {
-        await file.delete();
-      }
-    }
-  }
-
-
-
-  Future<_NormalisedImageFile?> _writeExifOrientationNormalisedPng({
-    required Uint8List photoBytes,
-    required int exifOrientation,
-    required String sourcePath,
-  }) async {
-    ui.Codec? codec;
-    ui.Image? image;
-    ui.Image? outputImage;
-    try {
-      codec = await ui.instantiateImageCodec(photoBytes);
-      final frame = await codec.getNextFrame();
-      image = frame.image;
-
-      final outputWidth = image.width;
-      final outputHeight = image.height;
-
-      final recorder = ui.PictureRecorder();
-      final canvas = Canvas(recorder);
-      final paint = Paint()..filterQuality = FilterQuality.high;
-      canvas.drawImage(image, Offset.zero, paint);
-      final picture = recorder.endRecording();
-      outputImage = await picture.toImage(outputWidth, outputHeight);
-      picture.dispose();
-
-      final byteData = await outputImage.toByteData(format: ui.ImageByteFormat.png);
-      final pngBytes = byteData?.buffer.asUint8List();
-      if (pngBytes == null || pngBytes.isEmpty) {
-        AppDiagnostics.instance.addFaceScanTrace(_rawJson({
-          'source': 'EastApp.exifOrientationNormalisedPng.response',
-          'output.bytes.length': pngBytes?.length,
-        }));
-        return null;
-      }
-
-      final normalisedPath = '${File(sourcePath).parent.path}/mlkit_orientation_up_${DateTime.now().microsecondsSinceEpoch}.png';
-      final normalisedFile = File(normalisedPath);
-      await normalisedFile.writeAsBytes(pngBytes, flush: true);
-      final frameSize = Size(outputWidth.toDouble(), outputHeight.toDouble());
-
-      AppDiagnostics.instance.addFaceScanTrace(_rawJson({
-        'source': 'EastApp.exifOrientationNormalisedPng.response',
-        'input.filePath': sourcePath,
-        'input.bytes.length': photoBytes.length,
-        'input.decodedImage.width': image.width,
-        'input.decodedImage.height': image.height,
-        'jpeg.exifOrientation': exifOrientation,
-        'jpeg.exifOrientationLabel': _jpegExifOrientationLabel(exifOrientation),
-        'normalisation.method': 'decode_to_png_without_exif_orientation',
-        'output.filePath': normalisedPath,
-        'output.format': 'png',
-        'output.width': outputWidth,
-        'output.height': outputHeight,
-        'output.bytes.length': pngBytes.length,
-      }));
-
-      return _NormalisedImageFile(
-        file: normalisedFile,
-        bytes: pngBytes,
-        frameSize: frameSize,
-      );
-    } catch (error) {
-      AppDiagnostics.instance.addFaceScanTrace(_rawJson({
-        'source': 'EastApp.exifOrientationNormalisedPng.catch',
-        'jpeg.exifOrientation': exifOrientation,
-        'jpeg.exifOrientationLabel': _jpegExifOrientationLabel(exifOrientation),
-        'error': _errorRaw(error),
-      }));
-      return null;
-    } finally {
-      outputImage?.dispose();
-      image?.dispose();
-    }
-  }
-
-
-  Future<_FaceScanResult?> _tryIosStillPhotoOrientationCandidates({
-    required FaceDetector detector,
-    required Uint8List photoBytes,
-    required String sourcePath,
-    required List<File> tempFiles,
-    required int exifOrientation,
-    required String? exifOrientationLabel,
-  }) async {
-    final candidates = <_IosStillPhotoCandidate>[
-      const _IosStillPhotoCandidate(rotationQuarterTurns: 1, mirror: false),
-      const _IosStillPhotoCandidate(rotationQuarterTurns: 3, mirror: false),
-      const _IosStillPhotoCandidate(rotationQuarterTurns: 2, mirror: false),
-      const _IosStillPhotoCandidate(rotationQuarterTurns: 0, mirror: true),
-      const _IosStillPhotoCandidate(rotationQuarterTurns: 1, mirror: true),
-      const _IosStillPhotoCandidate(rotationQuarterTurns: 3, mirror: true),
-      const _IosStillPhotoCandidate(rotationQuarterTurns: 2, mirror: true),
-    ];
-
-    AppDiagnostics.instance.addFaceScanTrace(_rawJson({
-      'source': 'EastApp.iOSOrientationCandidateFallback.start',
-      'reason': 'iOS InputImage.fromFilePath returned faces.length 0 after original JPEG and orientation-up PNG',
-      'candidate.count': candidates.length,
-      'source.filePath': sourcePath,
-      'source.bytes.length': photoBytes.length,
-      'source.jpeg.exifOrientation': exifOrientation,
-      'source.jpeg.exifOrientationLabel': exifOrientationLabel,
-    }));
-
-    String? lastResponseRaw;
-    for (final candidate in candidates) {
-      try {
-        final candidateBytes = await _buildIosOrientationCandidatePng(
-          photoBytes: photoBytes,
-          candidate: candidate,
-          sourcePath: sourcePath,
-          exifOrientation: exifOrientation,
-          exifOrientationLabel: exifOrientationLabel,
-        );
-        if (candidateBytes == null || candidateBytes.isEmpty) {
-          continue;
-        }
-
-        final candidateFile = File(
-          '${File(sourcePath).parent.path}/mlkit_ios_candidate_${DateTime.now().microsecondsSinceEpoch}_${candidate.fileSuffix}.png',
-        );
-        await candidateFile.writeAsBytes(candidateBytes, flush: true);
-        tempFiles.add(candidateFile);
-        final candidateFrameSize = await _decodeImageSize(candidateBytes);
-
-        AppDiagnostics.instance.addFaceScanTrace(_rawJson({
-          'source': 'FaceDetector.processImage.request',
-          'inputImage.constructor': 'InputImage.fromFilePath',
-          'inputImage.filePath': candidateFile.path,
-          'candidate.reason': 'ios_orientation_candidate',
-          'candidate.rotationQuarterTurns': candidate.normalisedQuarterTurns,
-          'candidate.rotationDegrees': candidate.normalisedQuarterTurns * 90,
-          'candidate.mirror': candidate.mirror,
-          'source.filePath': sourcePath,
-          'source.jpeg.exifOrientation': exifOrientation,
-          'source.jpeg.exifOrientationLabel': exifOrientationLabel,
-          'file.lengthBytes': candidateBytes.length,
-          'decodedImage.width': candidateFrameSize.width.round(),
-          'decodedImage.height': candidateFrameSize.height.round(),
-        }));
-
-        final faces = await detector.processImage(InputImage.fromFilePath(candidateFile.path));
-        final responseRaw = _rawJson({
-          'source': 'FaceDetector.processImage.response',
-          'inputImage.constructor': 'InputImage.fromFilePath',
-          'inputImage.filePath': candidateFile.path,
-          'candidate.reason': 'ios_orientation_candidate',
-          'candidate.rotationQuarterTurns': candidate.normalisedQuarterTurns,
-          'candidate.rotationDegrees': candidate.normalisedQuarterTurns * 90,
-          'candidate.mirror': candidate.mirror,
-          'source.filePath': sourcePath,
-          'source.jpeg.exifOrientation': exifOrientation,
-          'source.jpeg.exifOrientationLabel': exifOrientationLabel,
-          'faces.length': faces.length,
-          'faces': _facesRaw(faces),
-        });
-        lastResponseRaw = responseRaw;
-        AppDiagnostics.instance.log(responseRaw);
-        AppDiagnostics.instance.addFaceScanTrace(responseRaw);
-
-        if (faces.isNotEmpty) {
-          latestFrameSize = candidateFrameSize;
-          lastCameraFrameInfo = 'ios_orientation_candidate, rotationQuarterTurns=${candidate.normalisedQuarterTurns}, mirror=${candidate.mirror}, size=${candidateFrameSize.width.round()}x${candidateFrameSize.height.round()}';
-          return _FaceScanResult(
-            faces: faces,
-            frameSize: candidateFrameSize,
-            photoBytes: candidateBytes,
-            source: 'InputImage.fromFilePath.iOSOrientationCandidate',
-            rawResponse: responseRaw,
-          );
-        }
-      } catch (error) {
-        final errorRaw = _rawJson({
-          'source': 'EastApp.iOSOrientationCandidateFallback.catch',
-          'candidate.rotationQuarterTurns': candidate.normalisedQuarterTurns,
-          'candidate.rotationDegrees': candidate.normalisedQuarterTurns * 90,
-          'candidate.mirror': candidate.mirror,
-          'error': _errorRaw(error),
-        });
-        AppDiagnostics.instance.log(errorRaw);
-        AppDiagnostics.instance.addFaceScanTrace(errorRaw);
-        lastResponseRaw = errorRaw;
-      }
-    }
-
-    AppDiagnostics.instance.addFaceScanTrace(_rawJson({
-      'source': 'EastApp.iOSOrientationCandidateFallback.end',
-      'candidate.count': candidates.length,
-      'faces.length': 0,
-      'lastResponse': lastResponseRaw,
-    }));
-    return null;
-  }
-
-  Future<Uint8List?> _buildIosOrientationCandidatePng({
-    required Uint8List photoBytes,
-    required _IosStillPhotoCandidate candidate,
-    required String sourcePath,
-    required int exifOrientation,
-    required String? exifOrientationLabel,
-  }) async {
-    ui.Codec? codec;
-    ui.Image? sourceImage;
-    ui.Image? outputImage;
-    ui.Picture? picture;
-    try {
-      codec = await ui.instantiateImageCodec(photoBytes);
-      final frame = await codec.getNextFrame();
-      sourceImage = frame.image;
-
-      final sourceWidth = sourceImage.width.toDouble();
-      final sourceHeight = sourceImage.height.toDouble();
-      final quarterTurns = candidate.normalisedQuarterTurns;
-      final swapsAxis = quarterTurns.isOdd;
-      final outputWidth = swapsAxis ? sourceHeight : sourceWidth;
-      final outputHeight = swapsAxis ? sourceWidth : sourceHeight;
-
-      final recorder = ui.PictureRecorder();
-      final canvas = Canvas(recorder, Rect.fromLTWH(0, 0, outputWidth, outputHeight));
-      canvas.translate(outputWidth / 2, outputHeight / 2);
-      canvas.rotate(quarterTurns * math.pi / 2);
-      if (candidate.mirror) {
-        canvas.scale(-1, 1);
-      }
-      canvas.drawImageRect(
-        sourceImage,
-        Rect.fromLTWH(0, 0, sourceWidth, sourceHeight),
-        Rect.fromCenter(center: Offset.zero, width: sourceWidth, height: sourceHeight),
-        Paint()..filterQuality = FilterQuality.high,
-      );
-
-      picture = recorder.endRecording();
-      outputImage = await picture.toImage(outputWidth.round(), outputHeight.round());
-      final byteData = await outputImage.toByteData(format: ui.ImageByteFormat.png);
-      final pngBytes = byteData?.buffer.asUint8List();
-      AppDiagnostics.instance.addFaceScanTrace(_rawJson({
-        'source': 'EastApp.iOSOrientationCandidatePng.response',
-        'input.filePath': sourcePath,
-        'input.bytes.length': photoBytes.length,
-        'input.decodedImage.width': sourceImage.width,
-        'input.decodedImage.height': sourceImage.height,
-        'source.jpeg.exifOrientation': exifOrientation,
-        'source.jpeg.exifOrientationLabel': exifOrientationLabel,
-        'candidate.rotationQuarterTurns': quarterTurns,
-        'candidate.rotationDegrees': quarterTurns * 90,
-        'candidate.mirror': candidate.mirror,
-        'output.format': 'png',
-        'output.width': outputWidth.round(),
-        'output.height': outputHeight.round(),
-        'output.bytes.length': pngBytes?.length,
-      }));
-      return pngBytes;
-    } catch (error) {
-      AppDiagnostics.instance.addFaceScanTrace(_rawJson({
-        'source': 'EastApp.iOSOrientationCandidatePng.catch',
-        'source.filePath': sourcePath,
-        'source.jpeg.exifOrientation': exifOrientation,
-        'source.jpeg.exifOrientationLabel': exifOrientationLabel,
-        'candidate.rotationQuarterTurns': candidate.normalisedQuarterTurns,
-        'candidate.rotationDegrees': candidate.normalisedQuarterTurns * 90,
-        'candidate.mirror': candidate.mirror,
-        'error': _errorRaw(error),
-      }));
-      return null;
-    } finally {
-      outputImage?.dispose();
-      picture?.dispose();
-      sourceImage?.dispose();
-    }
-  }
-
-  Future<Uint8List?> _cropFaceThumbnailPng(Uint8List? photoBytes, Face face, Size frameSize) async {
-    if (photoBytes == null || photoBytes.isEmpty || frameSize.width <= 0 || frameSize.height <= 0) {
-      AppDiagnostics.instance.addFaceScanTrace(_rawJson({
-        'source': 'EastApp.faceThumbnailCrop.skipped',
-        'reason': 'photoBytes null/empty or frameSize invalid',
-        'photoBytes.length': photoBytes?.length,
-        'frame.width': frameSize.width.round(),
-        'frame.height': frameSize.height.round(),
-      }));
-      return null;
-    }
-
-    ui.Codec? codec;
-    ui.Image? image;
-    ui.Image? outputImage;
-    try {
-      codec = await ui.instantiateImageCodec(photoBytes);
-      final frame = await codec.getNextFrame();
-      image = frame.image;
-
-      final scaleX = image.width / frameSize.width;
-      final scaleY = image.height / frameSize.height;
-      final faceBox = face.boundingBox;
-      var sourceRect = Rect.fromLTRB(
-        faceBox.left * scaleX,
-        faceBox.top * scaleY,
-        faceBox.right * scaleX,
-        faceBox.bottom * scaleY,
-      );
-
-      final expandX = sourceRect.width * 0.35;
-      final expandTop = sourceRect.height * 0.55;
-      final expandBottom = sourceRect.height * 0.35;
-      sourceRect = Rect.fromLTRB(
-        sourceRect.left - expandX,
-        sourceRect.top - expandTop,
-        sourceRect.right + expandX,
-        sourceRect.bottom + expandBottom,
-      );
-
-      final imageBounds = Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble());
-      final side = math.min(
-        math.max(sourceRect.width, sourceRect.height),
-        math.min(imageBounds.width, imageBounds.height),
-      );
-      final centre = sourceRect.center;
-      sourceRect = Rect.fromCenter(center: centre, width: side, height: side);
-      sourceRect = Rect.fromLTRB(
-        sourceRect.left.clamp(imageBounds.left, imageBounds.right - side).toDouble(),
-        sourceRect.top.clamp(imageBounds.top, imageBounds.bottom - side).toDouble(),
-        sourceRect.left.clamp(imageBounds.left, imageBounds.right - side).toDouble() + side,
-        sourceRect.top.clamp(imageBounds.top, imageBounds.bottom - side).toDouble() + side,
-      );
-
-      const outputSize = 512;
-      final recorder = ui.PictureRecorder();
-      final canvas = Canvas(recorder);
-      final paint = Paint()..filterQuality = FilterQuality.high;
-      canvas.drawImageRect(
-        image,
-        sourceRect,
-        Rect.fromLTWH(0, 0, outputSize.toDouble(), outputSize.toDouble()),
-        paint,
-      );
-      final picture = recorder.endRecording();
-      outputImage = await picture.toImage(outputSize, outputSize);
-      picture.dispose();
-      final byteData = await outputImage.toByteData(format: ui.ImageByteFormat.png);
-      final result = byteData?.buffer.asUint8List();
-
-      AppDiagnostics.instance.addFaceScanTrace(_rawJson({
-        'source': 'EastApp.faceThumbnailCrop.response',
-        'input.photoBytes.length': photoBytes.length,
-        'input.image.width': image.width,
-        'input.image.height': image.height,
-        'input.frame.width': frameSize.width.round(),
-        'input.frame.height': frameSize.height.round(),
-        'input.face.boundingBox.left': faceBox.left,
-        'input.face.boundingBox.top': faceBox.top,
-        'input.face.boundingBox.right': faceBox.right,
-        'input.face.boundingBox.bottom': faceBox.bottom,
-        'crop.sourceRect.left': sourceRect.left,
-        'crop.sourceRect.top': sourceRect.top,
-        'crop.sourceRect.right': sourceRect.right,
-        'crop.sourceRect.bottom': sourceRect.bottom,
-        'output.format': 'png',
-        'output.width': outputSize,
-        'output.height': outputSize,
-        'output.bytes.length': result?.length,
-      }));
-
-      return result;
-    } catch (error) {
-      AppDiagnostics.instance.addFaceScanTrace(_rawJson({
-        'source': 'EastApp.faceThumbnailCrop.catch',
-        'error': _errorRaw(error),
-      }));
-      return null;
-    } finally {
-      outputImage?.dispose();
-      image?.dispose();
-    }
-  }
-
-  int? _jpegExifOrientation(Uint8List bytes) {
-    try {
-      if (bytes.length < 4 || bytes[0] != 0xFF || bytes[1] != 0xD8) return null;
-      var offset = 2;
-      while (offset + 4 <= bytes.length) {
-        if (bytes[offset] != 0xFF) return null;
-        final marker = bytes[offset + 1];
-        offset += 2;
-        if (marker == 0xD9 || marker == 0xDA) return null;
-        if (offset + 2 > bytes.length) return null;
-        final segmentLength = (bytes[offset] << 8) + bytes[offset + 1];
-        if (segmentLength < 2 || offset + segmentLength > bytes.length) return null;
-        final segmentStart = offset + 2;
-        final segmentEnd = offset + segmentLength;
-        if (marker == 0xE1 && segmentEnd - segmentStart >= 14) {
-          final isExif = bytes[segmentStart] == 0x45 &&
-              bytes[segmentStart + 1] == 0x78 &&
-              bytes[segmentStart + 2] == 0x69 &&
-              bytes[segmentStart + 3] == 0x66 &&
-              bytes[segmentStart + 4] == 0x00 &&
-              bytes[segmentStart + 5] == 0x00;
-          if (!isExif) return null;
-          final tiffStart = segmentStart + 6;
-          final littleEndian = bytes[tiffStart] == 0x49 && bytes[tiffStart + 1] == 0x49;
-          final bigEndian = bytes[tiffStart] == 0x4D && bytes[tiffStart + 1] == 0x4D;
-          if (!littleEndian && !bigEndian) return null;
-
-          int readUint16(int index) {
-            if (littleEndian) return bytes[index] | (bytes[index + 1] << 8);
-            return (bytes[index] << 8) | bytes[index + 1];
-          }
-
-          int readUint32(int index) {
-            if (littleEndian) {
-              return bytes[index] |
-                  (bytes[index + 1] << 8) |
-                  (bytes[index + 2] << 16) |
-                  (bytes[index + 3] << 24);
-            }
-            return (bytes[index] << 24) |
-                (bytes[index + 1] << 16) |
-                (bytes[index + 2] << 8) |
-                bytes[index + 3];
-          }
-
-          final magic = readUint16(tiffStart + 2);
-          if (magic != 42) return null;
-          final ifd0Offset = readUint32(tiffStart + 4);
-          final ifd0 = tiffStart + ifd0Offset;
-          if (ifd0 < tiffStart || ifd0 + 2 > segmentEnd) return null;
-          final entryCount = readUint16(ifd0);
-          for (var i = 0; i < entryCount; i++) {
-            final entry = ifd0 + 2 + (i * 12);
-            if (entry + 12 > segmentEnd) return null;
-            final tag = readUint16(entry);
-            if (tag == 0x0112) {
-              return readUint16(entry + 8);
-            }
-          }
-          return null;
-        }
-        offset += segmentLength;
-      }
-    } catch (_) {
-      return null;
-    }
-    return null;
-  }
-
-  String? _jpegExifOrientationLabel(int? value) {
-    switch (value) {
-      case 1:
-        return 'top-left';
-      case 2:
-        return 'top-right-mirrored';
-      case 3:
-        return 'bottom-right';
-      case 4:
-        return 'bottom-left-mirrored';
-      case 5:
-        return 'left-top-mirrored';
-      case 6:
-        return 'right-top';
-      case 7:
-        return 'right-bottom-mirrored';
-      case 8:
-        return 'left-bottom';
-    }
-    return null;
-  }
-
-  Future<Size> _decodeImageSize(Uint8List bytes) {
-    final completer = Completer<Size>();
-    ui.decodeImageFromList(bytes, (image) {
-      completer.complete(Size(image.width.toDouble(), image.height.toDouble()));
-      image.dispose();
-    });
-    return completer.future.timeout(
-      const Duration(seconds: 2),
-      onTimeout: () => latestFrameSize ?? const Size(480, 640),
-    );
-  }
-
-  String _rawJson(Map<String, Object?> value) => jsonEncode(value);
-
-  List<Map<String, Object?>> _camerasRaw(List<CameraDescription> cameras) {
-    return cameras.map((camera) {
-      return <String, Object?>{
-        'name': camera.name,
-        'lensDirection': camera.lensDirection.name,
-        'sensorOrientation': camera.sensorOrientation,
-      };
-    }).toList();
-  }
-
-  Map<String, Object?> _mlKitSettingsRaw(String source) {
-    return <String, Object?>{
-      'source': source,
-      'package': 'google_mlkit_face_detection',
-      'detector': 'FaceDetector',
-      'options.performanceMode': _mlKitPerformanceMode.name,
-      'options.enableClassification': _mlKitEnableClassification,
-      'options.enableLandmarks': _mlKitEnableLandmarks,
-      'options.enableContours': _mlKitEnableContours,
-      'options.minFaceSize': _mlKitMinFaceSize,
-      'input.constructor': Platform.isAndroid ? 'InputImage.fromBitmap' : 'InputImage.fromFilePath',
-      'camera.capture': 'CameraController.takePicture',
-      'camera.resolutionPreset': 'medium',
-      'camera.enableAudio': false,
-      'platform.operatingSystem': Platform.operatingSystem,
-      'defaultTargetPlatform': defaultTargetPlatform.name,
-    };
-  }
-
-  Map<String, Object?> _errorRaw(Object error) {
-    if (error is PlatformException) {
-      return <String, Object?>{
-        'runtimeType': error.runtimeType.toString(),
-        'code': error.code,
-        'message': error.message,
-        'details': error.details?.toString(),
-      };
-    }
-    if (error is CameraException) {
-      return <String, Object?>{
-        'runtimeType': error.runtimeType.toString(),
-        'code': error.code,
-        'description': error.description,
-      };
-    }
-    return <String, Object?>{
-      'runtimeType': error.runtimeType.toString(),
-      'toString': error.toString(),
-    };
-  }
-
-  List<Map<String, Object?>> _facesRaw(List<Face> faces) {
-    return faces.asMap().entries.map((entry) {
-      final face = entry.value;
-      return <String, Object?>{
-        'index': entry.key,
-        'boundingBox.left': face.boundingBox.left,
-        'boundingBox.top': face.boundingBox.top,
-        'boundingBox.right': face.boundingBox.right,
-        'boundingBox.bottom': face.boundingBox.bottom,
-        'boundingBox.width': face.boundingBox.width,
-        'boundingBox.height': face.boundingBox.height,
-        'headEulerAngleX': face.headEulerAngleX,
-        'headEulerAngleY': face.headEulerAngleY,
-        'headEulerAngleZ': face.headEulerAngleZ,
-        'trackingId': face.trackingId,
-        'smilingProbability': face.smilingProbability,
-        'leftEyeOpenProbability': face.leftEyeOpenProbability,
-        'rightEyeOpenProbability': face.rightEyeOpenProbability,
-        'landmarks.length': face.landmarks.length,
-        'contours.length': face.contours.length,
-      };
-    }).toList();
-  }
-
-  void captureQrCheckpoint() {
-    if (verifying || submitting) return;
-    AppFeedback.tap();
-    final now = DateTime.now();
-    setState(() {
-      qrCaptured = true;
-      qrCapturedAt = now;
-      qrCheckpointText = '${widget.branchName} checkpoint QR';
-      statusText = verificationReady
-          ? 'QR captured. Review result, then submit.'
-          : 'QR captured. Capture face, then submit.';
-      errorText = null;
-    });
-  }
-
-  void _failValidation(String message) {
-    AppFeedback.warning();
-    setState(() {
-      verifying = false;
-      verificationReady = false;
-      statusText = 'Verification failed';
-      errorText = message;
-    });
-  }
-
-  Future<void> submitVerification() async {
-    if (selectedMode == null) {
-      AppFeedback.warning();
-      setState(() => errorText = 'Select Clock In or Clock Out first.');
-      return;
-    }
-    if (!verificationReady) {
-      AppFeedback.warning();
-      setState(() => errorText = 'Capture face first.');
-      return;
-    }
-    if (!qrCaptured) {
-      AppFeedback.warning();
-      setState(() => errorText = 'Capture QR first.');
-      return;
-    }
-    final locationResult = capturedLocation;
-    final capturedAt = verifiedAt;
-    if (locationResult == null || capturedAt == null) {
-      AppFeedback.warning();
-      setState(() => errorText = 'Capture GPS location first.');
-      return;
-    }
-
-    final confirmed = await confirmDataChange(
-      context,
-      action: selectedMode == 'Clock In'
-          ? 'Proceed with Clock In?'
-          : 'Proceed with Clock Out?',
-      details: faceVerificationBypassed
-          ? 'Face verification failed after three attempts. This will create an attendance record using the captured camera, QR and GPS information, with the face result flagged for audit.'
-          : 'This will create an attendance record using the captured face, QR and GPS information.',
-    );
-    if (!confirmed || !mounted) return;
-
-    AppFeedback.tap();
-    final submissionData = _AttendanceSubmissionData(
-      deviceCapturedAt: capturedAt,
-      faceValid: !faceVerificationBypassed && singleFacePassed && faceSizePassed,
-      faceCount: detectedFaceCount,
-      faceAttemptCount: faceAttemptCount,
-      faceVerificationBypassed: faceVerificationBypassed,
-      faceBoxWidth: detectedFaceBoxWidth,
-      faceBoxHeight: detectedFaceBoxHeight,
-      faceYaw: detectedFaceYaw,
-      faceRoll: detectedFaceRoll,
-      facePitch: detectedFacePitch,
-      devicePlatform: Platform.isIOS
-          ? 'IOS'
-          : Platform.isAndroid
-              ? 'ANDROID'
-              : Platform.operatingSystem.toUpperCase(),
-      deviceOsVersion: Platform.operatingSystemVersion.replaceAll('\n', ' '),
-    );
-
-    setState(() {
-      submitting = true;
-      errorText = null;
-      capturedFaceBytes = null;
-      capturedStillPreviewBytes = null;
-      statusText = 'Submitting attendance...';
-    });
-
-    try {
-      await widget.onSubmit(selectedMode!, locationResult, submissionData);
-    } on EastAppApiException catch (error) {
-      if (!mounted) return;
-      setState(() {
-        submitting = false;
-        statusText = 'Submission failed';
-        errorText = error.message;
-      });
-    } catch (error) {
-      if (!mounted) return;
-      setState(() {
-        submitting = false;
-        statusText = 'Submission failed';
-        errorText = error.toString();
-      });
-    }
-  }
-
-  String _formatVerificationTime(DateTime? value) {
-    if (value == null) return '-';
-    final day = value.day.toString().padLeft(2, '0');
-    final month = value.month.toString().padLeft(2, '0');
-    final hour = value.hour.toString().padLeft(2, '0');
-    final minute = value.minute.toString().padLeft(2, '0');
-    final second = value.second.toString().padLeft(2, '0');
-    return '$day/$month/${value.year} $hour:$minute:$second';
-  }
-
-  String _deviceInfoText() {
-    final deviceType = Platform.isIOS
-        ? 'iPhone / iOS'
-        : Platform.isAndroid
-            ? 'Android phone'
-            : Platform.operatingSystem;
-    final osText = Platform.operatingSystemVersion.replaceAll('\n', ' ');
-    return '$deviceType · $osText';
-  }
-
-  Widget _buildUndistortedCameraPreview(CameraController controller) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final previewSize = controller.value.previewSize;
-        if (previewSize == null) {
-          return CameraPreview(controller);
-        }
-
-        return FittedBox(
-          fit: BoxFit.contain,
-          child: SizedBox(
-            width: previewSize.height,
-            height: previewSize.width,
-            child: CameraPreview(controller),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _cameraPanel() {
-    final controller = cameraController;
-    final ready = cameraReady && controller != null && controller.value.isInitialized;
-
-    return Container(
-      height: 286,
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: AppColours.mutedBox,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColours.border),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Stack(
-        fit: StackFit.expand,
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 22),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (capturedStillPreviewBytes != null)
-            Image.memory(
-              capturedStillPreviewBytes!,
-              fit: BoxFit.contain,
-              gaplessPlayback: true,
-            )
-          else if (ready)
-            _buildUndistortedCameraPreview(controller)
-          else
-            const Center(
-              child: CircularProgressIndicator(strokeWidth: 2.4),
-            ),
-          Center(
-            child: IgnorePointer(
-              child: Container(
-                width: 210,
-                height: 254,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(120),
-                  border: Border.all(
-                    color: verificationReady ? AppColours.green : Colors.white.withValues(alpha: 0.86),
-                    width: 3,
+          const _PeopleSheetHandle(),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Attendance',
+                  style: TextStyle(
+                    fontSize: AppTextSize.s24,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ),
+              IconButton(
+                onPressed: () => Navigator.of(context).pop(),
+                icon: const Icon(Icons.close_rounded),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Select an attendance action. Data is loaded only when requested.',
+            style: TextStyle(
+              fontSize: AppTextSize.s13,
+              color: AppColours.textMuted,
+              fontWeight: FontWeight.w600,
+              height: 1.3,
             ),
           ),
-          Positioned(
-            left: 10,
-            right: 10,
-            bottom: 10,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.48),
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Text(
-                statusText,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: AppTextSize.s13,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
+          const SizedBox(height: 16),
+          _AttendanceFeatureCard(
+            icon: Icons.how_to_reg_outlined,
+            title: 'Check In / Out',
+            subtitle: 'Load today\'s attendance, then scan the required QR code.',
+            onTap: onCheckInOut,
           ),
-          if (verifying)
-            Container(
-              color: Colors.black.withValues(alpha: 0.12),
-              alignment: Alignment.center,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2.2),
-                    ),
-                    SizedBox(width: 10),
-                    Text(
-                      'Processing...',
-                      style: TextStyle(
-                        fontSize: AppTextSize.s13,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+          const SizedBox(height: 12),
+          _AttendanceFeatureCard(
+            icon: Icons.qr_code_2_rounded,
+            title: 'QR Code',
+            subtitle: canGenerateQr
+                ? 'Generate a 30-minute Check In or Check Out QR code.'
+                : 'Owner, Head or Manager permission is required.',
+            onTap: canGenerateQr ? onQrCode : null,
+            disabled: !canGenerateQr,
+          ),
         ],
       ),
     );
   }
+}
+
+class _AttendanceFeatureCard extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback? onTap;
+  final bool disabled;
+
+  const _AttendanceFeatureCard({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+    this.disabled = false,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final canCaptureFace = cameraReady && !verifying && !submitting && faceAttemptCount < 3;
-    final canSubmit = selectedMode != null && verificationReady && qrCaptured && !verifying && !submitting;
+    return Pressable(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(18),
+      child: WhiteCard(
+        child: Row(
+          children: [
+            Container(
+              width: 46,
+              height: 46,
+              decoration: BoxDecoration(
+                color: disabled ? AppColours.mutedBox : AppColours.blueSoft,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(
+                icon,
+                color: disabled ? AppColours.textMuted : AppColours.blue,
+                size: 23,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: AppTextSize.s17,
+                      fontWeight: FontWeight.w700,
+                      color: disabled ? AppColours.textMuted : AppColours.textMain,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      fontSize: AppTextSize.s12,
+                      color: AppColours.textMuted,
+                      fontWeight: FontWeight.w600,
+                      height: 1.3,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Icon(
+              disabled ? Icons.lock_outline_rounded : Icons.chevron_right_rounded,
+              color: AppColours.textMuted,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
+class _AttendanceCheckInOutSheet extends StatelessWidget {
+  final EastAppAttendanceToday attendance;
+  final VoidCallback? onClockIn;
+  final VoidCallback? onClockOut;
+
+  const _AttendanceCheckInOutSheet({
+    required this.attendance,
+    required this.onClockIn,
+    required this.onClockOut,
+  });
+
+  String get statusLabel {
+    if (attendance.hasClockedOut) return 'Completed for today';
+    if (attendance.hasClockedIn) return 'Checked in · ready to check out';
+    return 'Not checked in';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 22),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _PeopleSheetHandle(),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Check In / Out',
+                  style: TextStyle(
+                    fontSize: AppTextSize.s24,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              IconButton(
+                onPressed: () => Navigator.of(context).pop(),
+                icon: const Icon(Icons.close_rounded),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          WhiteCard(
+            child: Row(
+              children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: attendance.hasClockedOut
+                        ? AppColours.greenSoft
+                        : AppColours.blueSoft,
+                    borderRadius: BorderRadius.circular(13),
+                  ),
+                  child: Icon(
+                    attendance.hasClockedOut
+                        ? Icons.check_circle_outline_rounded
+                        : Icons.schedule_rounded,
+                    color: attendance.hasClockedOut
+                        ? AppColours.green
+                        : AppColours.blue,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        statusLabel,
+                        style: const TextStyle(
+                          fontSize: AppTextSize.s16,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      const Text(
+                        'GPS location and a valid attendance QR are required.',
+                        style: TextStyle(
+                          fontSize: AppTextSize.s12,
+                          color: AppColours.textMuted,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          _AttendanceActionCard(
+            title: 'Check In',
+            subtitle: attendance.hasClockedIn
+                ? 'Already checked in today.'
+                : 'Scan a valid Check In QR code.',
+            icon: Icons.login_rounded,
+            enabled: onClockIn != null,
+            onTap: onClockIn,
+          ),
+          const SizedBox(height: 12),
+          _AttendanceActionCard(
+            title: 'Check Out',
+            subtitle: attendance.hasClockedOut
+                ? 'Already checked out today.'
+                : attendance.hasClockedIn
+                    ? 'Scan a valid Check Out QR code.'
+                    : 'Available after Check In.',
+            icon: Icons.logout_rounded,
+            enabled: onClockOut != null,
+            onTap: onClockOut,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AttendanceActionCard extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final bool enabled;
+  final VoidCallback? onTap;
+
+  const _AttendanceActionCard({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.enabled,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Pressable(
+      onTap: enabled ? onTap : null,
+      borderRadius: BorderRadius.circular(18),
+      child: WhiteCard(
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: enabled ? AppColours.blueSoft : AppColours.mutedBox,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(
+                icon,
+                color: enabled ? AppColours.blue : AppColours.textMuted,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: AppTextSize.s16,
+                      fontWeight: FontWeight.w700,
+                      color: enabled ? AppColours.textMain : AppColours.textMuted,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      fontSize: AppTextSize.s12,
+                      color: AppColours.textMuted,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              enabled ? Icons.qr_code_scanner_rounded : Icons.lock_outline_rounded,
+              color: enabled ? AppColours.blue : AppColours.textMuted,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AttendanceQrGeneratorSheet extends StatefulWidget {
+  final EastAppApi api;
+
+  const _AttendanceQrGeneratorSheet({required this.api});
+
+  @override
+  State<_AttendanceQrGeneratorSheet> createState() => _AttendanceQrGeneratorSheetState();
+}
+
+class _AttendanceQrGeneratorSheetState extends State<_AttendanceQrGeneratorSheet> {
+  String selectedAction = 'CLOCK_IN';
+  EastAppAttendanceQrCode? generated;
+  bool generating = false;
+  String? error;
+  Timer? ticker;
+
+  @override
+  void dispose() {
+    ticker?.cancel();
+    super.dispose();
+  }
+
+  Future<void> generate() async {
+    if (generating) return;
+    AppFeedback.tap();
+    setState(() {
+      generating = true;
+      error = null;
+    });
+    try {
+      final result = await widget.api.generateAttendanceQrCode(
+        eventType: selectedAction,
+      );
+      if (!mounted) return;
+      ticker?.cancel();
+      ticker = Timer.periodic(const Duration(seconds: 1), (_) {
+        if (mounted) setState(() {});
+      });
+      setState(() {
+        generated = result;
+        generating = false;
+      });
+    } on EastAppApiException catch (apiError) {
+      if (!mounted) return;
+      setState(() {
+        error = apiError.message;
+        generating = false;
+      });
+    }
+  }
+
+  Duration get remaining {
+    final value = generated;
+    if (value == null) return Duration.zero;
+    final delta = value.expiresAt.difference(DateTime.now());
+    return delta.isNegative ? Duration.zero : delta;
+  }
+
+  String get remainingLabel {
+    final value = remaining;
+    final minutes = value.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final seconds = value.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '$minutes:$seconds';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final value = generated;
+    final expired = value != null && remaining == Duration.zero;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 22),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _PeopleSheetHandle(),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Attendance QR Code',
+                  style: TextStyle(
+                    fontSize: AppTextSize.s24,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              IconButton(
+                onPressed: () => Navigator.of(context).pop(),
+                icon: const Icon(Icons.close_rounded),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Select the action first, then press Generate QR. Each QR works for any employee in this business for 30 minutes.',
+            style: TextStyle(
+              fontSize: AppTextSize.s13,
+              color: AppColours.textMuted,
+              fontWeight: FontWeight.w600,
+              height: 1.35,
+            ),
+          ),
+          const SizedBox(height: 16),
+          DropdownButtonFormField<String>(
+            initialValue: selectedAction,
+            isExpanded: true,
+            decoration: InputDecoration(
+              labelText: 'QR Action',
+              filled: true,
+              fillColor: Colors.white,
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+            ),
+            items: const [
+              DropdownMenuItem(value: 'CLOCK_IN', child: Text('Check In')),
+              DropdownMenuItem(value: 'CLOCK_OUT', child: Text('Check Out')),
+            ],
+            onChanged: generating
+                ? null
+                : (value) {
+                    if (value == null) return;
+                    setState(() => selectedAction = value);
+                  },
+          ),
+          const SizedBox(height: 12),
+          PrimaryButton(
+            text: generating
+                ? 'Generating...'
+                : value == null
+                    ? 'Generate QR'
+                    : 'Generate New QR',
+            icon: Icons.qr_code_2_rounded,
+            onPressed: generating ? null : generate,
+          ),
+          if (error != null) ...[
+            const SizedBox(height: 12),
+            Text(
+              error!,
+              style: const TextStyle(
+                color: AppColours.red,
+                fontSize: AppTextSize.s13,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+          if (value != null) ...[
+            const SizedBox(height: 16),
+            Expanded(
+              child: SingleChildScrollView(
+                child: WhiteCard(
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              value.actionLabel,
+                              style: const TextStyle(
+                                fontSize: AppTextSize.s18,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                          SmallStatusPill(
+                            text: expired ? 'Expired' : remainingLabel,
+                            textColour: expired ? AppColours.red : AppColours.green,
+                            backgroundColour: expired ? AppColours.redSoft : AppColours.greenSoft,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Opacity(
+                        opacity: expired ? 0.35 : 1,
+                        child: QrImageView(
+                          data: value.qrPayload,
+                          version: QrVersions.auto,
+                          size: 250,
+                          backgroundColor: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        expired
+                            ? 'This QR has expired. Generate a new QR to continue.'
+                            : 'Valid for multiple employees until ${_formatAttendanceQrTime(value.expiresAt)}.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: AppTextSize.s13,
+                          color: expired ? AppColours.red : AppColours.textMuted,
+                          fontWeight: FontWeight.w700,
+                          height: 1.3,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _AttendanceQrScannerSheet extends StatefulWidget {
+  final String actionLabel;
+
+  const _AttendanceQrScannerSheet({required this.actionLabel});
+
+  @override
+  State<_AttendanceQrScannerSheet> createState() => _AttendanceQrScannerSheetState();
+}
+
+class _AttendanceQrScannerSheetState extends State<_AttendanceQrScannerSheet> {
+  final MobileScannerController scannerController = MobileScannerController();
+  bool handled = false;
+
+  @override
+  void dispose() {
+    scannerController.dispose();
+    super.dispose();
+  }
+
+  void onDetect(BarcodeCapture capture) {
+    if (handled) return;
+    String? value;
+    for (final barcode in capture.barcodes) {
+      final candidate = barcode.rawValue?.trim();
+      if (candidate != null && candidate.isNotEmpty) {
+        value = candidate;
+        break;
+      }
+    }
+    if (value == null) return;
+    handled = true;
+    AppFeedback.success();
+    Navigator.of(context).pop(value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const _PeopleSheetHandle(),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           Row(
             children: [
-              Container(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(
-                  color: AppColours.greenSoft,
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: const Icon(Icons.how_to_reg_outlined, color: AppColours.green),
-              ),
-              const SizedBox(width: 12),
-              const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Attendance Verification',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: AppTextSize.s24,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    Text(
-                      'Complete all fields before submit',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: AppTextSize.s13,
-                        color: AppColours.textMuted,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
+              Expanded(
+                child: Text(
+                  'Scan ${widget.actionLabel} QR',
+                  style: const TextStyle(
+                    fontSize: AppTextSize.s24,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
               IconButton(
-                onPressed: verifying || submitting ? null : () => Navigator.of(context).pop(),
+                onPressed: () => Navigator.of(context).pop(),
                 icon: const Icon(Icons.close_rounded),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 6),
+          Text(
+            'Scan a valid ${widget.actionLabel} QR code. GPS will be captured after the QR is scanned.',
+            style: const TextStyle(
+              fontSize: AppTextSize.s13,
+              color: AppColours.textMuted,
+              fontWeight: FontWeight.w600,
+              height: 1.3,
+            ),
+          ),
+          const SizedBox(height: 14),
           Expanded(
-            child: ListView(
-              padding: EdgeInsets.zero,
-              children: [
-                _AttendanceActionChipSelector(
-                  value: selectedMode,
-                  enabled: !verifying && !submitting,
-                  onChanged: (value) {
-                    setState(() {
-                      selectedMode = value;
-                      errorText = null;
-                    });
-                  },
-                ),
-                const SizedBox(height: 12),
-                _cameraPanel(),
-                if (errorText != null) ...[
-                  const SizedBox(height: 10),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: AppColours.redSoft,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: AppColours.red.withValues(alpha: 0.18)),
-                    ),
-                    child: Text(
-                      errorText!,
-                      style: const TextStyle(
-                        fontSize: AppTextSize.s13,
-                        color: AppColours.red,
-                        fontWeight: FontWeight.w700,
-                        height: 1.25,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  MobileScanner(
+                    controller: scannerController,
+                    onDetect: onDetect,
+                  ),
+                  Center(
+                    child: IgnorePointer(
+                      child: Container(
+                        width: 230,
+                        height: 230,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(color: Colors.white, width: 3),
+                        ),
                       ),
                     ),
                   ),
                 ],
-                const SizedBox(height: 12),
-                _FaceCheckRow(
-                  title: 'Face presence',
-                  subtitle: faceVerificationBypassed
-                      ? 'Failed after 3 attempts · attendance may continue'
-                      : faceAttemptCount == 0
-                          ? 'Exactly one full face required · up to 3 attempts'
-                          : 'Exactly one full face required · attempt $faceAttemptCount of 3',
-                  passed: facePresencePassed,
-                  active: verifying && !facePresencePassed,
-                ),
-                _FaceCheckRow(
-                  title: 'Single-face validation',
-                  subtitle: 'Multiple faces are rejected',
-                  passed: singleFacePassed,
-                  active: facePresencePassed && !singleFacePassed,
-                ),
-                _FaceCheckRow(
-                  title: 'Face size validation',
-                  subtitle: 'Face clear enough',
-                  passed: faceSizePassed,
-                  active: singleFacePassed && !faceSizePassed,
-                ),
-                _FaceCheckRow(
-                  title: 'Face framing guide',
-                  subtitle: 'Visual guide only · not blocking',
-                  passed: faceFramingPassed,
-                  active: faceSizePassed && !faceFramingPassed,
-                ),
-                _FaceCheckRow(
-                  title: 'Face angle guide',
-                  subtitle: 'Advisory only · not blocking',
-                  passed: faceAnglePassed,
-                  active: faceFramingPassed && !faceAnglePassed,
-                ),
-                _FaceCheckRow(
-                  title: 'GPS location',
-                  subtitle: gpsAddressText,
-                  passed: locationCaptured,
-                  active: (faceAnglePassed || faceVerificationBypassed) && !locationCaptured,
-                ),
-                if (verificationReady || qrCaptured) ...[
-                  const SizedBox(height: 4),
-                  _FaceCaptureSummaryCard(
-                    modeLabel: selectedMode ?? '-',
-                    branchName: widget.branchName,
-                    verifiedAt: _formatVerificationTime(verifiedAt),
-                    qrCapturedAt: _formatVerificationTime(qrCapturedAt),
-                    faceStatus: faceVerificationBypassed ? 'Failed · continued after 3 attempts' : 'Passed',
-                    faceAttempts: '$faceAttemptCount of 3',
-                    faceCount: detectedFaceCount.toString(),
-                    faceBox: faceBoxText,
-                    faceAngle: faceAngleText,
-                    faceFraming: faceFramingText,
-                    gpsAddress: gpsAddressText,
-                    gpsCoordinates: gpsCoordinatesText,
-                    gpsAccuracy: gpsAccuracyText,
-                    distanceInfo: distanceStatusText,
-                    deviceInfo: _deviceInfoText(),
-                    cameraInfo: selectedCamera == null ? '-' : '${selectedCamera!.lensDirection.name} camera',
-                    qrCheckpoint: qrCaptured ? qrCheckpointText : '-',
-                    facePhotoBytes: capturedFaceBytes,
-                  ),
-                ],
-              ],
-            ),
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: PrimaryButton(
-                  text: faceVerificationBypassed
-                      ? 'Face Bypassed'
-                      : verificationReady && faceAttemptCount >= 3
-                          ? 'Face Captured'
-                          : verificationReady
-                              ? 'Retake Face'
-                              : 'Capture Face (${math.min(faceAttemptCount + 1, 3)}/3)',
-                  icon: Icons.center_focus_strong_rounded,
-                  outlined: verificationReady,
-                  onPressed: canCaptureFace ? verifyFacePresence : null,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: PrimaryButton(
-                  text: qrCaptured ? 'QR Captured' : 'Capture QR',
-                  icon: Icons.qr_code_scanner_rounded,
-                  outlined: qrCaptured,
-                  onPressed: verifying || submitting ? null : captureQrCheckpoint,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          PrimaryButton(
-            text: submitting ? 'Submitting...' : 'Submit',
-            icon: Icons.check_circle_outline_rounded,
-            onPressed: canSubmit ? submitVerification : null,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _FaceCaptureSummaryCard extends StatelessWidget {
-  final String modeLabel;
-  final String branchName;
-  final String verifiedAt;
-  final String qrCapturedAt;
-  final String faceStatus;
-  final String faceAttempts;
-  final String faceCount;
-  final String faceBox;
-  final String faceAngle;
-  final String faceFraming;
-  final String gpsAddress;
-  final String gpsCoordinates;
-  final String gpsAccuracy;
-  final String distanceInfo;
-  final String deviceInfo;
-  final String cameraInfo;
-  final String qrCheckpoint;
-  final Uint8List? facePhotoBytes;
-
-  const _FaceCaptureSummaryCard({
-    required this.modeLabel,
-    required this.branchName,
-    required this.verifiedAt,
-    required this.qrCapturedAt,
-    required this.faceStatus,
-    required this.faceAttempts,
-    required this.faceCount,
-    required this.faceBox,
-    required this.faceAngle,
-    required this.faceFraming,
-    required this.gpsAddress,
-    required this.gpsCoordinates,
-    required this.gpsAccuracy,
-    required this.distanceInfo,
-    required this.deviceInfo,
-    required this.cameraInfo,
-    required this.qrCheckpoint,
-    required this.facePhotoBytes,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final hasPhoto = facePhotoBytes != null && facePhotoBytes!.isNotEmpty;
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColours.greenSoft,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColours.green.withValues(alpha: 0.22)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(11),
-                ),
-                child: const Icon(Icons.fact_check_outlined, color: AppColours.green, size: 20),
-              ),
-              const SizedBox(width: 10),
-              const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Verification summary',
-                      style: TextStyle(
-                        fontSize: AppTextSize.s16,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    SizedBox(height: 2),
-                    Text(
-                      'Review details before submit',
-                      style: TextStyle(
-                        fontSize: AppTextSize.s12,
-                        color: AppColours.textMuted,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SmallStatusPill(
-                text: 'Ready',
-                textColour: AppColours.green,
-                backgroundColour: Colors.white,
-              ),
-            ],
-          ),
-          if (hasPhoto) ...[
-            const SizedBox(height: 10),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(14),
-              child: Container(
-                height: 118,
-                width: double.infinity,
-                color: Colors.white,
-                child: Image.memory(
-                  facePhotoBytes!,
-                  fit: BoxFit.contain,
-                ),
-              ),
-            ),
-          ],
-          const SizedBox(height: 10),
-          _FaceInfoRow(label: 'Action', value: modeLabel),
-          _FaceInfoRow(label: 'Outlet', value: branchName),
-          _FaceInfoRow(label: 'Verified time', value: verifiedAt),
-          _FaceInfoRow(label: 'QR time', value: qrCapturedAt),
-          _FaceInfoRow(label: 'Face verification', value: faceStatus),
-          _FaceInfoRow(label: 'Face attempts', value: faceAttempts),
-          _FaceInfoRow(label: 'Face count', value: faceCount),
-          _FaceInfoRow(label: 'Face frame', value: faceBox),
-          _FaceInfoRow(label: 'Face angle', value: faceAngle),
-          _FaceInfoRow(label: 'Face framing', value: faceFraming),
-          _FaceInfoRow(label: 'Face quality', value: faceStatus),
-          _FaceInfoRow(label: 'QR checkpoint', value: qrCheckpoint),
-          _FaceInfoRow(label: 'Detected address', value: gpsAddress),
-          _FaceInfoRow(label: 'GPS coordinates', value: gpsCoordinates),
-          _FaceInfoRow(label: 'GPS accuracy', value: gpsAccuracy),
-          _FaceInfoRow(label: 'Distance from office', value: distanceInfo),
-          _FaceInfoRow(label: 'Device info', value: deviceInfo),
-          _FaceInfoRow(label: 'Camera', value: cameraInfo),
-          const _FaceInfoRow(label: 'Face photo storage', value: 'Not saved locally'),
-          const _FaceInfoRow(label: 'Server time', value: 'Recorded on submit'),
-        ],
-      ),
-    );
-  }
-}
-
-
-class _AttendanceActionChipSelector extends StatelessWidget {
-  final String? value;
-  final bool enabled;
-  final ValueChanged<String> onChanged;
-
-  const _AttendanceActionChipSelector({
-    required this.value,
-    required this.enabled,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    const options = ['Clock In', 'Clock Out'];
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Select action',
-          style: TextStyle(
-            fontSize: AppTextSize.s12,
-            color: AppColours.textMuted,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-        const SizedBox(height: 8),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: options.map((option) {
-              final selected = option == value;
-              return Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: Pressable(
-                  onTap: enabled ? () => onChanged(option) : null,
-                  borderRadius: BorderRadius.circular(999),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 160),
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: selected ? AppColours.blue : Colors.white,
-                      borderRadius: BorderRadius.circular(999),
-                      border: Border.all(color: selected ? AppColours.blue : AppColours.border),
-                      boxShadow: selected
-                          ? [
-                              BoxShadow(
-                                color: AppColours.blue.withValues(alpha: 0.16),
-                                blurRadius: 10,
-                                offset: const Offset(0, 4),
-                              ),
-                            ]
-                          : null,
-                    ),
-                    child: Text(
-                      option,
-                      style: TextStyle(
-                        fontSize: AppTextSize.s13,
-                        fontWeight: FontWeight.w800,
-                        color: selected ? Colors.white : AppColours.textMuted,
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _FaceInfoRow extends StatelessWidget {
-  final String label;
-  final String value;
-
-  const _FaceInfoRow({
-    required this.label,
-    required this.value,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 108,
-            child: Text(
-              label,
-              style: const TextStyle(
-                fontSize: AppTextSize.s12,
-                color: AppColours.textMuted,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              textAlign: TextAlign.right,
-              style: const TextStyle(
-                fontSize: AppTextSize.s12,
-                color: AppColours.textMain,
-                fontWeight: FontWeight.w700,
-                height: 1.2,
               ),
             ),
           ),
@@ -4156,113 +2398,12 @@ class _FaceInfoRow extends StatelessWidget {
   }
 }
 
-class _FaceCheckRow extends StatelessWidget {
-  final String title;
-  final String subtitle;
-  final bool passed;
-  final bool active;
-
-  const _FaceCheckRow({
-    required this.title,
-    required this.subtitle,
-    required this.passed,
-    required this.active,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(15),
-        border: Border.all(
-          color: passed
-              ? AppColours.green.withValues(alpha: 0.28)
-              : active
-                  ? AppColours.blue.withValues(alpha: 0.25)
-                  : AppColours.border,
-        ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 30,
-            height: 30,
-            decoration: BoxDecoration(
-              color: passed
-                  ? AppColours.greenSoft
-                  : active
-                      ? AppColours.blueSoft
-                      : AppColours.mutedBox,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(
-              passed
-                  ? Icons.check_rounded
-                  : active
-                      ? Icons.more_horiz_rounded
-                      : Icons.lock_outline_rounded,
-              color: passed
-                  ? AppColours.green
-                  : active
-                      ? AppColours.blue
-                      : AppColours.textMuted,
-              size: 19,
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: AppTextSize.s15,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  subtitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: AppTextSize.s12,
-                    color: AppColours.textMuted,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          SmallStatusPill(
-            text: passed
-                ? 'Pass'
-                : active
-                    ? 'Scan'
-                    : 'Wait',
-            textColour: passed
-                ? AppColours.green
-                : active
-                    ? AppColours.blue
-                    : AppColours.textMuted,
-            backgroundColour: passed
-                ? AppColours.greenSoft
-                : active
-                    ? AppColours.blueSoft
-                    : AppColours.mutedBox,
-          ),
-        ],
-      ),
-    );
-  }
+String _formatAttendanceQrTime(DateTime value) {
+  final hour = value.hour.toString().padLeft(2, '0');
+  final minute = value.minute.toString().padLeft(2, '0');
+  return '$hour:$minute';
 }
+
 
 class _PeopleMiniMetric extends StatelessWidget {
   final String label;

@@ -336,12 +336,7 @@ class _MainShellState extends State<MainShell> {
           ]);
           break;
         case StockPage.review:
-          await Future.wait([
-            loadStockSuppliers(reset: stockSupplierPage < 0),
-            loadStockSkus(reset: stockSkuPage < 0),
-            loadStockCounts(mine: false, reset: stockCountsMine != false),
-            loadStockReceivings(reset: stockReceivingPage < 0),
-          ]);
+          // On-demand: Review loads only after Status + Date + Search.
           break;
         case StockPage.skuSetup:
           await Future.wait([
@@ -357,7 +352,7 @@ class _MainShellState extends State<MainShell> {
           await loadStockTags(reset: stockTagPage < 0);
           break;
         case StockPage.assigneeSetup:
-          await loadStockSkus(reset: stockSkuPage < 0);
+          // On-demand: Assignee loads only after Assigned/Unassigned + Load.
           break;
         case StockPage.auditTrail:
         case StockPage.home:
@@ -1262,7 +1257,7 @@ class _MainShellState extends State<MainShell> {
 
   String buildDebugReport(BuildContext context) {
     return AppDiagnostics.instance.buildReport(
-      appVersion: 'east_app_v274',
+      appVersion: 'east_app_v275',
       role: currentRoleName,
       userName: currentUserName,
       userId: currentUserId,

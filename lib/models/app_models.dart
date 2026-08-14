@@ -524,6 +524,13 @@ class StockTask {
 class StockSubmission {
   final String id;
   final String stockTaskId;
+  final String skuName;
+  final String skuUnit;
+  final String skuCategory;
+  final String skuLocation;
+  final String skuPhotoPath;
+  final double skuMinimumBalanceValue;
+  final double skuMaximumBalanceValue;
   final String submittedBy;
   final String submittedAt;
   final DateTime capturedAt;
@@ -542,6 +549,13 @@ class StockSubmission {
   const StockSubmission({
     required this.id,
     required this.stockTaskId,
+    this.skuName = '',
+    this.skuUnit = '',
+    this.skuCategory = '',
+    this.skuLocation = '',
+    this.skuPhotoPath = '',
+    this.skuMinimumBalanceValue = 0,
+    this.skuMaximumBalanceValue = 0,
     required this.submittedBy,
     required this.submittedAt,
     required this.capturedAt,
@@ -572,6 +586,13 @@ class StockSubmission {
     return StockSubmission(
       id: id,
       stockTaskId: stockTaskId,
+      skuName: skuName,
+      skuUnit: skuUnit,
+      skuCategory: skuCategory,
+      skuLocation: skuLocation,
+      skuPhotoPath: skuPhotoPath,
+      skuMinimumBalanceValue: skuMinimumBalanceValue,
+      skuMaximumBalanceValue: skuMaximumBalanceValue,
       submittedBy: submittedBy,
       submittedAt: submittedAt,
       capturedAt: capturedAt,

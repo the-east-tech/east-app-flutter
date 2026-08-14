@@ -131,6 +131,15 @@ StockSubmission stockSubmissionFromJson(Map<String, dynamic> json) {
   return StockSubmission(
     id: json['id'] as String,
     stockTaskId: json['stockTaskId'] as String,
+    skuName: json['skuName'] as String? ?? '',
+    skuUnit: json['skuUnit'] as String? ?? '',
+    skuCategory: json['skuCategory'] as String? ?? '',
+    skuLocation: json['skuLocation'] as String? ?? '',
+    skuPhotoPath: json['skuPhotoPath'] as String? ?? '',
+    skuMinimumBalanceValue:
+        (json['skuMinimumBalanceValue'] as num?)?.toDouble() ?? 0,
+    skuMaximumBalanceValue:
+        (json['skuMaximumBalanceValue'] as num?)?.toDouble() ?? 0,
     submittedBy: json['submittedBy'] as String,
     submittedAt: json['submittedAt'] as String,
     capturedAt: DateTime.parse(json['capturedAt'] as String).toLocal(),

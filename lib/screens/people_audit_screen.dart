@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
 
 import '../models/attendance_models.dart';
@@ -42,7 +40,6 @@ class _PeopleAuditScreenState extends State<PeopleAuditScreen> {
   DateTime anchor = DateTime.now();
   EastAppAttendanceUserDetail? detail;
   final List<EastAppAttendanceEvent> events = [];
-  final List<EastAppAttendanceFaceAttempt> faceAttempts = [];
   int eventsPage = 0;
   bool eventsLastPage = true;
   bool reportLoading = false;
@@ -139,32 +136,18 @@ class _PeopleAuditScreenState extends State<PeopleAuditScreen> {
     });
 
     try {
-      final detailFuture = widget.api.attendanceUserAudit(
+      final value = await widget.api.attendanceUserAudit(
         userId: user.id,
         period: period,
         anchor: anchor,
         page: nextPage,
         size: _pageSize,
       );
-      final attemptsFuture = reset
-          ? widget.api.attendanceFaceAttempts(
-              userId: user.id,
-              period: period,
-              anchor: anchor,
-              page: 0,
-              size: 100,
-            )
-          : null;
-      final value = await detailFuture;
-      final attemptsPage = attemptsFuture == null ? null : await attemptsFuture;
       if (!mounted || selectedUser?.id != user.id) return;
       setState(() {
         detail = value;
         if (reset) {
           events.clear();
-          faceAttempts
-            ..clear()
-            ..addAll(attemptsPage?.content ?? const []);
         }
         events.addAll(value.events.content);
         eventsPage = value.events.page;
@@ -185,7 +168,6 @@ class _PeopleAuditScreenState extends State<PeopleAuditScreen> {
   void _clearReport() {
     detail = null;
     events.clear();
-    faceAttempts.clear();
     reportError = null;
     eventsPage = 0;
     eventsLastPage = true;
@@ -522,43 +504,6 @@ class _PeopleAuditScreenState extends State<PeopleAuditScreen> {
           children: [
             const Expanded(
               child: Text(
-                'Failed Face Attempts',
-                style: TextStyle(
-                  fontSize: AppTextSize.s18,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-            Text(
-              '${faceAttempts.length}',
-              style: const TextStyle(
-                color: AppColours.textMuted,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        if (faceAttempts.isEmpty)
-          const Text(
-            'No failed face attempts in this period.',
-            style: TextStyle(
-              color: AppColours.textMuted,
-              fontWeight: FontWeight.w700,
-            ),
-          )
-        else
-          ...faceAttempts.map(
-            (attempt) => Padding(
-              padding: const EdgeInsets.only(bottom: 9),
-              child: _FaceAttemptCard(api: widget.api, attempt: attempt),
-            ),
-          ),
-        const SizedBox(height: 14),
-        Row(
-          children: [
-            const Expanded(
-              child: Text(
                 'Attendance Events',
                 style: TextStyle(
                   fontSize: AppTextSize.s18,
@@ -711,151 +656,6 @@ class _AuditMetric extends StatelessWidget {
   }
 }
 
-class _FaceAttemptCard extends StatefulWidget {
-  final EastAppApi api;
-  final EastAppAttendanceFaceAttempt attempt;
-
-  const _FaceAttemptCard({required this.api, required this.attempt});
-
-  @override
-  State<_FaceAttemptCard> createState() => _FaceAttemptCardState();
-}
-
-class _FaceAttemptCardState extends State<_FaceAttemptCard> {
-  Future<Uint8List>? photoFuture;
-
-  @override
-  void initState() {
-    super.initState();
-    if (widget.attempt.photoStored) {
-      photoFuture = widget.api.attendanceFaceAttemptPhotoBytes(widget.attempt.id);
-    }
-  }
-
-  Future<void> openPhoto(Uint8List bytes) async {
-    await Navigator.of(context).push<void>(
-      MaterialPageRoute(
-        fullscreenDialog: true,
-        builder: (_) => Scaffold(
-          backgroundColor: Colors.black,
-          appBar: AppBar(
-            backgroundColor: Colors.black,
-            foregroundColor: Colors.white,
-            title: const Text('Failed Face Attempt'),
-          ),
-          body: Center(
-            child: InteractiveViewer(
-              minScale: 0.8,
-              maxScale: 5,
-              child: Image.memory(bytes, fit: BoxFit.contain),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final attempt = widget.attempt;
-    final attemptedAt = attempt.deviceAttemptedAt.toLocal();
-    final distanceKilometres = attempt.distanceMeters / 1000;
-    return WhiteCard(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (photoFuture != null)
-            FutureBuilder<Uint8List>(
-              future: photoFuture,
-              builder: (context, snapshot) {
-                final bytes = snapshot.data;
-                return InkWell(
-                  onTap: bytes == null || bytes.isEmpty ? null : () => openPhoto(bytes),
-                  borderRadius: BorderRadius.circular(12),
-                  child: Container(
-                    width: 72,
-                    height: 86,
-                    decoration: BoxDecoration(
-                      color: AppColours.background,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppColours.border),
-                    ),
-                    clipBehavior: Clip.antiAlias,
-                    child: snapshot.hasError
-                        ? const Icon(Icons.broken_image_outlined, color: AppColours.red)
-                        : bytes == null || bytes.isEmpty
-                            ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
-                            : Image.memory(bytes, fit: BoxFit.cover),
-                  ),
-                );
-              },
-            )
-          else
-            Container(
-              width: 72,
-              height: 86,
-              decoration: BoxDecoration(
-                color: AppColours.redSoft,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Icon(Icons.no_photography_outlined, color: AppColours.red),
-            ),
-          const SizedBox(width: 11),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Attempt ${attempt.faceAttemptNumber} · ${attempt.intendedEventType == 'CLOCK_OUT' ? 'Clock Out' : 'Clock In'}',
-                        style: const TextStyle(fontWeight: FontWeight.w800),
-                      ),
-                    ),
-                    Text(
-                      _AttendanceEventCard._formatDateTime(attemptedAt),
-                      style: const TextStyle(
-                        fontSize: AppTextSize.s12,
-                        color: AppColours.textMuted,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  attempt.failureReason,
-                  style: const TextStyle(color: AppColours.red, fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  '${distanceKilometres.toStringAsFixed(2)} km from ${attempt.workLocationName}',
-                  style: const TextStyle(color: AppColours.blue, fontWeight: FontWeight.w800),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  attempt.capturedAddress,
-                  style: const TextStyle(fontSize: AppTextSize.s12, fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  '${attempt.latitude.toStringAsFixed(6)}, ${attempt.longitude.toStringAsFixed(6)} · GPS ±${attempt.accuracyMeters.round()} m · Faces ${attempt.faceCount}',
-                  style: const TextStyle(
-                    fontSize: AppTextSize.s12,
-                    color: AppColours.textMuted,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _AttendanceEventCard extends StatelessWidget {
   final EastAppAttendanceEvent event;
 
@@ -865,10 +665,6 @@ class _AttendanceEventCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final occurredAt = event.occurredAt.toLocal();
     final type = event.eventType == 'CLOCK_IN' ? 'Clock In' : 'Clock Out';
-    final facePassed = event.faceValid && !event.faceVerificationBypassed;
-    final attendanceAccepted = event.cameraCaptureValid &&
-        event.qrCheckpointValid &&
-        (facePassed || event.faceVerificationBypassed);
     final distanceKilometres = event.distanceMeters / 1000;
     return WhiteCard(
       child: Row(
@@ -878,14 +674,14 @@ class _AttendanceEventCard extends StatelessWidget {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: facePassed ? AppColours.greenSoft : AppColours.orangeSoft,
+              color: AppColours.greenSoft,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
               event.eventType == 'CLOCK_IN'
                   ? Icons.login_rounded
                   : Icons.logout_rounded,
-              color: facePassed ? AppColours.green : AppColours.orange,
+              color: AppColours.green,
             ),
           ),
           const SizedBox(width: 11),
@@ -947,24 +743,13 @@ class _AttendanceEventCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  event.faceVerificationBypassed
-                      ? 'Face verification: failed after ${event.faceAttemptCount} attempts · attendance continued'
-                      : 'Face verification: passed on attempt ${event.faceAttemptCount}',
-                  style: TextStyle(
+                  'Validated by ${event.validationMethod} · QR + GPS',
+                  style: const TextStyle(
                     fontSize: AppTextSize.s12,
-                    color: facePassed ? AppColours.green : AppColours.orange,
+                    color: AppColours.green,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                if (!attendanceAccepted)
-                  const Text(
-                    'Attendance proof incomplete',
-                    style: TextStyle(
-                      fontSize: AppTextSize.s12,
-                      color: AppColours.red,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
               ],
             ),
           ),

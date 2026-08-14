@@ -14,16 +14,10 @@ class EastAppAttendanceEvent {
   final double workLocationLatitude;
   final double workLocationLongitude;
   final double distanceMeters;
-  final bool cameraCaptureValid;
-  final bool faceValid;
-  final int faceCount;
-  final int faceAttemptCount;
-  final bool faceVerificationBypassed;
-  final bool qrCheckpointValid;
+  final String qrCodeId;
   final String devicePlatform;
   final String appVersion;
   final String validationMethod;
-  final bool photoStored;
 
   const EastAppAttendanceEvent({
     required this.id,
@@ -39,16 +33,10 @@ class EastAppAttendanceEvent {
     required this.workLocationLatitude,
     required this.workLocationLongitude,
     required this.distanceMeters,
-    required this.cameraCaptureValid,
-    required this.faceValid,
-    required this.faceCount,
-    required this.faceAttemptCount,
-    required this.faceVerificationBypassed,
-    required this.qrCheckpointValid,
+    required this.qrCodeId,
     required this.devicePlatform,
     required this.appVersion,
     required this.validationMethod,
-    required this.photoStored,
   });
 
   factory EastAppAttendanceEvent.fromJson(Map<String, dynamic> json) {
@@ -66,16 +54,10 @@ class EastAppAttendanceEvent {
       workLocationLatitude: (json['workLocationLatitude'] as num).toDouble(),
       workLocationLongitude: (json['workLocationLongitude'] as num).toDouble(),
       distanceMeters: (json['distanceMeters'] as num).toDouble(),
-      cameraCaptureValid: json['cameraCaptureValid'] as bool,
-      faceValid: json['faceValid'] as bool,
-      faceCount: (json['faceCount'] as num).toInt(),
-      faceAttemptCount: (json['faceAttemptCount'] as num).toInt(),
-      faceVerificationBypassed: json['faceVerificationBypassed'] as bool,
-      qrCheckpointValid: json['qrCheckpointValid'] as bool,
+      qrCodeId: json['qrCodeId'] as String,
       devicePlatform: json['devicePlatform'] as String,
       appVersion: json['appVersion'] as String,
       validationMethod: json['validationMethod'] as String,
-      photoStored: json['photoStored'] as bool,
     );
   }
 }
@@ -301,89 +283,29 @@ class EastAppAttendanceUserDetail {
   }
 }
 
-class EastAppAttendanceFaceAttempt {
+class EastAppAttendanceQrCode {
   final String id;
-  final String intendedEventType;
-  final DateTime recordedAt;
-  final DateTime deviceAttemptedAt;
-  final double latitude;
-  final double longitude;
-  final double accuracyMeters;
-  final String capturedAddress;
-  final String workLocationName;
-  final String workLocationAddress;
-  final double workLocationLatitude;
-  final double workLocationLongitude;
-  final double distanceMeters;
-  final String failureReason;
-  final int faceCount;
-  final int faceAttemptNumber;
-  final double? faceBoxWidth;
-  final double? faceBoxHeight;
-  final double? faceYaw;
-  final double? faceRoll;
-  final double? facePitch;
-  final String devicePlatform;
-  final String appVersion;
-  final String validationMethod;
-  final bool photoStored;
+  final String eventType;
+  final DateTime expiresAt;
+  final String qrPayload;
 
-  const EastAppAttendanceFaceAttempt({
+  const EastAppAttendanceQrCode({
     required this.id,
-    required this.intendedEventType,
-    required this.recordedAt,
-    required this.deviceAttemptedAt,
-    required this.latitude,
-    required this.longitude,
-    required this.accuracyMeters,
-    required this.capturedAddress,
-    required this.workLocationName,
-    required this.workLocationAddress,
-    required this.workLocationLatitude,
-    required this.workLocationLongitude,
-    required this.distanceMeters,
-    required this.failureReason,
-    required this.faceCount,
-    required this.faceAttemptNumber,
-    required this.faceBoxWidth,
-    required this.faceBoxHeight,
-    required this.faceYaw,
-    required this.faceRoll,
-    required this.facePitch,
-    required this.devicePlatform,
-    required this.appVersion,
-    required this.validationMethod,
-    required this.photoStored,
+    required this.eventType,
+    required this.expiresAt,
+    required this.qrPayload,
   });
 
-  factory EastAppAttendanceFaceAttempt.fromJson(Map<String, dynamic> json) {
-    double? optionalDouble(String key) => (json[key] as num?)?.toDouble();
-    return EastAppAttendanceFaceAttempt(
+  factory EastAppAttendanceQrCode.fromJson(Map<String, dynamic> json) {
+    return EastAppAttendanceQrCode(
       id: json['id'] as String,
-      intendedEventType: json['intendedEventType'] as String,
-      recordedAt: DateTime.parse(json['recordedAt'] as String).toLocal(),
-      deviceAttemptedAt: DateTime.parse(json['deviceAttemptedAt'] as String).toLocal(),
-      latitude: (json['latitude'] as num).toDouble(),
-      longitude: (json['longitude'] as num).toDouble(),
-      accuracyMeters: (json['accuracyMeters'] as num).toDouble(),
-      capturedAddress: json['capturedAddress'] as String,
-      workLocationName: json['workLocationName'] as String,
-      workLocationAddress: json['workLocationAddress'] as String,
-      workLocationLatitude: (json['workLocationLatitude'] as num).toDouble(),
-      workLocationLongitude: (json['workLocationLongitude'] as num).toDouble(),
-      distanceMeters: (json['distanceMeters'] as num).toDouble(),
-      failureReason: json['failureReason'] as String,
-      faceCount: (json['faceCount'] as num).toInt(),
-      faceAttemptNumber: (json['faceAttemptNumber'] as num).toInt(),
-      faceBoxWidth: optionalDouble('faceBoxWidth'),
-      faceBoxHeight: optionalDouble('faceBoxHeight'),
-      faceYaw: optionalDouble('faceYaw'),
-      faceRoll: optionalDouble('faceRoll'),
-      facePitch: optionalDouble('facePitch'),
-      devicePlatform: json['devicePlatform'] as String,
-      appVersion: json['appVersion'] as String,
-      validationMethod: json['validationMethod'] as String,
-      photoStored: json['photoStored'] as bool? ?? false,
+      eventType: json['eventType'] as String,
+      expiresAt: DateTime.parse(json['expiresAt'] as String).toLocal(),
+      qrPayload: json['qrPayload'] as String,
     );
   }
+
+  bool get isCheckIn => eventType == 'CLOCK_IN';
+  String get actionLabel => isCheckIn ? 'Check In' : 'Check Out';
 }
+
