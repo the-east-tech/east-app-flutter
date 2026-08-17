@@ -157,7 +157,7 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
           '${result.businessName}\n'
           'Company Code: ${result.companyCode}\n'
           'Employee ID: ${result.employeeId}\n\n'
-          'Use these details with your phone number and password to sign in.',
+          'Use the Company Code, Employee ID and password to sign in.',
         ),
         actions: [
           TextButton(

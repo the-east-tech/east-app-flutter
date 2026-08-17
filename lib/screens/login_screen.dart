@@ -8,7 +8,6 @@ import '../services/east_app_api.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_components.dart';
 import '../widgets/app_feedback.dart';
-import '../widgets/phone_number_field.dart';
 
 class LoginScreen extends StatefulWidget {
   final EastAppApi api;
@@ -31,13 +30,11 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final companyCodeController = TextEditingController(text: 'EAST');
   final employeeIdController = TextEditingController();
-  final phoneController = TextEditingController();
   final passwordController = TextEditingController();
 
   late AppLanguage language;
   bool signingIn = false;
   bool obscurePassword = true;
-  PhoneCountry phoneCountry = defaultPhoneCountry;
 
   AppText get text => AppText(language);
 
@@ -51,7 +48,6 @@ class _LoginScreenState extends State<LoginScreen> {
   void dispose() {
     companyCodeController.dispose();
     employeeIdController.dispose();
-    phoneController.dispose();
     passwordController.dispose();
     super.dispose();
   }
@@ -60,27 +56,17 @@ class _LoginScreenState extends State<LoginScreen> {
     FocusScope.of(context).unfocus();
     final companyCode = companyCodeController.text.trim();
     final employeeId = employeeIdController.text.trim();
-    final phone = buildE164(phoneCountry, phoneController.text);
     final password = passwordController.text;
 
-    if (companyCode.isEmpty ||
-        employeeId.isEmpty ||
-        phoneController.text.trim().isEmpty ||
-        password.isEmpty) {
+    if (companyCode.isEmpty || employeeId.isEmpty || password.isEmpty) {
       showErrorSnackBar(context, text.t('Complete all fields.'));
       return;
     }
-    if (!isValidE164(phone)) {
-      showErrorSnackBar(context, text.t('Enter a valid phone number.'));
-      return;
-    }
-
     setState(() => signingIn = true);
     try {
       final session = await widget.api.login(
         companyCode: companyCode,
         employeeId: employeeId,
-        phoneE164: phone,
         password: password,
       );
       await widget.onSignedIn(session);
@@ -141,16 +127,6 @@ class _LoginScreenState extends State<LoginScreen> {
                   controller: employeeIdController,
                   hint: 'E0001',
                   textCapitalization: TextCapitalization.characters,
-                ),
-                const SizedBox(height: 12),
-                PhoneNumberField(
-                  label: t.t('Phone Number'),
-                  controller: phoneController,
-                  country: phoneCountry,
-                  onCountryChanged: (value) {
-                    setState(() => phoneCountry = value);
-                  },
-                  hint: '165076207',
                 ),
                 const SizedBox(height: 12),
                 _LoginField(

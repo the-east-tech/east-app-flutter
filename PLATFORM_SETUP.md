@@ -1,4 +1,4 @@
-# EastApp v275 platform setup
+# EastApp v277 platform setup
 
 This package is the lib-focused EastApp source package. It does not contain the full `android/` or `ios/` projects.
 
@@ -45,9 +45,9 @@ Ensure `ios/Runner/Info.plist` contains a user-facing `NSPhotoLibraryUsageDescri
 
 ## Dependency notes
 
-`flutter_secure_storage` remains on 11.0.0. EastApp v272/v273 already used v10.3.1, whose Android migration is enabled by default, so current installations that have run v10 are on the supported migration path. Do not let an installation jump directly from a pre-v10 EastApp build to v275; run a v10-based build first so legacy secure-storage data is migrated.
+`flutter_secure_storage` remains on 11.0.0. EastApp v272/v273 already used v10.3.1, whose Android migration is enabled by default, so current installations that have run v10 are on the supported migration path. Do not let an installation jump directly from a pre-v10 EastApp build to v277; run a v10-based build first so legacy secure-storage data is migrated.
 
-After replacing the v275 files in the full project, run:
+After replacing the v277 files in the full project, run:
 
 ```bash
 flutter clean

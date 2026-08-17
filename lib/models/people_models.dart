@@ -2,7 +2,7 @@ import 'app_models.dart';
 
 class EastAppRole {
   final String id;
-  final String? systemKey;
+  final String systemKey;
   final String name;
   final bool active;
   final int? assignedUsers;
@@ -18,14 +18,13 @@ class EastAppRole {
   factory EastAppRole.fromJson(Map<String, dynamic> json) {
     return EastAppRole(
       id: json['id'] as String,
-      systemKey: json['systemKey'] as String?,
+      systemKey: json['systemKey'] as String,
       name: json['name'] as String,
       active: json['active'] as bool,
       assignedUsers: (json['assignedUsers'] as num?)?.toInt(),
     );
   }
 
-  bool get isBuiltIn => systemKey != null;
   bool get isOwner => systemKey == 'OWNER';
   bool get isHead => systemKey == 'OWNER' || systemKey == 'HEAD';
 

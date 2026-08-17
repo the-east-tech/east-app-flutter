@@ -123,6 +123,23 @@ class _ReportScreenState extends State<ReportScreen>
     await loadDashboard(showLoading: false, forceRefresh: true);
   }
 
+  Future<void> showUpcomingFeature(BuildContext dialogContext) async {
+    AppFeedback.warning();
+    await showDialog<void>(
+      context: dialogContext,
+      builder: (context) => AlertDialog(
+        title: const Text('Upcoming Feature'),
+        content: const Text('This feature is not available yet.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final data = dashboard;
@@ -406,20 +423,7 @@ class _ReportScreenState extends State<ReportScreen>
         stockSkus: widget.stockSkus.where((sku) => sku.active).toList(),
         isManagement: isManagement,
         onChanged: handleChanged,
-        onCreate: () async {
-          Navigator.of(sheetContext).pop();
-          await _showReportSheet<void>(
-            context,
-            title: 'New Waste Record',
-            icon: Icons.add_a_photo_outlined,
-            builder: (_) => _WasteForm(
-              api: widget.api,
-              stockSkus: widget.stockSkus.where((sku) => sku.active).toList(),
-              earliestDate: earliestEditableDate,
-              onSaved: handleChanged,
-            ),
-          );
-        },
+        onCreate: () => unawaited(showUpcomingFeature(sheetContext)),
       ),
     );
   }
@@ -475,19 +479,7 @@ class _ReportScreenState extends State<ReportScreen>
         records: records,
         isManagement: isManagement,
         onChanged: handleChanged,
-        onCreate: () async {
-          Navigator.of(sheetContext).pop();
-          await _showReportSheet<void>(
-            context,
-            title: 'New Complaint',
-            icon: Icons.add_comment_rounded,
-            builder: (_) => _ComplaintForm(
-              api: widget.api,
-              earliestDate: earliestEditableDate,
-              onSaved: handleChanged,
-            ),
-          );
-        },
+        onCreate: () => unawaited(showUpcomingFeature(sheetContext)),
       ),
     );
   }
@@ -3196,27 +3188,20 @@ class _DailyPhotosSheetState extends State<_DailyPhotosSheet> {
 
   Future<void> capture() async {
     if (!report.isEditable) return;
-    final path = await Navigator.of(context).push<String>(
-      MaterialPageRoute(
-        builder: (_) => const _ReportCameraPage(title: 'Daily Photo'),
+    AppFeedback.warning();
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Upcoming Feature'),
+        content: const Text('This feature is not available yet.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('OK'),
+          ),
+        ],
       ),
     );
-    if (!mounted || path == null) return;
-    try {
-      final saved = await _runReportAction<DailyPhotoReport>(context, () async {
-        final storageKey = await widget.api.uploadReportImage(path);
-        final value = await widget.api.addDailyPhoto(
-          reportDate: report.reportDate,
-          photoStorageKey: storageKey,
-        );
-        await widget.onChanged();
-        return value;
-      });
-      if (!mounted || saved == null) return;
-      setState(() => report = saved);
-    } on EastAppApiException {
-      return;
-    }
   }
 
   Future<void> submit() async {

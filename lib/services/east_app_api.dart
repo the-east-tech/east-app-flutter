@@ -123,6 +123,8 @@ class EastAppApi {
       'tenant:$tenantId:setup:users:';
   static String rolesCachePrefix(String tenantId) =>
       'tenant:$tenantId:setup:roles:';
+  static String advertisementFeedCacheKey(String tenantId) =>
+      'tenant:$tenantId:home:advertisements:active:v1';
 
   DateTime? featureCacheUpdatedAt(String cacheKey) =>
       FeatureDataCache.instance.updatedAt(cacheKey);
@@ -188,7 +190,6 @@ class EastAppApi {
   Future<EastAppSession> login({
     required String companyCode,
     required String employeeId,
-    required String phoneE164,
     required String password,
   }) async {
     final body = await _requestJson(
@@ -198,7 +199,6 @@ class EastAppApi {
       body: {
         'companyCode': companyCode,
         'employeeId': employeeId,
-        'phoneE164': phoneE164,
         'password': password,
       },
     ) as Map<String, dynamic>;
@@ -421,10 +421,15 @@ class EastAppApi {
         : {'Authorization': 'Bearer $token'};
   }
 
-  Future<AdvertisementFeed> advertisementFeed() async {
-    final body = await _requestJson(
-      'GET',
-      '/api/v1/advertisements/active',
+  Future<AdvertisementFeed> advertisementFeed({
+    required String tenantId,
+    bool forceRefresh = false,
+  }) async {
+    const path = '/api/v1/advertisements/active';
+    final body = await _requestCachedJson(
+      path,
+      cacheKey: advertisementFeedCacheKey(tenantId),
+      forceRefresh: forceRefresh,
     ) as Map<String, dynamic>;
     return AdvertisementFeed.fromJson(body);
   }
@@ -791,6 +796,8 @@ class EastAppApi {
   Future<EastAppPage<EastAppUser>> listUsers({
     String search = '',
     bool? active,
+    String? role,
+    String? viewerRole,
     int page = 0,
     int size = 20,
     String? tenantId,
@@ -799,13 +806,14 @@ class EastAppApi {
     final query = Uri(queryParameters: {
       'search': search.trim(),
       if (active != null) 'active': active.toString(),
+      if (role != null && role.trim().isNotEmpty) 'role': role.trim(),
       'page': '$page',
       'size': '$size',
     }).query;
     final path = '/api/v1/users?$query';
     final cacheKey = tenantId == null
         ? null
-        : '${usersCachePrefix(tenantId)}$query';
+        : '${usersCachePrefix(tenantId)}${viewerRole ?? 'AUTH'}:$query';
     final body = cacheKey == null
         ? await _requestJson('GET', path)
         : await _requestCachedJson(
@@ -890,10 +898,13 @@ class EastAppApi {
 
   Future<List<EastAppRole>> listRoles({
     String? tenantId,
+    String? viewerRole,
     bool forceRefresh = false,
   }) async {
     const path = '/api/v1/roles';
-    final cacheKey = tenantId == null ? null : '${rolesCachePrefix(tenantId)}all';
+    final cacheKey = tenantId == null
+        ? null
+        : '${rolesCachePrefix(tenantId)}visible:${viewerRole ?? 'AUTH'}';
     final body = cacheKey == null
         ? await _requestJson('GET', path)
         : await _requestCachedJson(
@@ -914,39 +925,6 @@ class EastAppApi {
     return body
         .map((item) => EastAppRole.fromJson(item as Map<String, dynamic>))
         .toList(growable: false);
-  }
-
-  Future<EastAppRole> createRole({required String name}) async {
-    final body = await _requestJson(
-      'POST',
-      '/api/v1/roles',
-      body: {'name': name},
-    ) as Map<String, dynamic>;
-    return EastAppRole.fromJson(body);
-  }
-
-  Future<EastAppRole> updateRole({
-    required String roleId,
-    required String name,
-    required bool active,
-  }) async {
-    final body = await _requestJson(
-      'PATCH',
-      '/api/v1/roles/$roleId',
-      body: {
-        'name': name,
-        'active': active,
-      },
-    ) as Map<String, dynamic>;
-    return EastAppRole.fromJson(body);
-  }
-
-  Future<void> deleteRole(String roleId) async {
-    await _requestJson(
-      'DELETE',
-      '/api/v1/roles/$roleId',
-      expectBody: false,
-    );
   }
 
   Future<EastAppAttendanceToday> attendanceToday() async {

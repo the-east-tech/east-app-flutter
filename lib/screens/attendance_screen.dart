@@ -81,6 +81,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   String? usersError;
   String usersSearch = '';
   bool? usersActiveFilter;
+  String? usersRoleFilter;
   DateTime? usersUpdatedAt;
 
   bool rolesLoaded = false;
@@ -99,8 +100,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   bool get isHead => widget.role == UserRole.head;
   bool get isManager => widget.role == UserRole.manager;
   bool get canManageUsers => isHead || isManager;
-  bool get canCreateUsers => isOwner || isHead;
-  bool get canManageTenants => isOwner || isHead;
+  bool get canCreateUsers => canManageUsers;
+  bool get canManageTenants => isOwner;
   bool get canManagePoints => isOwner || isHead;
 
   String get currentSelfUserId => widget.currentUser.employeeId;
@@ -110,16 +111,19 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   @override
   void didUpdateWidget(covariant AttendanceScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.currentUser.id != widget.currentUser.id) {
+    final identityChanged = oldWidget.currentUser.id != widget.currentUser.id;
+    final tenantChanged = oldWidget.currentTenant.id != widget.currentTenant.id;
+    final roleChanged = oldWidget.currentUser.role.systemKey !=
+        widget.currentUser.role.systemKey;
+
+    if (identityChanged || tenantChanged) {
       todayAttendance = null;
       attendanceLoading = false;
       attendanceError = null;
     }
-    final couldManageBefore = oldWidget.role == UserRole.head ||
-        oldWidget.role == UserRole.manager;
-    if (couldManageBefore == canManageUsers) return;
 
-    if (!canManageUsers) {
+    if (identityChanged || tenantChanged || roleChanged) {
+      // Never keep a privileged user/role list after a context or role change.
       users = [];
       roles = [];
       usersPage = 0;
@@ -128,6 +132,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       usersLoading = false;
       usersLoadingMore = false;
       usersError = null;
+      usersSearch = '';
+      usersActiveFilter = null;
+      usersRoleFilter = null;
       rolesLoaded = false;
       rolesLoading = false;
       rolesError = null;
@@ -154,14 +161,19 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     final query = Uri(queryParameters: {
       'search': usersSearch.trim(),
       if (usersActiveFilter != null) 'active': usersActiveFilter.toString(),
+      if (usersRoleFilter != null) 'role': usersRoleFilter!,
       'page': '$nextPage',
       'size': '$_usersPageSize',
     }).query;
-    final cacheKey = '${EastAppApi.usersCachePrefix(widget.currentTenant.id)}$query';
+    final viewerRole = widget.currentUser.role.systemKey;
+    final cacheKey =
+        '${EastAppApi.usersCachePrefix(widget.currentTenant.id)}$viewerRole:$query';
     try {
       final result = await widget.api.listUsers(
         search: usersSearch,
         active: usersActiveFilter,
+        role: usersRoleFilter,
+        viewerRole: viewerRole,
         page: nextPage,
         size: _usersPageSize,
         tenantId: widget.currentTenant.id,
@@ -194,10 +206,13 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       rolesLoading = true;
       rolesError = null;
     });
-    final cacheKey = '${EastAppApi.rolesCachePrefix(widget.currentTenant.id)}all';
+    final viewerRole = widget.currentUser.role.systemKey;
+    final cacheKey =
+        '${EastAppApi.rolesCachePrefix(widget.currentTenant.id)}visible:$viewerRole';
     try {
       final result = await widget.api.listRoles(
         tenantId: widget.currentTenant.id,
+        viewerRole: viewerRole,
         forceRefresh: force,
       );
       if (!mounted || !canManageUsers) return;
@@ -236,11 +251,16 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     unawaited(loadUsers(reset: true));
   }
 
+  void updateUsersRoleFilter(String? value) {
+    usersRoleFilter = value;
+    unawaited(loadUsers(reset: true));
+  }
+
   void openPage(_PeoplePage nextPage) {
     if (page == nextPage) return;
     if ((nextPage == _PeoplePage.users || nextPage == _PeoplePage.roles) &&
         !canManageUsers) {
-      showWarningSnackBar(context, 'Only Owner, Head and Manager can view setup.');
+      showWarningSnackBar(context, 'Only Owner, Head and Manager can access User and Role.');
       return;
     }
     if (nextPage == _PeoplePage.points && !canManagePoints) {
@@ -248,7 +268,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       return;
     }
     if (nextPage == _PeoplePage.tenants && !canManageTenants) {
-      showWarningSnackBar(context, 'Only Owner and Head can manage businesses.');
+      showWarningSnackBar(context, 'Only Owner can manage businesses.');
       return;
     }
     if (nextPage == _PeoplePage.audit && !isHead) {
@@ -259,6 +279,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     setState(() => page = nextPage);
     if (nextPage == _PeoplePage.users) {
       unawaited(loadUsers(reset: true));
+      unawaited(loadRoles());
     } else if (nextPage == _PeoplePage.roles) {
       unawaited(loadRoles());
     }
@@ -482,7 +503,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                 ? 'ANDROID'
                 : Platform.operatingSystem.toUpperCase(),
         deviceOsVersion: Platform.operatingSystemVersion.replaceAll('\n', ' '),
-        appVersion: 'east_app_v275',
+        appVersion: 'east_app_v279',
       );
 
       final refreshed = await widget.api.attendanceToday();
@@ -685,7 +706,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     if (!canCreateUsers) {
       showWarningSnackBar(
         context,
-        'Only Owner and Head can create users.',
+        'Only Owner, Head and Manager can create users.',
       );
       return;
     }
@@ -740,10 +761,14 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         tenant: widget.currentTenant,
         initialRoles: roles,
         allowRoleEdit: true,
-        allowedRoleSystemKeys:
-            isManager ? const {'STAFF_1', 'STAFF_2'} : null,
+        allowedRoleSystemKeys: user.roleSystemKey == 'OWNER'
+            ? const {'OWNER'}
+            : isManager
+                ? const {'SUPERVISOR', 'STAFF_1', 'STAFF_2'}
+                : null,
         allowPasswordReset: user.id != widget.currentUser.id,
-        allowStatusEdit: user.id != widget.currentUser.id,
+        allowStatusEdit:
+            user.id != widget.currentUser.id && user.roleSystemKey != 'OWNER',
         onSaveUser: (draft) async {
           final updatedUser = await widget.api.updateUser(
             userId: user.id,
@@ -816,80 +841,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     );
   }
 
-  void openRoleForm() {
-    if (!isHead) {
-      showWarningSnackBar(context, 'Only Owner and Head can create roles.');
-      return;
-    }
-
-    _showPeopleBottomSheet<void>(
-      context,
-      heightFactor: 0.66,
-      child: _RoleFormSheet(
-        existingRoles: roles,
-        onSaveRole: (draft) async {
-          await widget.api.createRole(name: draft.name);
-          await loadRoles(force: true);
-        },
-      ),
-    );
-  }
-
-  void openEditRoleForm(_PeopleRole role) {
-    if (!isHead) return;
-
-    _showPeopleBottomSheet<void>(
-      context,
-      heightFactor: 0.72,
-      child: _RoleFormSheet(
-        role: role,
-        existingRoles: roles,
-        assignedCount: role.assignedUsers,
-        onSaveRole: (draft) async {
-          await widget.api.updateRole(
-            roleId: role.id,
-            name: draft.name,
-            active: draft.active,
-          );
-          if (widget.currentUser.role.id == role.id && widget.api.token != null) {
-            final refreshed = await widget.api.currentSession(widget.api.token!);
-            widget.onCurrentUserChanged(refreshed.user);
-          }
-          await loadRoles(force: true);
-        },
-        onDeleteRole: role.assignedUsers == 0 && !role.isBuiltIn
-            ? () {
-                Navigator.of(context).pop();
-                Future.microtask(() => openDeleteRoleForm(role));
-              }
-            : null,
-      ),
-    );
-  }
-
-  void openDeleteRoleForm(_PeopleRole role) {
-    if (role.isBuiltIn) {
-      showWarningSnackBar(context, 'Built-in roles cannot be deleted.');
-      return;
-    }
-    if (role.assignedUsers > 0) {
-      showWarningSnackBar(context, 'Assigned roles cannot be deleted.');
-      return;
-    }
-
-    _showPeopleBottomSheet<void>(
-      context,
-      heightFactor: 0.42,
-      child: _DeleteRoleSheet(
-        role: role,
-        onDeleteRole: () async {
-          await widget.api.deleteRole(role.id);
-          await loadRoles(force: true);
-        },
-      ),
-    );
-  }
-
   Widget buildPeopleHome(BuildContext context) {
     final text = AppTextScope.of(context);
     return ListView(
@@ -905,12 +856,13 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         _PeopleSectionTitle(text.t('People')),
         _PeopleMenuGrid(
           children: [
-            _PeopleMenuCard(
-              title: text.t('User'),
-              subtitle: text.t('List users'),
-              icon: Icons.people_outline_rounded,
-              onTap: () => openPage(_PeoplePage.users),
-            ),
+            if (canManageUsers)
+              _PeopleMenuCard(
+                title: text.t('User'),
+                subtitle: text.t('List users'),
+                icon: Icons.people_outline_rounded,
+                onTap: () => openPage(_PeoplePage.users),
+              ),
             _PeopleMenuCard(
               title: text.t('Attendance'),
               subtitle: text.t('Clock in/out'),
@@ -923,12 +875,13 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
               icon: Icons.calendar_month_outlined,
               onTap: () => showComingSoon(text.t('Schedule')),
             ),
-            _PeopleMenuCard(
-              title: text.t('Role'),
-              subtitle: text.t(isHead ? 'Manage roles' : 'View roles'),
-              icon: Icons.admin_panel_settings_outlined,
-              onTap: () => openPage(_PeoplePage.roles),
-            ),
+            if (canManageUsers)
+              _PeopleMenuCard(
+                title: text.t('Role'),
+                subtitle: text.t('View role hierarchy'),
+                icon: Icons.admin_panel_settings_outlined,
+                onTap: () => openPage(_PeoplePage.roles),
+              ),
             if (canManagePoints)
               _PeopleMenuCard(
                 title: text.t('Points'),
@@ -988,6 +941,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
             lastPage: usersLastPage,
             error: usersError,
             activeFilter: usersActiveFilter,
+            roleFilter: usersRoleFilter,
+            roles: roles,
             canManageUsers: canManageUsers,
             canCreateUsers: canCreateUsers,
             onBack: goPeopleHome,
@@ -995,6 +950,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
             onUserTap: canManageUsers ? openEditUserForm : null,
             onSearchChanged: updateUsersSearch,
             onActiveFilterChanged: updateUsersActiveFilter,
+            onRoleFilterChanged: updateUsersRoleFilter,
             onLoadMore: () => loadUsers(reset: false),
             onRetry: () => loadUsers(reset: true, forceRefresh: true),
           ),
@@ -1007,10 +963,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
             roles: roles,
             loading: rolesLoading,
             error: rolesError,
-            canManageRoles: isHead,
             onBack: goPeopleHome,
-            onCreateRole: openRoleForm,
-            onRoleTap: isHead ? openEditRoleForm : null,
             onRetry: () => loadRoles(force: true),
           ),
         );
@@ -1179,6 +1132,8 @@ class _UserSetupPage extends StatefulWidget {
   final bool lastPage;
   final String? error;
   final bool? activeFilter;
+  final String? roleFilter;
+  final List<_PeopleRole> roles;
   final bool canManageUsers;
   final bool canCreateUsers;
   final VoidCallback onBack;
@@ -1186,6 +1141,7 @@ class _UserSetupPage extends StatefulWidget {
   final ValueChanged<_PeopleUser>? onUserTap;
   final ValueChanged<String> onSearchChanged;
   final ValueChanged<bool?> onActiveFilterChanged;
+  final ValueChanged<String?> onRoleFilterChanged;
   final Future<void> Function() onLoadMore;
   final Future<void> Function() onRetry;
 
@@ -1197,6 +1153,8 @@ class _UserSetupPage extends StatefulWidget {
     required this.lastPage,
     required this.error,
     required this.activeFilter,
+    required this.roleFilter,
+    required this.roles,
     required this.canManageUsers,
     required this.canCreateUsers,
     required this.onBack,
@@ -1204,6 +1162,7 @@ class _UserSetupPage extends StatefulWidget {
     required this.onUserTap,
     required this.onSearchChanged,
     required this.onActiveFilterChanged,
+    required this.onRoleFilterChanged,
     required this.onLoadMore,
     required this.onRetry,
   });
@@ -1236,6 +1195,15 @@ class _UserSetupPageState extends State<_UserSetupPage> {
     if (widget.activeFilter == true) return 'Active';
     if (widget.activeFilter == false) return 'Inactive';
     return 'All';
+  }
+
+  String get roleValue {
+    final filter = widget.roleFilter;
+    if (filter == null) return 'All Roles';
+    for (final role in widget.roles) {
+      if (role.systemKey == filter) return role.name;
+    }
+    return 'All Roles';
   }
 
   @override
@@ -1327,6 +1295,27 @@ class _UserSetupPageState extends State<_UserSetupPage> {
             );
           },
         ),
+        const SizedBox(height: 10),
+        _PeopleFilterDropdown(
+          label: text.t('Role'),
+          value: roleValue,
+          options: [
+            'All Roles',
+            ...widget.roles.where((role) => role.active).map((role) => role.name),
+          ],
+          onChanged: (value) {
+            if (value == 'All Roles') {
+              widget.onRoleFilterChanged(null);
+              return;
+            }
+            for (final role in widget.roles) {
+              if (role.name == value) {
+                widget.onRoleFilterChanged(role.systemKey);
+                return;
+              }
+            }
+          },
+        ),
         const SizedBox(height: 14),
         if (widget.loading)
           const Padding(
@@ -1382,97 +1371,48 @@ class _UserSetupPageState extends State<_UserSetupPage> {
   }
 }
 
-class _RoleSetupPage extends StatefulWidget {
+class _RoleSetupPage extends StatelessWidget {
   final List<_PeopleRole> roles;
   final bool loading;
   final String? error;
-  final bool canManageRoles;
   final VoidCallback onBack;
-  final VoidCallback onCreateRole;
-  final ValueChanged<_PeopleRole>? onRoleTap;
   final Future<void> Function() onRetry;
 
   const _RoleSetupPage({
     required this.roles,
     required this.loading,
     required this.error,
-    required this.canManageRoles,
     required this.onBack,
-    required this.onCreateRole,
-    required this.onRoleTap,
     required this.onRetry,
   });
 
-  @override
-  State<_RoleSetupPage> createState() => _RoleSetupPageState();
-}
-
-class _RoleSetupPageState extends State<_RoleSetupPage> {
-  final searchController = TextEditingController();
-  String statusFilter = 'All';
-
-  @override
-  void dispose() {
-    searchController.dispose();
-    super.dispose();
-  }
-
   int assignedCount(String roleName) {
-    return widget.roles
-        .firstWhere((role) => role.name == roleName)
-        .assignedUsers;
-  }
-
-  List<_PeopleRole> get filteredRoles {
-    final query = searchController.text.trim().toLowerCase();
-    return widget.roles.where((role) {
-      final matchesSearch = query.isEmpty ||
-          role.name.toLowerCase().contains(query) ||
-          role.id.toLowerCase().contains(query);
-      final matchesStatus = statusFilter == 'All' ||
-          (statusFilter == 'Active' && role.active) ||
-          (statusFilter == 'Inactive' && !role.active);
-      return matchesSearch && matchesStatus;
-    }).toList();
+    return roles.firstWhere((role) => role.name == roleName).assignedUsers;
   }
 
   @override
   Widget build(BuildContext context) {
     final text = AppTextScope.of(context);
-    final visibleRoles = filteredRoles;
-    final activeRoles = widget.roles.where((role) => role.active).length;
-    final rolesInUse = widget.roles.where((role) => role.assignedUsers > 0).length;
+    final rolesInUse = roles.where((role) => role.assignedUsers > 0).length;
 
     return _PeoplePageScaffold(
       title: text.t('Role'),
-      subtitle: widget.canManageRoles
-          ? text.t('Manage roles and availability.')
-          : text.t('View roles.'),
-      onBack: widget.onBack,
-      trailing: widget.canManageRoles
-          ? SizedBox(
-              width: 150,
-              child: PrimaryButton(
-                text: text.t('Create Role'),
-                icon: Icons.add_rounded,
-                onPressed: widget.onCreateRole,
-              ),
-            )
-          : null,
+      subtitle: 'Fixed EastApp role hierarchy',
+      onBack: onBack,
       children: [
-        if (widget.loading)
+        if (loading)
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 50),
             child: Center(child: CircularProgressIndicator()),
           )
-        else if (widget.error != null)
+        else if (error != null)
           WhiteCard(
             child: Column(
               children: [
                 const Icon(Icons.error_outline_rounded, color: AppColours.red),
                 const SizedBox(height: 8),
                 Text(
-                  widget.error!,
+                  error!,
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     color: AppColours.red,
@@ -1481,7 +1421,7 @@ class _RoleSetupPageState extends State<_RoleSetupPage> {
                 ),
                 const SizedBox(height: 10),
                 OutlinedButton(
-                  onPressed: widget.onRetry,
+                  onPressed: onRetry,
                   child: const Text('Retry'),
                 ),
               ],
@@ -1493,16 +1433,8 @@ class _RoleSetupPageState extends State<_RoleSetupPage> {
               Expanded(
                 child: _PeopleMiniMetric(
                   label: text.t('Total'),
-                  value: '${widget.roles.length}',
+                  value: '${roles.length}',
                   icon: Icons.admin_panel_settings_outlined,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _PeopleMiniMetric(
-                  label: text.t('Active'),
-                  value: '$activeRoles',
-                  icon: Icons.verified_outlined,
                 ),
               ),
               const SizedBox(width: 10),
@@ -1516,41 +1448,22 @@ class _RoleSetupPageState extends State<_RoleSetupPage> {
             ],
           ),
           const SizedBox(height: 12),
-          TextField(
-            controller: searchController,
-            style: AppTextStyles.formValue,
-            onChanged: (_) => setState(() {}),
-            textInputAction: TextInputAction.search,
-            onTapOutside: (_) => FocusScope.of(context).unfocus(),
-            decoration: AppInputStyle.decoration(
-              text.t('Search roles'),
-            ).copyWith(
-              prefixIcon: const Icon(Icons.search_rounded),
-              suffixIcon: searchController.text.trim().isEmpty
-                  ? null
-                  : IconButton(
-                      onPressed: () {
-                        AppFeedback.select();
-                        searchController.clear();
-                        FocusScope.of(context).unfocus();
-                        setState(() {});
-                      },
-                      icon: const Icon(Icons.close_rounded, size: 20),
-                    ),
+          const WhiteCard(
+            child: Text(
+              'Owner → Head → Manager → Supervisor → Staff1 → Staff2. '
+              'Roles are fixed and cannot be created, renamed or deleted.',
+              style: TextStyle(
+                color: AppColours.textMuted,
+                fontWeight: FontWeight.w600,
+                height: 1.35,
+              ),
             ),
           ),
-          const SizedBox(height: 10),
-          _PeopleFilterDropdown(
-            label: text.t('Status'),
-            value: statusFilter,
-            options: const ['All', 'Active', 'Inactive'],
-            onChanged: (value) => setState(() => statusFilter = value),
-          ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
           _PeopleRoleList(
-            roles: visibleRoles,
+            roles: roles,
             assignedCount: assignedCount,
-            onRoleTap: widget.onRoleTap,
+            onRoleTap: null,
           ),
         ],
       ],
@@ -1942,28 +1855,24 @@ class _AttendanceCheckInOutSheet extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 8),
-          WhiteCard(
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 2),
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: 42,
-                  height: 42,
-                  decoration: BoxDecoration(
-                    color: attendance.hasClockedOut
-                        ? AppColours.greenSoft
-                        : AppColours.blueSoft,
-                    borderRadius: BorderRadius.circular(13),
-                  ),
+                Padding(
+                  padding: const EdgeInsets.only(top: 1),
                   child: Icon(
                     attendance.hasClockedOut
-                        ? Icons.check_circle_outline_rounded
+                        ? Icons.check_circle_rounded
                         : Icons.schedule_rounded,
+                    size: 21,
                     color: attendance.hasClockedOut
                         ? AppColours.green
                         : AppColours.blue,
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 9),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1971,11 +1880,11 @@ class _AttendanceCheckInOutSheet extends StatelessWidget {
                       Text(
                         statusLabel,
                         style: const TextStyle(
-                          fontSize: AppTextSize.s16,
+                          fontSize: AppTextSize.s15,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
-                      const SizedBox(height: 3),
+                      const SizedBox(height: 2),
                       const Text(
                         'GPS location and a valid attendance QR are required.',
                         style: TextStyle(
@@ -2867,8 +2776,7 @@ class _UserFormSheetState extends State<_UserFormSheet> {
   bool roleAllowed(_PeopleRole role) {
     final allowedKeys = widget.allowedRoleSystemKeys;
     if (allowedKeys == null) return true;
-    final systemKey = role.systemKey;
-    return systemKey != null && allowedKeys.contains(systemKey);
+    return allowedKeys.contains(role.systemKey);
   }
 
   List<_PeopleRole> get selectableRoles {
@@ -3324,315 +3232,6 @@ class _UserFormSheetState extends State<_UserFormSheet> {
   }
 }
 
-class _RoleDraft {
-  final String name;
-  final bool active;
-
-  const _RoleDraft({required this.name, required this.active});
-}
-
-class _RoleFormSheet extends StatefulWidget {
-  final _PeopleRole? role;
-  final List<_PeopleRole> existingRoles;
-  final int assignedCount;
-  final Future<void> Function(_RoleDraft draft) onSaveRole;
-  final VoidCallback? onDeleteRole;
-
-  const _RoleFormSheet({
-    this.role,
-    required this.existingRoles,
-    this.assignedCount = 0,
-    required this.onSaveRole,
-    this.onDeleteRole,
-  });
-
-  @override
-  State<_RoleFormSheet> createState() => _RoleFormSheetState();
-}
-
-class _RoleFormSheetState extends State<_RoleFormSheet> {
-  final nameController = TextEditingController();
-  bool active = true;
-  bool showErrors = false;
-  bool saving = false;
-
-  bool get isEditing => widget.role != null;
-  bool get isOwner => widget.role?.isOwner == true;
-  bool get isHead => widget.role?.isHead == true;
-  bool get isProtectedRole => isOwner || isHead;
-  bool get isBuiltIn => widget.role?.isBuiltIn == true;
-
-  String? get nameError {
-    if (!showErrors) return null;
-    final name = nameController.text.trim();
-    if (name.isEmpty) return 'Role Name required';
-    final duplicate = widget.existingRoles.any((role) {
-      return role.id != widget.role?.id &&
-          role.name.toLowerCase() == name.toLowerCase();
-    });
-    if (duplicate) return 'Role Name already exists';
-    return null;
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    final role = widget.role;
-    if (role == null) return;
-    nameController.text = role.name;
-    active = role.active;
-  }
-
-  @override
-  void dispose() {
-    nameController.dispose();
-    super.dispose();
-  }
-
-  Future<void> submit() async {
-    FocusScope.of(context).unfocus();
-    setState(() => showErrors = true);
-    if (nameError != null) {
-      AppFeedback.warning();
-      return;
-    }
-
-    final confirmed = await confirmDataChange(
-      context,
-      action: isEditing ? 'Update Role?' : 'Create Role?',
-      details: isEditing
-          ? 'This will update the selected role and may affect assigned users.'
-          : 'This will create a new role for this business.',
-    );
-    if (!confirmed || !mounted) return;
-
-    setState(() => saving = true);
-    try {
-      await widget.onSaveRole(
-        _RoleDraft(
-          name: nameController.text.trim(),
-          active: isHead ? true : active,
-        ),
-      );
-      if (!mounted) return;
-      Navigator.of(context).pop();
-      showSuccessSnackBar(
-        context,
-        isEditing ? 'Role updated' : 'Role created',
-      );
-    } on EastAppApiException catch (_) {
-      if (!mounted) return;
-    } finally {
-      if (mounted) setState(() => saving = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final assignedText = widget.assignedCount == 1
-        ? '1 user is assigned to this role.'
-        : '${widget.assignedCount} users are assigned to this role.';
-
-    return Padding(
-      padding: EdgeInsets.fromLTRB(
-        16,
-        10,
-        16,
-        18 + MediaQuery.of(context).viewInsets.bottom,
-      ),
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const _PeopleSheetHandle(),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    isEditing ? 'Edit Role' : 'Create Role',
-                    style: const TextStyle(
-                      fontSize: AppTextSize.s26,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-                IconButton(
-                  onPressed: saving ? null : () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.close_rounded),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text('Role Name', style: AppTextStyles.formLabel),
-            const SizedBox(height: 6),
-            TextField(
-              controller: nameController,
-              enabled: !saving,
-              textCapitalization: TextCapitalization.words,
-              onChanged: (_) {
-                if (showErrors) setState(() {});
-              },
-              decoration: AppInputStyle.decoration(
-                'Example: Barista',
-              ).copyWith(errorText: nameError),
-              style: AppTextStyles.formValue,
-            ),
-            const SizedBox(height: 12),
-            _ActiveStatusField(
-              value: active,
-              onChanged: isProtectedRole || saving
-                  ? null
-                  : (value) {
-                      if (value == null) return;
-                      AppFeedback.select();
-                      setState(() => active = value);
-                    },
-            ),
-            if (isEditing) ...[
-              const SizedBox(height: 10),
-              Text(
-                isOwner
-                    ? 'Owner can be renamed but must remain active.'
-                    : isHead
-                        ? 'Head can be renamed but must remain active.'
-                        : isBuiltIn
-                        ? '$assignedText Built-in roles can be renamed or deactivated but cannot be deleted.'
-                        : widget.assignedCount > 0
-                            ? '$assignedText Assigned roles can be deactivated but cannot be deleted.'
-                            : 'This custom role is not assigned and can be deleted.',
-                style: const TextStyle(
-                  fontSize: AppTextSize.s12,
-                  color: AppColours.textMuted,
-                  fontWeight: FontWeight.w600,
-                  height: 1.35,
-                ),
-              ),
-            ],
-            if (widget.onDeleteRole != null) ...[
-              const SizedBox(height: 12),
-              _DangerButton(
-                text: 'Delete Role',
-                icon: Icons.delete_outline_rounded,
-                onPressed: saving ? null : widget.onDeleteRole,
-              ),
-            ],
-            const SizedBox(height: 16),
-            PrimaryButton(
-              text: saving
-                  ? 'Saving...'
-                  : isEditing
-                      ? 'Save Changes'
-                      : 'Save Role',
-              icon: Icons.save_outlined,
-              onPressed: saving ? null : submit,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _DeleteRoleSheet extends StatefulWidget {
-  final _PeopleRole role;
-  final Future<void> Function() onDeleteRole;
-
-  const _DeleteRoleSheet({
-    required this.role,
-    required this.onDeleteRole,
-  });
-
-  @override
-  State<_DeleteRoleSheet> createState() => _DeleteRoleSheetState();
-}
-
-class _DeleteRoleSheetState extends State<_DeleteRoleSheet> {
-  bool deleting = false;
-
-  Future<void> deleteRole() async {
-    final confirmed = await confirmDataChange(
-      context,
-      action: 'Delete Role?',
-      details: 'This will permanently delete the selected custom role.',
-    );
-    if (!confirmed || !mounted) return;
-
-    setState(() => deleting = true);
-    try {
-      await widget.onDeleteRole();
-      if (!mounted) return;
-      Navigator.of(context).pop();
-      showSuccessSnackBar(context, 'Role deleted');
-    } on EastAppApiException catch (_) {
-      if (!mounted) return;
-    } finally {
-      if (mounted) setState(() => deleting = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 20),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const _PeopleSheetHandle(),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Container(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(
-                  color: AppColours.redSoft,
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: const Icon(
-                  Icons.delete_outline_rounded,
-                  color: AppColours.red,
-                ),
-              ),
-              const SizedBox(width: 12),
-              const Expanded(
-                child: Text(
-                  'Delete Role',
-                  style: TextStyle(
-                    fontSize: AppTextSize.s24,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              IconButton(
-                onPressed: deleting ? null : () => Navigator.of(context).pop(),
-                icon: const Icon(Icons.close_rounded),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text(
-            'Delete ${widget.role.name}? This cannot be undone.',
-            style: const TextStyle(
-              fontSize: AppTextSize.s16,
-              fontWeight: FontWeight.w700,
-              height: 1.3,
-            ),
-          ),
-          const SizedBox(height: 16),
-          _DangerButton(
-            text: deleting ? 'Deleting...' : 'Delete Role',
-            icon: Icons.delete_forever_outlined,
-            onPressed: deleting ? null : deleteRole,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _DeleteUserSheet extends StatefulWidget {
   final _PeopleUser user;
   final Future<void> Function(DateTime lastWorkingDate) onDeactivateUser;
@@ -4024,7 +3623,7 @@ class _RoleField extends StatelessWidget {
         : [
             _PeopleRole(
               id: 'CURRENT',
-              systemKey: null,
+              systemKey: 'CURRENT',
               name: value,
               active: false,
             ),
@@ -4124,7 +3723,7 @@ String _formatPeopleDate(DateTime? value, {String fallback = 'Not set'}) {
 
 class _PeopleRole {
   final String id;
-  final String? systemKey;
+  final String systemKey;
   final String name;
   final bool active;
   final int assignedUsers;
@@ -4147,7 +3746,6 @@ class _PeopleRole {
     );
   }
 
-  bool get isBuiltIn => systemKey != null;
   bool get isOwner => systemKey == 'OWNER';
   bool get isHead => systemKey == 'HEAD';
 

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../models/attendance_models.dart';
@@ -39,11 +41,7 @@ class _PeopleAuditScreenState extends State<PeopleAuditScreen> {
   AttendanceAuditPeriod period = AttendanceAuditPeriod.day;
   DateTime anchor = DateTime.now();
   EastAppAttendanceUserDetail? detail;
-  final List<EastAppAttendanceEvent> events = [];
-  int eventsPage = 0;
-  bool eventsLastPage = true;
   bool reportLoading = false;
-  bool eventsLoadingMore = false;
   String? reportError;
 
   @override
@@ -115,24 +113,16 @@ class _PeopleAuditScreenState extends State<PeopleAuditScreen> {
       selectedUser = user;
       _clearReport();
     });
-    await loadReport(reset: true);
+    await loadReport();
   }
 
-  Future<void> loadReport({required bool reset}) async {
+  Future<void> loadReport() async {
     final user = selectedUser;
-    if (user == null || reportLoading || eventsLoadingMore) return;
-    final nextPage = reset ? 0 : eventsPage + 1;
+    if (user == null || reportLoading) return;
     setState(() {
-      if (reset) {
-        reportLoading = true;
-        reportError = null;
-        detail = null;
-        events.clear();
-        eventsPage = 0;
-        eventsLastPage = true;
-      } else {
-        eventsLoadingMore = true;
-      }
+      reportLoading = true;
+      reportError = null;
+      detail = null;
     });
 
     try {
@@ -140,37 +130,26 @@ class _PeopleAuditScreenState extends State<PeopleAuditScreen> {
         userId: user.id,
         period: period,
         anchor: anchor,
-        page: nextPage,
-        size: _pageSize,
+        page: 0,
+        size: 100,
       );
       if (!mounted || selectedUser?.id != user.id) return;
       setState(() {
         detail = value;
-        if (reset) {
-          events.clear();
-        }
-        events.addAll(value.events.content);
-        eventsPage = value.events.page;
-        eventsLastPage = value.events.last;
         reportLoading = false;
-        eventsLoadingMore = false;
       });
     } on EastAppApiException catch (exception) {
       if (!mounted || selectedUser?.id != user.id) return;
       setState(() {
         reportError = exception.message;
         reportLoading = false;
-        eventsLoadingMore = false;
       });
     }
   }
 
   void _clearReport() {
     detail = null;
-    events.clear();
     reportError = null;
-    eventsPage = 0;
-    eventsLastPage = true;
   }
 
   Future<void> changePeriod(AttendanceAuditPeriod value) async {
@@ -181,7 +160,7 @@ class _PeopleAuditScreenState extends State<PeopleAuditScreen> {
       anchor = DateTime.now();
       _clearReport();
     });
-    await loadReport(reset: true);
+    await loadReport();
   }
 
   Future<void> movePeriod(int direction) async {
@@ -198,7 +177,18 @@ class _PeopleAuditScreenState extends State<PeopleAuditScreen> {
       };
       _clearReport();
     });
-    await loadReport(reset: true);
+    await loadReport();
+  }
+
+  Future<void> openMonth(EastAppAttendanceMonthSummary month) async {
+    if (reportLoading) return;
+    AppFeedback.select();
+    setState(() {
+      period = AttendanceAuditPeriod.month;
+      anchor = DateTime(anchor.year, month.month, 1);
+      _clearReport();
+    });
+    await loadReport();
   }
 
   @override
@@ -490,61 +480,21 @@ class _PeopleAuditScreenState extends State<PeopleAuditScreen> {
     if (reportError != null) {
       return _AuditError(
         message: reportError!,
-        onRetry: () => loadReport(reset: true),
+        onRetry: loadReport,
       );
     }
-    if (detail == null) return const SizedBox.shrink();
+    final value = detail;
+    if (value == null) return const SizedBox.shrink();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _summaryGrid(detail!.summary),
-        const SizedBox(height: 14),
-        Row(
-          children: [
-            const Expanded(
-              child: Text(
-                'Attendance Events',
-                style: TextStyle(
-                  fontSize: AppTextSize.s18,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-            Text(
-              '${events.length}',
-              style: const TextStyle(
-                color: AppColours.textMuted,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        if (events.isEmpty)
-          const Text(
-            'No attendance events in this period.',
-            style: TextStyle(
-              color: AppColours.textMuted,
-              fontWeight: FontWeight.w700,
-            ),
-          )
+        _summaryGrid(value.summary),
+        const SizedBox(height: 16),
+        if (period == AttendanceAuditPeriod.year)
+          _yearlyContent(value)
         else
-          ...events.map(
-            (event) => Padding(
-              padding: const EdgeInsets.only(bottom: 9),
-              child: _AttendanceEventCard(event: event),
-            ),
-          ),
-        if (!eventsLastPage) ...[
-          const SizedBox(height: 4),
-          PrimaryButton(
-            text: eventsLoadingMore ? 'Loading...' : 'Load More Events',
-            icon: eventsLoadingMore ? null : Icons.expand_more_rounded,
-            onPressed:
-                eventsLoadingMore ? null : () => loadReport(reset: false),
-          ),
-        ],
+          _payrollContent(value),
       ],
     );
   }
@@ -591,7 +541,239 @@ class _PeopleAuditScreenState extends State<PeopleAuditScreen> {
             ),
           ],
         ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: _AuditMetric(
+                label: 'Total working',
+                value: _formatMinutes(summary.totalWorkingMinutes),
+                icon: Icons.schedule_rounded,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _AuditMetric(
+                label: 'Average / day',
+                value: _formatMinutes(summary.averageWorkingMinutes),
+                icon: Icons.timelapse_rounded,
+              ),
+            ),
+          ],
+        ),
       ],
+    );
+  }
+
+  Widget _payrollContent(EastAppAttendanceUserDetail value) {
+    final days = value.days;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Attendance Table',
+          style: TextStyle(
+            fontSize: AppTextSize.s18,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 4),
+        const Text(
+          'Confirmed working time includes completed Check In + Check Out records only.',
+          style: TextStyle(
+            fontSize: AppTextSize.s12,
+            color: AppColours.textMuted,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 8),
+        if (days.isEmpty)
+          const Text(
+            'No attendance records in this period.',
+            style: TextStyle(
+              color: AppColours.textMuted,
+              fontWeight: FontWeight.w700,
+            ),
+          )
+        else
+          _attendanceTable(days),
+        const SizedBox(height: 18),
+        Row(
+          children: [
+            const Expanded(
+              child: Text(
+                'Attendance Events',
+                style: TextStyle(
+                  fontSize: AppTextSize.s18,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            Text(
+              '${days.length} days',
+              style: const TextStyle(
+                color: AppColours.textMuted,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        if (days.isEmpty)
+          const Text(
+            'No attendance events in this period.',
+            style: TextStyle(
+              color: AppColours.textMuted,
+              fontWeight: FontWeight.w700,
+            ),
+          )
+        else
+          ...days.reversed.map(
+            (day) => Padding(
+              padding: const EdgeInsets.only(bottom: 9),
+              child: _AttendanceDayCard(day: day),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _attendanceTable(List<EastAppAttendanceDay> days) {
+    return WhiteCard(
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: DataTable(
+          headingRowHeight: 42,
+          dataRowMinHeight: 44,
+          dataRowMaxHeight: 52,
+          columnSpacing: 22,
+          columns: const [
+            DataColumn(label: Text('Date')),
+            DataColumn(label: Text('Check In')),
+            DataColumn(label: Text('Check Out')),
+            DataColumn(label: Text('Working Time')),
+            DataColumn(label: Text('Status')),
+          ],
+          rows: days
+              .map(
+                (day) => DataRow(
+                  cells: [
+                    DataCell(Text(_formatDate(day.date))),
+                    DataCell(Text(_formatTime(day.checkInAt))),
+                    DataCell(Text(_formatTime(day.checkOutAt))),
+                    DataCell(Text(
+                      day.completed ? _formatMinutes(day.workingMinutes) : '—',
+                    )),
+                    DataCell(_StatusLabel(completed: day.completed)),
+                  ],
+                ),
+              )
+              .toList(growable: false),
+        ),
+      ),
+    );
+  }
+
+  Widget _yearlyContent(EastAppAttendanceUserDetail value) {
+    final summary = value.summary;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Annual Attendance Performance',
+          style: TextStyle(
+            fontSize: AppTextSize.s18,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 8),
+        WhiteCard(
+          child: Column(
+            children: [
+              _AnnualLine(
+                label: 'Attendance reliability',
+                value: '${summary.completionPercent.toStringAsFixed(0)}%',
+              ),
+              const Divider(height: 18),
+              _AnnualLine(
+                label: 'Missing Check Outs',
+                value: '${summary.missingCheckOutDays}',
+              ),
+              const Divider(height: 18),
+              _AnnualLine(
+                label: 'Average working / completed day',
+                value: _formatMinutes(summary.averageWorkingMinutes),
+              ),
+              const Divider(height: 18),
+              _AnnualLine(
+                label: 'Average Clock In',
+                value: summary.averageClockInTime ?? '—',
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 18),
+        const Text(
+          'Monthly Breakdown',
+          style: TextStyle(
+            fontSize: AppTextSize.s18,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 4),
+        const Text(
+          'Tap a month to open its detailed payroll attendance view.',
+          style: TextStyle(
+            fontSize: AppTextSize.s12,
+            color: AppColours.textMuted,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 8),
+        _monthlyTable(value.months),
+      ],
+    );
+  }
+
+  Widget _monthlyTable(List<EastAppAttendanceMonthSummary> months) {
+    return WhiteCard(
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: DataTable(
+          showCheckboxColumn: false,
+          headingRowHeight: 42,
+          dataRowMinHeight: 44,
+          dataRowMaxHeight: 52,
+          columnSpacing: 22,
+          columns: const [
+            DataColumn(label: Text('Month')),
+            DataColumn(label: Text('Present')),
+            DataColumn(label: Text('Completed')),
+            DataColumn(label: Text('Missing Out')),
+            DataColumn(label: Text('Hours')),
+            DataColumn(label: Text('Completion')),
+          ],
+          rows: months
+              .map(
+                (month) => DataRow(
+                  onSelectChanged: reportLoading
+                      ? null
+                      : (_) => unawaited(openMonth(month)),
+                  cells: [
+                    DataCell(Text(month.label)),
+                    DataCell(Text('${month.presentDays}')),
+                    DataCell(Text('${month.completedDays}')),
+                    DataCell(Text('${month.missingCheckOutDays}')),
+                    DataCell(Text(_formatMinutes(month.totalWorkingMinutes))),
+                    DataCell(Text(
+                      '${month.completionPercent.toStringAsFixed(0)}%',
+                    )),
+                  ],
+                ),
+              )
+              .toList(growable: false),
+        ),
+      ),
     );
   }
 
@@ -656,114 +838,272 @@ class _AuditMetric extends StatelessWidget {
   }
 }
 
-class _AttendanceEventCard extends StatelessWidget {
-  final EastAppAttendanceEvent event;
+class _AttendanceDayCard extends StatelessWidget {
+  final EastAppAttendanceDay day;
 
-  const _AttendanceEventCard({required this.event});
+  const _AttendanceDayCard({required this.day});
 
   @override
   Widget build(BuildContext context) {
-    final occurredAt = event.occurredAt.toLocal();
-    final type = event.eventType == 'CLOCK_IN' ? 'Clock In' : 'Clock Out';
-    final distanceKilometres = event.distanceMeters / 1000;
+    final completed = day.completed;
+    final statusColour = completed ? AppColours.green : AppColours.red;
+    final statusBackground =
+        completed ? AppColours.greenSoft : AppColours.redSoft;
+
     return WhiteCard(
-      child: Row(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: AppColours.greenSoft,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(
-              event.eventType == 'CLOCK_IN'
-                  ? Icons.login_rounded
-                  : Icons.logout_rounded,
-              color: AppColours.green,
-            ),
-          ),
-          const SizedBox(width: 11),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+          Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: statusBackground,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  completed
+                      ? Icons.check_circle_rounded
+                      : Icons.error_rounded,
+                  color: statusColour,
+                ),
+              ),
+              const SizedBox(width: 11),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: Text(
-                        type,
-                        style: const TextStyle(fontWeight: FontWeight.w700),
+                    Text(
+                      _formatLongDate(day.date),
+                      style: const TextStyle(
+                        fontSize: AppTextSize.s16,
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
                     Text(
-                      _formatDateTime(occurredAt),
-                      style: const TextStyle(
+                      completed ? 'Complete' : 'Incomplete attendance',
+                      style: TextStyle(
                         fontSize: AppTextSize.s12,
-                        color: AppColours.textMuted,
-                        fontWeight: FontWeight.w600,
+                        color: statusColour,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 7),
-                const Text(
-                  'How far from office',
-                  style: TextStyle(
-                    fontSize: AppTextSize.s12,
-                    color: AppColours.textMuted,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                Text(
-                  '${distanceKilometres.toStringAsFixed(2)} km away',
-                  style: const TextStyle(
-                    fontSize: AppTextSize.s18,
-                    color: AppColours.blue,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 7),
-                Text(
-                  event.capturedAddress,
-                  style: const TextStyle(
-                    color: AppColours.textMain,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Office: ${event.workLocationName} · GPS ±${event.accuracyMeters.round()} m',
-                  style: const TextStyle(
-                    fontSize: AppTextSize.s12,
-                    color: AppColours.textMuted,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Validated by ${event.validationMethod} · QR + GPS',
-                  style: const TextStyle(
-                    fontSize: AppTextSize.s12,
-                    color: AppColours.green,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
+          const SizedBox(height: 12),
+          _AttendanceTimeLine(
+            label: 'Check In',
+            value: _formatTime(day.checkInAt),
+          ),
+          const SizedBox(height: 6),
+          _AttendanceTimeLine(
+            label: 'Check Out',
+            value: _formatTime(day.checkOutAt),
+            valueColour: day.checkOutAt == null ? AppColours.red : null,
+          ),
+          const SizedBox(height: 6),
+          _AttendanceTimeLine(
+            label: 'Working Time',
+            value: completed ? _formatMinutes(day.workingMinutes) : '—',
+          ),
+          if (day.events.isNotEmpty) ...[
+            const Divider(height: 24),
+            ...day.events.map(
+              (event) => Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _AttendanceEventDetail(event: event),
+              ),
+            ),
+          ],
         ],
       ),
     );
   }
+}
 
-  static String _formatDateTime(DateTime value) {
-    final day = value.day.toString().padLeft(2, '0');
-    final month = value.month.toString().padLeft(2, '0');
-    final hour = value.hour.toString().padLeft(2, '0');
-    final minute = value.minute.toString().padLeft(2, '0');
-    return '$day/$month/${value.year} $hour:$minute';
+class _AttendanceEventDetail extends StatelessWidget {
+  final EastAppAttendanceEvent event;
+
+  const _AttendanceEventDetail({required this.event});
+
+  @override
+  Widget build(BuildContext context) {
+    final type = event.eventType == 'CLOCK_IN' ? 'Check In' : 'Check Out';
+    final distanceKilometres = event.distanceMeters / 1000;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(
+          event.eventType == 'CLOCK_IN'
+              ? Icons.login_rounded
+              : Icons.logout_rounded,
+          color: AppColours.textMuted,
+          size: 20,
+        ),
+        const SizedBox(width: 9),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      type,
+                      style: const TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                  ),
+                  Text(
+                    _formatTime(event.occurredAt.toLocal()),
+                    style: const TextStyle(
+                      fontSize: AppTextSize.s12,
+                      color: AppColours.textMuted,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 5),
+              Text(
+                '${distanceKilometres.toStringAsFixed(2)} km from office',
+                style: const TextStyle(
+                  color: AppColours.blue,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                event.capturedAddress,
+                style: const TextStyle(
+                  color: AppColours.textMain,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                'Office: ${event.workLocationName} · GPS ±${event.accuracyMeters.round()} m',
+                style: const TextStyle(
+                  fontSize: AppTextSize.s12,
+                  color: AppColours.textMuted,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                'Validated by ${event.validationMethod} · QR + GPS',
+                style: const TextStyle(
+                  fontSize: AppTextSize.s12,
+                  color: AppColours.green,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _AttendanceTimeLine extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color? valueColour;
+
+  const _AttendanceTimeLine({
+    required this.label,
+    required this.value,
+    this.valueColour,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        SizedBox(
+          width: 112,
+          child: Text(
+            label,
+            style: const TextStyle(
+              color: AppColours.textMuted,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        Expanded(
+          child: Text(
+            value,
+            style: TextStyle(
+              color: valueColour ?? AppColours.textMain,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _AnnualLine extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _AnnualLine({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            label,
+            style: const TextStyle(
+              color: AppColours.textMuted,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Text(
+          value,
+          style: const TextStyle(fontWeight: FontWeight.w800),
+        ),
+      ],
+    );
+  }
+}
+
+class _StatusLabel extends StatelessWidget {
+  final bool completed;
+
+  const _StatusLabel({required this.completed});
+
+  @override
+  Widget build(BuildContext context) {
+    final colour = completed ? AppColours.green : AppColours.red;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          completed ? Icons.check_circle_rounded : Icons.error_rounded,
+          size: 16,
+          color: colour,
+        ),
+        const SizedBox(width: 5),
+        Text(
+          completed ? 'Complete' : 'Missing Out',
+          style: TextStyle(
+            color: colour,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
+    );
   }
 }
 
@@ -800,4 +1140,35 @@ class _AuditError extends StatelessWidget {
       ),
     );
   }
+}
+
+String _formatMinutes(int? minutes) {
+  if (minutes == null) return '—';
+  final hours = minutes ~/ 60;
+  final remainder = minutes % 60;
+  if (hours == 0) return '${remainder}m';
+  if (remainder == 0) return '${hours}h';
+  return '${hours}h ${remainder.toString().padLeft(2, '0')}m';
+}
+
+String _formatTime(DateTime? value) {
+  if (value == null) return '—';
+  final local = value.toLocal();
+  final hour = local.hour.toString().padLeft(2, '0');
+  final minute = local.minute.toString().padLeft(2, '0');
+  return '$hour:$minute';
+}
+
+String _formatDate(DateTime value) {
+  final day = value.day.toString().padLeft(2, '0');
+  final month = value.month.toString().padLeft(2, '0');
+  return '$day/$month/${value.year}';
+}
+
+String _formatLongDate(DateTime value) {
+  const months = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ];
+  return '${value.day} ${months[value.month - 1]} ${value.year}';
 }

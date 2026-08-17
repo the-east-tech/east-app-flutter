@@ -152,6 +152,7 @@ class EastAppAttendanceUserAudit {
   final DateTime? firstClockInAt;
   final DateTime? lastClockOutAt;
   final String? averageClockInTime;
+  final int totalWorkingMinutes;
   final int? averageWorkingMinutes;
   final double completionPercent;
 
@@ -169,6 +170,7 @@ class EastAppAttendanceUserAudit {
     required this.firstClockInAt,
     required this.lastClockOutAt,
     required this.averageClockInTime,
+    required this.totalWorkingMinutes,
     required this.averageWorkingMinutes,
     required this.completionPercent,
   });
@@ -188,6 +190,7 @@ class EastAppAttendanceUserAudit {
       firstClockInAt: _parseInstant(json['firstClockInAt']),
       lastClockOutAt: _parseInstant(json['lastClockOutAt']),
       averageClockInTime: json['averageClockInTime'] as String?,
+      totalWorkingMinutes: (json['totalWorkingMinutes'] as num).toInt(),
       averageWorkingMinutes: (json['averageWorkingMinutes'] as num?)?.toInt(),
       completionPercent: (json['completionPercent'] as num).toDouble(),
     );
@@ -246,12 +249,86 @@ String formatIsoDate(DateTime value) {
 }
 
 
+class EastAppAttendanceDay {
+  final DateTime date;
+  final String status;
+  final DateTime? checkInAt;
+  final DateTime? checkOutAt;
+  final int workingMinutes;
+  final List<EastAppAttendanceEvent> events;
+
+  const EastAppAttendanceDay({
+    required this.date,
+    required this.status,
+    required this.checkInAt,
+    required this.checkOutAt,
+    required this.workingMinutes,
+    required this.events,
+  });
+
+  factory EastAppAttendanceDay.fromJson(Map<String, dynamic> json) {
+    return EastAppAttendanceDay(
+      date: DateTime.parse(json['date'] as String),
+      status: json['status'] as String,
+      checkInAt: json['checkInAt'] == null
+          ? null
+          : DateTime.parse(json['checkInAt'] as String).toLocal(),
+      checkOutAt: json['checkOutAt'] == null
+          ? null
+          : DateTime.parse(json['checkOutAt'] as String).toLocal(),
+      workingMinutes: (json['workingMinutes'] as num).toInt(),
+      events: (json['events'] as List<dynamic>? ?? const [])
+          .map((item) => EastAppAttendanceEvent.fromJson(item as Map<String, dynamic>))
+          .toList(growable: false),
+    );
+  }
+
+  bool get completed => status == 'COMPLETED';
+}
+
+class EastAppAttendanceMonthSummary {
+  final int month;
+  final String label;
+  final int presentDays;
+  final int completedDays;
+  final int missingCheckOutDays;
+  final int totalWorkingMinutes;
+  final int? averageWorkingMinutes;
+  final double completionPercent;
+
+  const EastAppAttendanceMonthSummary({
+    required this.month,
+    required this.label,
+    required this.presentDays,
+    required this.completedDays,
+    required this.missingCheckOutDays,
+    required this.totalWorkingMinutes,
+    required this.averageWorkingMinutes,
+    required this.completionPercent,
+  });
+
+  factory EastAppAttendanceMonthSummary.fromJson(Map<String, dynamic> json) {
+    return EastAppAttendanceMonthSummary(
+      month: (json['month'] as num).toInt(),
+      label: json['label'] as String,
+      presentDays: (json['presentDays'] as num).toInt(),
+      completedDays: (json['completedDays'] as num).toInt(),
+      missingCheckOutDays: (json['missingCheckOutDays'] as num).toInt(),
+      totalWorkingMinutes: (json['totalWorkingMinutes'] as num).toInt(),
+      averageWorkingMinutes: (json['averageWorkingMinutes'] as num?)?.toInt(),
+      completionPercent: (json['completionPercent'] as num).toDouble(),
+    );
+  }
+}
+
 class EastAppAttendanceUserDetail {
   final AttendanceAuditPeriod period;
   final DateTime startDate;
   final DateTime endDate;
   final String label;
   final EastAppAttendanceUserAudit summary;
+  final List<EastAppAttendanceDay> days;
+  final List<EastAppAttendanceMonthSummary> months;
   final EastAppPage<EastAppAttendanceEvent> events;
 
   const EastAppAttendanceUserDetail({
@@ -260,6 +337,8 @@ class EastAppAttendanceUserDetail {
     required this.endDate,
     required this.label,
     required this.summary,
+    required this.days,
+    required this.months,
     required this.events,
   });
 
@@ -275,6 +354,12 @@ class EastAppAttendanceUserDetail {
       summary: EastAppAttendanceUserAudit.fromJson(
         json['summary'] as Map<String, dynamic>,
       ),
+      days: (json['days'] as List<dynamic>? ?? const [])
+          .map((item) => EastAppAttendanceDay.fromJson(item as Map<String, dynamic>))
+          .toList(growable: false),
+      months: (json['months'] as List<dynamic>? ?? const [])
+          .map((item) => EastAppAttendanceMonthSummary.fromJson(item as Map<String, dynamic>))
+          .toList(growable: false),
       events: EastAppPage.fromJson(
         json['events'] as Map<String, dynamic>,
         EastAppAttendanceEvent.fromJson,

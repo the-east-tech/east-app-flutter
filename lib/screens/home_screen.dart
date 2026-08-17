@@ -94,40 +94,54 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   StockReviewSummary? reviewSummary;
   ReportDashboard? reportDashboard;
   List<RecentActivity> homeRecentActivities = const [];
   List<Advertisement> activeAdvertisements = const [];
   Timer? _advertisementScheduleTimer;
-  bool _advertisementRefreshInProgress = false;
   int _loadGeneration = 0;
+  int _advertisementLoadGeneration = 0;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     loadHomeData();
+    unawaited(_loadAdvertisements());
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _advertisementScheduleTimer?.cancel();
     super.dispose();
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_loadAdvertisements());
+    }
+  }
+
+  @override
   void didUpdateWidget(covariant HomeScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.tenantId != widget.tenantId) {
+      _advertisementScheduleTimer?.cancel();
+      _advertisementLoadGeneration++;
+      activeAdvertisements = const [];
+      unawaited(_loadAdvertisements());
+    }
     if (oldWidget.tenantId != widget.tenantId ||
         oldWidget.role != widget.role ||
-        oldWidget.isOwner != widget.isOwner ||
-        oldWidget.googleRatingRefreshSignal != widget.googleRatingRefreshSignal) {
+        oldWidget.isOwner != widget.isOwner) {
       loadHomeData();
     }
   }
 
   Future<void> loadHomeData() async {
-    _advertisementScheduleTimer?.cancel();
     final loadGeneration = ++_loadGeneration;
     final now = DateTime.now();
     final auditFuture = widget.api.stockAudit(
@@ -140,19 +154,6 @@ class _HomeScreenState extends State<HomeScreen> {
     final summaryFuture = widget.role == UserRole.staff
         ? Future<StockReviewSummary?>.value(null)
         : widget.api.todayStockReviewSummary();
-    final advertisementsFuture = widget.api.advertisementFeed().catchError(
-      (Object error) {
-        if (error is EastAppApiException) {
-          final now = DateTime.now();
-          return AdvertisementFeed(
-            advertisements: activeAdvertisements,
-            serverTime: now,
-            nextChangeAt: now.add(const Duration(minutes: 1)),
-          );
-        }
-        throw error;
-      },
-    );
     final reportFuture = widget.api
         .reportDashboard(days: 7, tenantId: widget.tenantId)
         .then<ReportDashboard?>((value) => value)
@@ -163,17 +164,14 @@ class _HomeScreenState extends State<HomeScreen> {
         auditFuture,
         summaryFuture,
         reportFuture,
-        advertisementsFuture,
       ]);
       final audit = results[0] as EastAppPage<StockAuditEntry>;
       final summary = results[1] as StockReviewSummary?;
       final reports = results[2] as ReportDashboard?;
-      final advertisementFeed = results[3] as AdvertisementFeed;
       if (!mounted || loadGeneration != _loadGeneration) return;
       setState(() {
         reviewSummary = summary;
         reportDashboard = reports;
-        activeAdvertisements = advertisementFeed.advertisements;
         homeRecentActivities = audit.content
             .take(5)
             .map(
@@ -186,39 +184,72 @@ class _HomeScreenState extends State<HomeScreen> {
             )
             .toList(growable: false);
       });
-      _scheduleAdvertisementRefresh(advertisementFeed.timeUntilNextChange);
     } on EastAppApiException {
       // The global API error handler already shows the request failure.
     }
   }
 
-
-  void _scheduleAdvertisementRefresh(Duration? timeUntilNextChange) {
-    _advertisementScheduleTimer?.cancel();
-    if (timeUntilNextChange == null || !mounted) return;
-    final delay = timeUntilNextChange.isNegative ||
-            timeUntilNextChange == Duration.zero
-        ? const Duration(seconds: 1)
-        : timeUntilNextChange + const Duration(milliseconds: 500);
-    _advertisementScheduleTimer = Timer(delay, _refreshAdvertisements);
+  List<Advertisement> _publishedAdvertisements(
+    AdvertisementFeed feed,
+    DateTime now,
+  ) {
+    return feed.advertisements
+        .where(
+          (item) =>
+              item.publicationStatus(now) == AdvertisementPublicationStatus.published,
+        )
+        .toList(growable: false);
   }
 
-  Future<void> _refreshAdvertisements() async {
-    if (_advertisementRefreshInProgress || !mounted) return;
+  Future<void> _loadAdvertisements({bool forceRefresh = false}) async {
+    if (!mounted) return;
     final tenantId = widget.tenantId;
-    _advertisementRefreshInProgress = true;
+    final generation = ++_advertisementLoadGeneration;
     try {
-      final feed = await widget.api.advertisementFeed();
-      if (!mounted || tenantId != widget.tenantId) return;
-      setState(() => activeAdvertisements = feed.advertisements);
-      _scheduleAdvertisementRefresh(feed.timeUntilNextChange);
-    } on EastAppApiException {
-      if (mounted) {
-        _scheduleAdvertisementRefresh(const Duration(minutes: 1));
+      var feed = await widget.api.advertisementFeed(
+        tenantId: tenantId,
+        forceRefresh: forceRefresh,
+      );
+      if (!mounted || tenantId != widget.tenantId || generation != _advertisementLoadGeneration) {
+        return;
       }
-    } finally {
-      _advertisementRefreshInProgress = false;
+
+      var now = DateTime.now();
+      if (!forceRefresh &&
+          feed.nextChangeAt != null &&
+          !now.isBefore(feed.nextChangeAt!)) {
+        feed = await widget.api.advertisementFeed(
+          tenantId: tenantId,
+          forceRefresh: true,
+        );
+        if (!mounted ||
+            tenantId != widget.tenantId ||
+            generation != _advertisementLoadGeneration) {
+          return;
+        }
+        now = DateTime.now();
+      }
+
+      setState(() => activeAdvertisements = _publishedAdvertisements(feed, now));
+      _scheduleAdvertisementRefreshAt(feed.nextChangeAt);
+    } on EastAppApiException {
+      // Keep the currently displayed cached advertisements. Do not poll/retry.
     }
+  }
+
+  void _scheduleAdvertisementRefreshAt(DateTime? nextChangeAt) {
+    _advertisementScheduleTimer?.cancel();
+    if (nextChangeAt == null || !mounted) return;
+    final delay = nextChangeAt.difference(DateTime.now()) +
+        const Duration(milliseconds: 500);
+    if (delay <= Duration.zero) {
+      unawaited(_loadAdvertisements(forceRefresh: true));
+      return;
+    }
+    _advertisementScheduleTimer = Timer(
+      delay,
+      () => _loadAdvertisements(forceRefresh: true),
+    );
   }
 
   Future<void> _openAdvertisementManager(BuildContext context) async {
@@ -227,7 +258,11 @@ class _HomeScreenState extends State<HomeScreen> {
         builder: (_) => _AdvertisementManagerScreen(api: widget.api),
       ),
     );
-    if (mounted) await loadHomeData();
+    if (!mounted) return;
+    await widget.api.invalidateFeatureCache(
+      EastAppApi.advertisementFeedCacheKey(widget.tenantId),
+    );
+    await _loadAdvertisements(forceRefresh: true);
   }
 
   @override
