@@ -503,7 +503,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                 ? 'ANDROID'
                 : Platform.operatingSystem.toUpperCase(),
         deviceOsVersion: Platform.operatingSystemVersion.replaceAll('\n', ' '),
-        appVersion: 'east_app_v279',
+        appVersion: 'east_app_v280',
       );
 
       final refreshed = await widget.api.attendanceToday();

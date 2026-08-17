@@ -1257,7 +1257,7 @@ class _MainShellState extends State<MainShell> {
 
   String buildDebugReport(BuildContext context) {
     return AppDiagnostics.instance.buildReport(
-      appVersion: 'east_app_v279',
+      appVersion: 'east_app_v280',
       role: currentRoleName,
       userName: currentUserName,
       userId: currentUserId,
