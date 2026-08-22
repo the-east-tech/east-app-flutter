@@ -14,6 +14,8 @@ class KnowledgeScreen extends StatefulWidget {
   final List<KnowledgeItem> knowledgeItems;
   final List<StockTag> tags;
   final Future<KnowledgeItem> Function(KnowledgeItem item) onCreateSop;
+  final Future<KnowledgeItem> Function(KnowledgeItem item) onUpdateSop;
+  final Future<void> Function(Set<String> sopIds) onDeleteSops;
 
   const KnowledgeScreen({
     super.key,
@@ -21,6 +23,8 @@ class KnowledgeScreen extends StatefulWidget {
     required this.knowledgeItems,
     required this.tags,
     required this.onCreateSop,
+    required this.onUpdateSop,
+    required this.onDeleteSops,
   });
 
   @override
@@ -32,10 +36,13 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
   final listSearchController = TextEditingController();
   bool showSopList = false;
   KnowledgeItem? selectedSop;
+  bool selectedSopOpenedFromManagement = false;
   String? homeSelectedTagId;
   String? listSelectedTagId;
+  bool deleteMode = false;
+  final Set<String> selectedSopGroupIds = <String>{};
 
-  bool get canCreateSop => widget.role == UserRole.head;
+  bool get canManageSops => widget.role != UserRole.staff;
 
   String tagNameFor(String tagId) {
     for (final tag in widget.tags) {
@@ -47,23 +54,48 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
     return 'Unknown Tag';
   }
 
-  List<KnowledgeItem> filteredSops(
+  List<_SopGroup> allSopGroups() {
+    final grouped = <String, List<KnowledgeItem>>{};
+    for (final item in widget.knowledgeItems.where((item) => item.type == 'SOP')) {
+      final groupId = item.linkGroupId.isEmpty ? item.id : item.linkGroupId;
+      grouped.putIfAbsent(groupId, () => <KnowledgeItem>[]).add(item);
+    }
+    final groups = grouped.entries
+        .map((entry) => _SopGroup(entry.key, entry.value))
+        .toList();
+    groups.sort((left, right) => right.latestCreatedAt.compareTo(left.latestCreatedAt));
+    return groups;
+  }
+
+  _SopGroup? sopGroupFor(String groupId) {
+    for (final group in allSopGroups()) {
+      if (group.id == groupId) return group;
+    }
+    return null;
+  }
+
+  List<_SopGroup> filteredSops(
     TextEditingController controller,
     String? selectedTagId,
   ) {
     final query = controller.text.trim().toLowerCase();
-    return widget.knowledgeItems.where((item) {
-      if (item.type != 'SOP') return false;
-      if (selectedTagId != null && item.tagId != selectedTagId) return false;
+    return allSopGroups().where((group) {
+      if (selectedTagId != null &&
+          !group.versions.any((item) => item.tagId == selectedTagId)) {
+        return false;
+      }
       if (query.isEmpty) return true;
 
-      final searchable = [
-        item.title,
-        item.description,
-        item.expectedOutcome,
-        tagNameFor(item.tagId),
-      ].join(' ').toLowerCase();
-      return searchable.contains(query);
+      return group.versions.any((item) {
+        final searchable = [
+          item.title,
+          item.description,
+          item.expectedOutcome,
+          item.language.label,
+          tagNameFor(item.tagId),
+        ].join(' ').toLowerCase();
+        return searchable.contains(query);
+      });
     }).toList();
   }
 
@@ -78,6 +110,10 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
         !widget.tags.any((tag) => tag.id == listSelectedTagId)) {
       listSelectedTagId = null;
     }
+    final availableGroupIds = allSopGroups().map((group) => group.id).toSet();
+    selectedSopGroupIds.removeWhere(
+      (id) => !availableGroupIds.contains(id),
+    );
     final selected = selectedSop;
     if (selected != null) {
       for (final item in widget.knowledgeItems) {
@@ -97,10 +133,11 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
   }
 
   Future<void> openCreateSop() async {
-    await showCreateSopDialog(
+    await showSopEditorDialog(
       context,
       tags: widget.tags,
-      onCreated: (item) async {
+      knowledgeItems: widget.knowledgeItems,
+      onSaved: (item) async {
         final saved = await widget.onCreateSop(item);
         if (!mounted) return saved;
         setState(() {
@@ -116,33 +153,157 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
     );
   }
 
+  Future<void> openEditSop(KnowledgeItem item) async {
+    await showSopEditorDialog(
+      context,
+      tags: widget.tags,
+      knowledgeItems: widget.knowledgeItems,
+      existingItem: item,
+      onSaved: (updated) async {
+        final saved = await widget.onUpdateSop(updated);
+        if (!mounted) return saved;
+        setState(() => selectedSop = saved);
+        showSuccessSnackBar(
+          context,
+          AppTextScope.of(context).t('SOP updated.'),
+        );
+        return saved;
+      },
+    );
+  }
+
+  void enterDeleteMode() {
+    FocusScope.of(context).unfocus();
+    setState(() {
+      deleteMode = true;
+      selectedSopGroupIds.clear();
+    });
+  }
+
+  void cancelDeleteMode() {
+    setState(() {
+      deleteMode = false;
+      selectedSopGroupIds.clear();
+    });
+  }
+
+  void toggleSopSelection(String groupId) {
+    setState(() {
+      if (!selectedSopGroupIds.add(groupId)) {
+        selectedSopGroupIds.remove(groupId);
+      }
+    });
+  }
+
+  void toggleAllVisibleSops(List<_SopGroup> visibleItems) {
+    final visibleIds = visibleItems.map((group) => group.id).toSet();
+    final allVisibleSelected =
+        visibleIds.isNotEmpty && visibleIds.every(selectedSopGroupIds.contains);
+    setState(() {
+      if (allVisibleSelected) {
+        selectedSopGroupIds.removeAll(visibleIds);
+      } else {
+        selectedSopGroupIds.addAll(visibleIds);
+      }
+    });
+  }
+
+  Future<void> deleteSelectedSops() async {
+    if (selectedSopGroupIds.isEmpty) return;
+    final selectedGroups = allSopGroups()
+        .where((group) => selectedSopGroupIds.contains(group.id))
+        .toList();
+    final sopIds = selectedGroups
+        .expand((group) => group.versions)
+        .map((item) => item.id)
+        .toSet();
+    final groupCount = selectedGroups.length;
+    final videoCount = sopIds.length;
+    final confirmed = await confirmDataChange(
+      context,
+      action: groupCount == 1
+          ? 'Delete Selected SOP?'
+          : 'Delete $groupCount SOPs?',
+      details:
+          'This permanently removes $groupCount SOP ${groupCount == 1 ? 'group' : 'groups'} and all $videoCount linked video ${videoCount == 1 ? 'version' : 'versions'} from EastApp. The original YouTube ${videoCount == 1 ? 'video is' : 'videos are'} not deleted.',
+    );
+    if (!confirmed || !mounted) return;
+
+    try {
+      await widget.onDeleteSops(sopIds);
+      if (!mounted) return;
+      setState(() {
+        deleteMode = false;
+        selectedSopGroupIds.clear();
+      });
+      showSuccessSnackBar(
+        context,
+        AppTextScope.of(context).t(
+          groupCount == 1 ? 'SOP deleted.' : 'SOPs deleted.',
+        ),
+      );
+    } on EastAppApiException catch (_) {
+      // The global API error dialog presents the failure; keep the selection
+      // so the user can retry without selecting the SOPs again.
+    }
+  }
+
   void openSopList() {
     FocusScope.of(context).unfocus();
     setState(() => showSopList = true);
   }
 
   void closeSopList() {
+    if (deleteMode) {
+      cancelDeleteMode();
+      return;
+    }
     FocusScope.of(context).unfocus();
     listSearchController.clear();
     setState(() {
       showSopList = false;
       selectedSop = null;
+      selectedSopOpenedFromManagement = false;
       listSelectedTagId = null;
+      selectedSopGroupIds.clear();
     });
   }
 
-  void openSopDetail(KnowledgeItem item) {
+  void openSopDetail(
+    KnowledgeItem item, {
+    required bool openedFromManagement,
+  }) {
     FocusScope.of(context).unfocus();
-    setState(() => selectedSop = item);
+    setState(() {
+      selectedSop = item;
+      selectedSopOpenedFromManagement = openedFromManagement;
+    });
   }
 
+  void openReadOnlySopDetail(KnowledgeItem item) => openSopDetail(
+        item,
+        openedFromManagement: false,
+      );
+
+  void openManagementSopDetail(KnowledgeItem item) => openSopDetail(
+        item,
+        openedFromManagement: true,
+      );
+
   void closeSopDetail() {
-    setState(() => selectedSop = null);
+    setState(() {
+      selectedSop = null;
+      selectedSopOpenedFromManagement = false;
+    });
   }
 
   Future<bool> handleBackNavigation() async {
     if (selectedSop != null) {
       closeSopDetail();
+      return false;
+    }
+    if (deleteMode) {
+      cancelDeleteMode();
       return false;
     }
     if (showSopList) {
@@ -158,9 +319,7 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
       homeSearchController,
       homeSelectedTagId,
     );
-    final totalSops = widget.knowledgeItems
-        .where((item) => item.type == 'SOP')
-        .length;
+    final totalSops = allSopGroups().length;
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 24),
@@ -174,7 +333,7 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
         _KnowledgeMenuGrid(
           children: [
             _KnowledgeMenuCard(
-              title: 'SOP',
+              title: text.t('Manage SOP'),
               subtitle: text.t('View SOP'),
               icon: Icons.description_outlined,
               badgeText: '$totalSops',
@@ -228,10 +387,11 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
           _KnowledgeEmptyState(text: text.t('No SOP found.'))
         else
           ...visibleItems.map(
-            (item) => _KnowledgeCard(
-              item: item,
-              tagName: tagNameFor(item.tagId),
-              onTap: () => openSopDetail(item),
+            (group) => _SopGroupCard(
+              group: group,
+              tagName: tagNameFor(group.primary.tagId),
+              showDescription: true,
+              onVersionTap: openReadOnlySopDetail,
             ),
           ),
       ],
@@ -244,6 +404,9 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
       listSearchController,
       listSelectedTagId,
     );
+    final visibleIds = visibleItems.map((group) => group.id).toSet();
+    final allVisibleSelected = visibleIds.isNotEmpty &&
+        visibleIds.every(selectedSopGroupIds.contains);
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 24),
@@ -260,24 +423,87 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
             ),
             Expanded(
               child: PageTitle(
-                title: 'SOP',
-                subtitle: text.t('Select SOP'),
+                title: text.t('Manage SOP'),
+                subtitle: deleteMode
+                    ? '${selectedSopGroupIds.length} ${text.t('selected')}'
+                    : text.t('Select SOP'),
               ),
             ),
-            if (canCreateSop)
-              Padding(
-                padding: const EdgeInsets.only(top: 16),
-                child: SizedBox(
-                  width: 150,
+          ],
+        ),
+        if (canManageSops) ...[
+          if (deleteMode) ...[
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: cancelDeleteMode,
+                    icon: const Icon(Icons.close_rounded),
+                    label: Text(text.t('Cancel')),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: visibleItems.isEmpty
+                        ? null
+                        : () => toggleAllVisibleSops(visibleItems),
+                    icon: Icon(
+                      allVisibleSelected
+                          ? Icons.deselect_rounded
+                          : Icons.select_all_rounded,
+                    ),
+                    label: Text(
+                      text.t(allVisibleSelected ? 'Clear All' : 'Select All'),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed:
+                    selectedSopGroupIds.isEmpty ? null : deleteSelectedSops,
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColours.red,
+                  foregroundColor: Colors.white,
+                ),
+                icon: const Icon(Icons.delete_outline_rounded),
+                label: Text(
+                  selectedSopGroupIds.isEmpty
+                      ? text.t('Delete')
+                      : '${text.t('Delete')} (${selectedSopGroupIds.length})',
+                ),
+              ),
+            ),
+          ] else
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: visibleItems.isEmpty ? null : enterDeleteMode,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColours.red,
+                      side: const BorderSide(color: AppColours.red),
+                    ),
+                    icon: const Icon(Icons.delete_outline_rounded),
+                    label: Text(text.t('Delete')),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
                   child: PrimaryButton(
                     text: text.t('Create SOP'),
                     icon: Icons.add_rounded,
                     onPressed: openCreateSop,
                   ),
                 ),
-              ),
-          ],
-        ),
+              ],
+            ),
+          const SizedBox(height: 12),
+        ],
         TextField(
           controller: listSearchController,
           style: AppTextStyles.formValue,
@@ -313,10 +539,13 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
         if (visibleItems.isEmpty)
           _KnowledgeEmptyState(text: text.t('No SOP found.'))
         else
-          _CompactSopList(
-            items: visibleItems,
+          _SopGroupList(
+            groups: visibleItems,
             tagNameFor: tagNameFor,
-            onTap: openSopDetail,
+            selecting: deleteMode,
+            selectedGroupIds: selectedSopGroupIds,
+            onToggleSelection: toggleSopSelection,
+            onVersionTap: openManagementSopDetail,
           ),
       ],
     );
@@ -325,6 +554,11 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
   @override
   Widget build(BuildContext context) {
     final selected = selectedSop;
+    final selectedGroup = selected == null
+        ? null
+        : sopGroupFor(
+            selected.linkGroupId.isEmpty ? selected.id : selected.linkGroupId,
+          );
     final viewKey = selected != null ? 2 : showSopList ? 1 : 0;
     return PopScope(
       canPop: selected == null && !showSopList,
@@ -338,8 +572,13 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
           child: selected != null
               ? _SopDetailPage(
                   item: selected,
-                  tagName: tagNameFor(selected.tagId),
+                  versions: selectedGroup?.versions ?? [selected],
+                  tagNameFor: tagNameFor,
                   onBack: closeSopDetail,
+                  onEdit:
+                      canManageSops && selectedSopOpenedFromManagement
+                          ? openEditSop
+                          : null,
                 )
               : showSopList
                   ? buildSopList(context)
@@ -352,13 +591,17 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
 
 class _SopDetailPage extends StatefulWidget {
   final KnowledgeItem item;
-  final String tagName;
+  final List<KnowledgeItem> versions;
+  final String Function(String tagId) tagNameFor;
   final VoidCallback onBack;
+  final ValueChanged<KnowledgeItem>? onEdit;
 
   const _SopDetailPage({
     required this.item,
-    required this.tagName,
+    required this.versions,
+    required this.tagNameFor,
     required this.onBack,
+    this.onEdit,
   });
 
   @override
@@ -366,18 +609,52 @@ class _SopDetailPage extends StatefulWidget {
 }
 
 class _SopDetailPageState extends State<_SopDetailPage> {
-  late final YoutubePlayerController controller;
+  late KnowledgeItem selectedItem;
+  late YoutubePlayerController controller;
 
-  @override
-  void initState() {
-    super.initState();
-    controller = YoutubePlayerController.fromVideoId(
-      videoId: widget.item.youtubeVideoId,
+  YoutubePlayerController buildController(KnowledgeItem item) {
+    return YoutubePlayerController.fromVideoId(
+      videoId: item.youtubeVideoId,
       autoPlay: false,
       params: const YoutubePlayerParams(
         showControls: true,
         showFullscreenButton: true,
       ),
+    );
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    selectedItem = widget.item;
+    controller = buildController(selectedItem);
+  }
+
+  @override
+  void didUpdateWidget(covariant _SopDetailPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    KnowledgeItem nextItem = widget.item;
+    for (final version in widget.versions) {
+      if (version.id == selectedItem.id) {
+        nextItem = version;
+        break;
+      }
+    }
+    if (selectedItem.youtubeVideoId != nextItem.youtubeVideoId) {
+      unawaited(
+        controller.cueVideoById(videoId: nextItem.youtubeVideoId),
+      );
+    }
+    selectedItem = nextItem;
+  }
+
+  void selectVersion(KnowledgeItem item) {
+    if (item.id == selectedItem.id) return;
+    setState(() {
+      selectedItem = item;
+    });
+    unawaited(
+      controller.cueVideoById(videoId: item.youtubeVideoId),
     );
   }
 
@@ -389,6 +666,9 @@ class _SopDetailPageState extends State<_SopDetailPage> {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
+    final versions = [...widget.versions]
+      ..sort((left, right) => left.language.index.compareTo(right.language.index));
     return ListView(
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 24),
       children: [
@@ -404,12 +684,42 @@ class _SopDetailPageState extends State<_SopDetailPage> {
             ),
             Expanded(
               child: PageTitle(
-                title: widget.item.title,
-                subtitle: 'SOP Details',
+                title: selectedItem.title,
+                subtitle: '${text.t('SOP Details')} · ${text.t(selectedItem.language.label)}',
               ),
             ),
           ],
         ),
+        if (widget.onEdit != null) ...[
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () => widget.onEdit!(selectedItem),
+              icon: const Icon(Icons.edit_outlined),
+              label: Text(text.t('Edit')),
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
+        if (versions.length > 1) ...[
+          Text(text.t('Select Video Language'), style: AppTextStyles.formLabel),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              for (var index = 0; index < versions.length; index++) ...[
+                if (index > 0) const SizedBox(width: 10),
+                Expanded(
+                  child: _VideoLanguageCard(
+                    item: versions[index],
+                    selected: versions[index].id == selectedItem.id,
+                    onTap: () => selectVersion(versions[index]),
+                  ),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 12),
+        ],
         WhiteCard(
           padding: EdgeInsets.zero,
           child: ClipRRect(
@@ -437,7 +747,7 @@ class _SopDetailPageState extends State<_SopDetailPage> {
                     backgroundColour: AppColours.background,
                   ),
                   SmallStatusPill(
-                    text: widget.tagName,
+                    text: widget.tagNameFor(selectedItem.tagId),
                     icon: Icons.sell_outlined,
                     textColour: AppColours.textMain,
                     backgroundColour: AppColours.background,
@@ -445,6 +755,12 @@ class _SopDetailPageState extends State<_SopDetailPage> {
                   const SmallStatusPill(
                     text: 'Video',
                     icon: Icons.videocam_outlined,
+                    textColour: AppColours.textMain,
+                    backgroundColour: AppColours.background,
+                  ),
+                  SmallStatusPill(
+                    text: text.t(selectedItem.language.label),
+                    icon: Icons.language_rounded,
                     textColour: AppColours.textMain,
                     backgroundColour: AppColours.background,
                   ),
@@ -461,7 +777,7 @@ class _SopDetailPageState extends State<_SopDetailPage> {
               ),
               const SizedBox(height: 6),
               Text(
-                widget.item.expectedOutcome,
+                selectedItem.expectedOutcome,
                 style: AppTextStyles.formHint.copyWith(height: 1.4),
               ),
               const SizedBox(height: 16),
@@ -475,7 +791,7 @@ class _SopDetailPageState extends State<_SopDetailPage> {
               ),
               const SizedBox(height: 6),
               Text(
-                widget.item.description,
+                selectedItem.description,
                 style: AppTextStyles.formHint.copyWith(height: 1.4),
               ),
               const SizedBox(height: 16),
@@ -489,7 +805,7 @@ class _SopDetailPageState extends State<_SopDetailPage> {
               ),
               const SizedBox(height: 6),
               SelectableText(
-                widget.item.youtubeUrl,
+                selectedItem.youtubeUrl,
                 style: AppTextStyles.formHint.copyWith(height: 1.35),
               ),
             ],
@@ -749,30 +1065,169 @@ class _KnowledgeEmptyState extends StatelessWidget {
   }
 }
 
-class _CompactSopList extends StatelessWidget {
-  final List<KnowledgeItem> items;
-  final String Function(String tagId) tagNameFor;
-  final ValueChanged<KnowledgeItem> onTap;
+class _SopGroup {
+  final String id;
+  final List<KnowledgeItem> versions;
 
-  const _CompactSopList({
-    required this.items,
+  _SopGroup(this.id, List<KnowledgeItem> items)
+      : versions = [...items]
+          ..sort(
+            (left, right) => left.language.index.compareTo(right.language.index),
+          );
+
+  KnowledgeItem get primary {
+    for (final item in versions) {
+      if (item.language == KnowledgeVideoLanguage.english) return item;
+    }
+    return versions.first;
+  }
+
+  DateTime get latestCreatedAt {
+    var latest = DateTime.fromMillisecondsSinceEpoch(0);
+    for (final item in versions) {
+      final createdAt = item.createdAt;
+      if (createdAt != null && createdAt.isAfter(latest)) latest = createdAt;
+    }
+    return latest;
+  }
+}
+
+class _SopGroupList extends StatelessWidget {
+  final List<_SopGroup> groups;
+  final String Function(String tagId) tagNameFor;
+  final bool selecting;
+  final Set<String> selectedGroupIds;
+  final ValueChanged<String> onToggleSelection;
+  final ValueChanged<KnowledgeItem> onVersionTap;
+
+  const _SopGroupList({
+    required this.groups,
     required this.tagNameFor,
-    required this.onTap,
+    required this.selecting,
+    required this.selectedGroupIds,
+    required this.onToggleSelection,
+    required this.onVersionTap,
   });
 
   @override
   Widget build(BuildContext context) {
+    return Column(
+      children: [
+        for (final group in groups)
+          _CompactSopGroupCard(
+            group: group,
+            tagName: tagNameFor(group.primary.tagId),
+            selecting: selecting,
+            selected: selectedGroupIds.contains(group.id),
+            onToggleSelection: () => onToggleSelection(group.id),
+            onVersionTap: onVersionTap,
+          ),
+      ],
+    );
+  }
+}
+
+class _CompactSopGroupCard extends StatelessWidget {
+  final _SopGroup group;
+  final String tagName;
+  final bool selecting;
+  final bool selected;
+  final VoidCallback onToggleSelection;
+  final ValueChanged<KnowledgeItem> onVersionTap;
+
+  const _CompactSopGroupCard({
+    required this.group,
+    required this.tagName,
+    required this.selecting,
+    required this.selected,
+    required this.onToggleSelection,
+    required this.onVersionTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
+    final primary = group.primary;
+    final summary = Row(
+      children: [
+        Container(
+          width: 34,
+          height: 34,
+          decoration: BoxDecoration(
+            color: AppColours.background,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: const Icon(
+            Icons.videocam_outlined,
+            color: AppColours.blue,
+            size: 19,
+          ),
+        ),
+        const SizedBox(width: 9),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                primary.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: AppTextSize.s15,
+                  fontWeight: FontWeight.w700,
+                  color: AppColours.textMain,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                '$tagName · ${group.versions.length} ${group.versions.length == 1 ? text.t('Video Version') : text.t('Video Versions')}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: AppTextSize.s12,
+                  fontWeight: FontWeight.w600,
+                  color: AppColours.textMuted,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+
     return WhiteCard(
-      padding: EdgeInsets.zero,
-      child: Column(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+      child: Row(
         children: [
-          for (var index = 0; index < items.length; index++) ...[
-            _CompactSopRow(
-              item: items[index],
-              tagName: tagNameFor(items[index].tagId),
-              onTap: () => onTap(items[index]),
+          if (selecting) ...[
+            Checkbox(
+              value: selected,
+              visualDensity: VisualDensity.compact,
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              onChanged: (_) => onToggleSelection(),
             ),
-            if (index != items.length - 1) const Divider(height: 1),
+            const SizedBox(width: 6),
+          ],
+          Expanded(
+            child: selecting
+                ? Pressable(
+                    onTap: onToggleSelection,
+                    borderRadius: BorderRadius.circular(10),
+                    child: summary,
+                  )
+                : summary,
+          ),
+          if (!selecting) ...[
+            const SizedBox(width: 8),
+            for (var index = 0; index < group.versions.length; index++) ...[
+              if (index > 0) const SizedBox(width: 6),
+              _CompactSopVersionButton(
+                item: group.versions[index],
+                onTap: () => onVersionTap(group.versions[index]),
+              ),
+            ],
           ],
         ],
       ),
@@ -780,145 +1235,52 @@ class _CompactSopList extends StatelessWidget {
   }
 }
 
-class _CompactSopRow extends StatelessWidget {
+class _CompactSopVersionButton extends StatelessWidget {
   final KnowledgeItem item;
-  final String tagName;
   final VoidCallback onTap;
 
-  const _CompactSopRow({
+  const _CompactSopVersionButton({
     required this.item,
-    required this.tagName,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    final isVideo = item.mediaType == 'video';
-    return Pressable(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-        child: Row(
-          children: [
-            Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                color: AppColours.background,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(
-                isVideo ? Icons.videocam_outlined : Icons.image_outlined,
-                color: AppColours.blue,
-                size: 21,
-              ),
-            ),
-            const SizedBox(width: 11),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    item.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: AppTextSize.s16,
-                      fontWeight: FontWeight.w700,
-                      color: AppColours.textMain,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    '$tagName · ${isVideo ? 'Video' : 'Picture'}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: AppTextSize.s12,
-                      fontWeight: FontWeight.w600,
-                      color: AppColours.textMuted,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _KnowledgeCard extends StatelessWidget {
-  final KnowledgeItem item;
-  final String tagName;
-  final VoidCallback onTap;
-
-  const _KnowledgeCard({
-    required this.item,
-    required this.tagName,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return WhiteCard(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: EdgeInsets.zero,
+    final text = AppTextScope.of(context);
+    final languageCode = item.language == KnowledgeVideoLanguage.english
+        ? 'EN'
+        : 'MY';
+    return Tooltip(
+      message: '${text.t('Edit')} ${text.t(item.language.label)}',
       child: Pressable(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(18),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        borderRadius: BorderRadius.circular(9),
+        child: Container(
+          height: 36,
+          constraints: const BoxConstraints(minWidth: 48),
+          padding: const EdgeInsets.symmetric(horizontal: 7),
+          decoration: BoxDecoration(
+            color: const Color(0xFFEAF1FF),
+            borderRadius: BorderRadius.circular(9),
+            border: Border.all(color: const Color(0xFFD5E2FF)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      item.title,
-                      style: const TextStyle(
-                        fontSize: AppTextSize.s18,
-                        fontWeight: FontWeight.w700,
-                        color: AppColours.textMain,
-                      ),
-                    ),
-                  ),
-                  SmallStatusPill(
-                    text: item.type,
-                    icon: Icons.description_outlined,
-                    textColour: AppColours.textMain,
-                    backgroundColour: AppColours.background,
-                  ),
-                ],
+              const Icon(
+                Icons.edit_outlined,
+                size: 15,
+                color: AppColours.blue,
               ),
-              const SizedBox(height: 6),
+              const SizedBox(width: 3),
               Text(
-                item.description,
-                style: AppTextStyles.formHint.copyWith(height: 1.35),
-              ),
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  SmallStatusPill(
-                    text: tagName,
-                    icon: Icons.sell_outlined,
-                    textColour: AppColours.textMain,
-                    backgroundColour: AppColours.background,
-                  ),
-                  if (item.mediaType != null)
-                    SmallStatusPill(
-                      text: item.mediaType == 'video' ? 'Video' : 'Picture',
-                      icon: item.mediaType == 'video'
-                          ? Icons.videocam_outlined
-                          : Icons.image_outlined,
-                      textColour: AppColours.textMain,
-                      backgroundColour: AppColours.background,
-                    ),
-                ],
+                languageCode,
+                style: const TextStyle(
+                  fontSize: AppTextSize.s12,
+                  fontWeight: FontWeight.w800,
+                  color: AppColours.blue,
+                ),
               ),
             ],
           ),
@@ -928,17 +1290,223 @@ class _KnowledgeCard extends StatelessWidget {
   }
 }
 
-Future<void> showCreateSopDialog(
+class _SopGroupCard extends StatelessWidget {
+  final _SopGroup group;
+  final String tagName;
+  final bool selecting;
+  final bool selected;
+  final bool showDescription;
+  final VoidCallback? onToggleSelection;
+  final ValueChanged<KnowledgeItem> onVersionTap;
+
+  const _SopGroupCard({
+    required this.group,
+    required this.tagName,
+    this.selecting = false,
+    this.selected = false,
+    this.showDescription = false,
+    this.onToggleSelection,
+    required this.onVersionTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
+    final primary = group.primary;
+    return WhiteCard(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              if (selecting) ...[
+                Checkbox(
+                  value: selected,
+                  onChanged: (_) => onToggleSelection?.call(),
+                ),
+                const SizedBox(width: 4),
+              ],
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: AppColours.background,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.videocam_outlined,
+                  color: AppColours.blue,
+                  size: 21,
+                ),
+              ),
+              const SizedBox(width: 11),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      primary.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: AppTextSize.s16,
+                        fontWeight: FontWeight.w700,
+                        color: AppColours.textMain,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '$tagName · ${group.versions.length} ${group.versions.length == 1 ? text.t('Video Version') : text.t('Video Versions')}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: AppTextSize.s12,
+                        fontWeight: FontWeight.w600,
+                        color: AppColours.textMuted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          if (showDescription) ...[
+            const SizedBox(height: 8),
+            Text(
+              primary.description,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: AppTextStyles.formHint.copyWith(height: 1.35),
+            ),
+          ],
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              for (var index = 0; index < group.versions.length; index++) ...[
+                if (index > 0) const SizedBox(width: 10),
+                Expanded(
+                  child: _VideoLanguageCard(
+                    item: group.versions[index],
+                    selected: selecting && selected,
+                    onTap: selecting
+                        ? () => onToggleSelection?.call()
+                        : () => onVersionTap(group.versions[index]),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _VideoLanguageCard extends StatelessWidget {
+  final KnowledgeItem item;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _VideoLanguageCard({
+    required this.item,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
+    return Pressable(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 140),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        decoration: BoxDecoration(
+          color: selected ? const Color(0xFFEAF1FF) : AppColours.background,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: selected ? AppColours.blue : AppColours.border,
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              selected ? Icons.check_circle_rounded : Icons.play_circle_outline,
+              color: AppColours.blue,
+              size: 20,
+            ),
+            const SizedBox(width: 7),
+            Flexible(
+              child: Text(
+                text.t(item.language.label),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: AppTextSize.s14,
+                  fontWeight: FontWeight.w700,
+                  color: AppColours.textMain,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+Future<void> showSopEditorDialog(
   BuildContext context, {
   required List<StockTag> tags,
-  required Future<KnowledgeItem> Function(KnowledgeItem item) onCreated,
+  required List<KnowledgeItem> knowledgeItems,
+  required Future<KnowledgeItem> Function(KnowledgeItem item) onSaved,
+  KnowledgeItem? existingItem,
 }) async {
   final text = AppTextScope.of(context);
-  final youtubeController = TextEditingController();
-  final titleController = TextEditingController();
-  final descriptionController = TextEditingController();
-  final outcomeController = TextEditingController();
-  String? selectedTagId;
+  final youtubeController = TextEditingController(
+    text: existingItem?.youtubeUrl ?? '',
+  );
+  final titleController = TextEditingController(
+    text: existingItem?.title ?? '',
+  );
+  final descriptionController = TextEditingController(
+    text: existingItem?.description ?? '',
+  );
+  final outcomeController = TextEditingController(
+    text: existingItem?.expectedOutcome ?? '',
+  );
+  String? selectedTagId = existingItem?.tagId;
+  KnowledgeVideoLanguage selectedLanguage =
+      existingItem?.language ?? KnowledgeVideoLanguage.english;
+  String? selectedLinkedSopId;
+  final editing = existingItem != null;
+  final existingGroupId = existingItem == null
+      ? null
+      : existingItem.linkGroupId.isEmpty
+          ? existingItem.id
+          : existingItem.linkGroupId;
+  final existingGroupSize = existingGroupId == null
+      ? 0
+      : knowledgeItems
+          .where(
+            (item) =>
+                (item.linkGroupId.isEmpty ? item.id : item.linkGroupId) ==
+                existingGroupId,
+          )
+          .length;
+  final groupedCandidates = <String, List<KnowledgeItem>>{};
+  for (final item in knowledgeItems.where((item) => item.type == 'SOP')) {
+    final groupId = item.linkGroupId.isEmpty ? item.id : item.linkGroupId;
+    groupedCandidates.putIfAbsent(groupId, () => <KnowledgeItem>[]).add(item);
+  }
+  final linkableVideos = groupedCandidates.values
+      .where((versions) => versions.length < 2)
+      .map((versions) => versions.first)
+      .toList();
   bool showValidation = false;
   bool submitting = false;
   String? submitError;
@@ -954,6 +1522,25 @@ Future<void> showCreateSopDialog(
           final outcome = outcomeController.text.trim();
           final description = descriptionController.text.trim();
           final videoId = _youtubeVideoIdFromUrl(youtubeUrl);
+          KnowledgeItem? linkedSop;
+          for (final item in linkableVideos) {
+            if (item.id == selectedLinkedSopId) {
+              linkedSop = item;
+              break;
+            }
+          }
+          final sharedFieldsLocked = linkedSop != null;
+          final duplicateLinkedVideo = linkedSop != null &&
+              videoId != null &&
+              linkedSop.youtubeVideoId == videoId;
+          final youtubeError = !showValidation
+              ? null
+              : videoId == null
+                  ? 'Enter a valid YouTube video URL.'
+                  : duplicateLinkedVideo
+                      ? 'English and Myanmar must use different YouTube videos.'
+                      : null;
+          final availableLinkedVideos = linkableVideos;
 
           Future<void> submit() async {
             setDialogState(() {
@@ -961,6 +1548,7 @@ Future<void> showCreateSopDialog(
               submitError = null;
             });
             if (videoId == null ||
+                duplicateLinkedVideo ||
                 selectedTagId == null ||
                 title.isEmpty ||
                 outcome.isEmpty ||
@@ -970,24 +1558,34 @@ Future<void> showCreateSopDialog(
 
             final confirmed = await confirmDataChange(
               dialogContext,
-              action: 'Create SOP?',
-              details:
-                  'This will create a new SOP for the selected Stock tag.',
+              action: editing ? 'Update SOP?' : 'Create SOP?',
+              details: editing
+                  ? 'This will save the edited SOP information.'
+                  : linkedSop == null
+                      ? 'This will create a new SOP for the selected Stock tag.'
+                      : 'This will create and link the ${selectedLanguage.label} video with ${linkedSop.language.label}. Both versions will be deleted together.',
             );
             if (!confirmed || !dialogContext.mounted) return;
 
             setDialogState(() => submitting = true);
             try {
-              await onCreated(
+              await onSaved(
                 KnowledgeItem(
+                  id: existingItem?.id ?? '',
                   youtubeUrl: youtubeUrl,
                   youtubeVideoId: videoId,
                   title: title,
                   description: description,
                   type: 'SOP',
                   tagId: selectedTagId!,
+                  tagName: existingItem?.tagName ?? '',
                   mediaType: 'video',
                   expectedOutcome: outcome,
+                  language: selectedLanguage,
+                  linkGroupId: existingItem?.linkGroupId ?? '',
+                  linkedSopId: selectedLinkedSopId,
+                  createdBy: existingItem?.createdBy ?? '',
+                  createdAt: existingItem?.createdAt,
                 ),
               );
               if (dialogContext.mounted) Navigator.of(dialogContext).pop();
@@ -1018,7 +1616,7 @@ Future<void> showCreateSopDialog(
                         children: [
                           Expanded(
                             child: Text(
-                              text.t('Create New SOP'),
+                              text.t(editing ? 'Edit SOP' : 'Create New SOP'),
                               style: const TextStyle(
                                 fontSize: AppTextSize.s22,
                                 fontWeight: FontWeight.w800,
@@ -1040,23 +1638,141 @@ Future<void> showCreateSopDialog(
                         label: 'YouTube URL',
                         hint: 'https://www.youtube.com/watch?v=...',
                         keyboardType: TextInputType.url,
-                        errorText: showValidation && videoId == null
-                            ? 'Enter a valid YouTube video URL.'
-                            : null,
+                        errorText: youtubeError,
                         onChanged: (_) => setDialogState(() {
                           submitError = null;
                         }),
                       ),
                       const SizedBox(height: 16),
+                      Text(text.t('Language'), style: AppTextStyles.formLabel),
+                      const SizedBox(height: 8),
+                      DropdownButtonFormField<KnowledgeVideoLanguage>(
+                        key: ValueKey(
+                          'language:${selectedLanguage.apiValue}:$selectedLinkedSopId',
+                        ),
+                        initialValue: selectedLanguage,
+                        isExpanded: true,
+                        style: AppTextStyles.formValue,
+                        decoration: AppInputStyle.decoration(
+                          text.t('Select Language'),
+                        ),
+                        items: KnowledgeVideoLanguage.values
+                            .map(
+                              (language) =>
+                                  DropdownMenuItem<KnowledgeVideoLanguage>(
+                                value: language,
+                                child: Text(text.t(language.label)),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: submitting ||
+                                sharedFieldsLocked ||
+                                (editing && existingGroupSize > 1)
+                            ? null
+                            : (value) {
+                                if (value == null) return;
+                                setDialogState(() {
+                                  selectedLanguage = value;
+                                  if (linkedSop?.language == value) {
+                                    selectedLinkedSopId = null;
+                                  }
+                                  submitError = null;
+                                });
+                              },
+                      ),
+                      if (editing && existingGroupSize > 1) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          text.t(
+                            'Language is fixed while two video versions are linked.',
+                          ),
+                          style: AppTextStyles.formHint,
+                        ),
+                      ],
+                      if (!editing) ...[
+                        const SizedBox(height: 16),
+                        Text(
+                          text.t('Linked Video'),
+                          style: AppTextStyles.formLabel,
+                        ),
+                        const SizedBox(height: 8),
+                        DropdownButtonFormField<String>(
+                          key: ValueKey(
+                            'linked:${selectedLinkedSopId ?? ''}:${selectedLanguage.apiValue}',
+                          ),
+                          initialValue: selectedLinkedSopId ?? '',
+                          isExpanded: true,
+                          style: AppTextStyles.formValue,
+                          decoration: AppInputStyle.decoration(
+                            text.t('Select a previously created video'),
+                          ),
+                          items: [
+                            DropdownMenuItem<String>(
+                              value: '',
+                              child: Text(text.t('No linked video')),
+                            ),
+                            ...availableLinkedVideos.map(
+                              (item) => DropdownMenuItem<String>(
+                                value: item.id,
+                                child: Text(
+                                  '${item.title} · ${text.t(item.language.label)}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ),
+                          ],
+                          onChanged: submitting
+                              ? null
+                              : (value) {
+                                  setDialogState(() {
+                                    selectedLinkedSopId =
+                                        value == null || value.isEmpty
+                                            ? null
+                                            : value;
+                                    if (selectedLinkedSopId != null) {
+                                      final target = linkableVideos.firstWhere(
+                                        (item) => item.id == selectedLinkedSopId,
+                                      );
+                                      selectedLanguage = target.language ==
+                                              KnowledgeVideoLanguage.english
+                                          ? KnowledgeVideoLanguage.myanmar
+                                          : KnowledgeVideoLanguage.english;
+                                      selectedTagId = target.tagId;
+                                      titleController.text = target.title;
+                                      outcomeController.text =
+                                          target.expectedOutcome;
+                                      descriptionController.text =
+                                          target.description;
+                                    }
+                                    submitError = null;
+                                  });
+                                },
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          text.t(
+                            'Maximum two linked videos. Linked versions are deleted together.',
+                          ),
+                          style: AppTextStyles.formHint,
+                        ),
+                      ],
+                      const SizedBox(height: 16),
                       Text(text.t('Tag'), style: AppTextStyles.formLabel),
                       const SizedBox(height: 8),
                       DropdownButtonFormField<String>(
+                        key: ValueKey(
+                          'tag:$selectedTagId:${selectedLinkedSopId ?? ''}',
+                        ),
                         initialValue: selectedTagId,
                         isExpanded: true,
                         style: AppTextStyles.formValue,
                         decoration: AppInputStyle.decoration(
                           text.t('Select Tag'),
                         ).copyWith(
+                          fillColor: sharedFieldsLocked
+                              ? AppColours.border
+                              : AppColours.mutedBox,
                           errorText: showValidation && selectedTagId == null
                               ? text.t('Tag is required')
                               : null,
@@ -1072,7 +1788,9 @@ Future<void> showCreateSopDialog(
                               ),
                             )
                             .toList(),
-                        onChanged: submitting || tags.isEmpty
+                        onChanged: submitting ||
+                                tags.isEmpty ||
+                                selectedLinkedSopId != null
                             ? null
                             : (value) {
                                 setDialogState(() {
@@ -1096,6 +1814,7 @@ Future<void> showCreateSopDialog(
                         controller: titleController,
                         label: text.t('Title'),
                         hint: 'Example: Belly Pork Preparation',
+                        enabled: !sharedFieldsLocked,
                         errorText: showValidation && title.isEmpty
                             ? 'Title is required.'
                             : null,
@@ -1109,6 +1828,7 @@ Future<void> showCreateSopDialog(
                         label: 'Expected Outcome',
                         hint: 'What should staff achieve after following this?',
                         maxLines: 2,
+                        enabled: !sharedFieldsLocked,
                         errorText: showValidation && outcome.isEmpty
                             ? 'Expected Outcome is required.'
                             : null,
@@ -1122,6 +1842,7 @@ Future<void> showCreateSopDialog(
                         label: text.t('Description'),
                         hint: 'Describe the SOP content',
                         maxLines: 3,
+                        enabled: !sharedFieldsLocked,
                         errorText: showValidation && description.isEmpty
                             ? 'Description is required.'
                             : null,
@@ -1143,10 +1864,12 @@ Future<void> showCreateSopDialog(
                       PrimaryButton(
                         text: submitting
                             ? text.t('Processing... Please Wait!')
-                            : text.t('Create SOP'),
+                            : text.t(editing ? 'Save' : 'Create SOP'),
                         icon: submitting
                             ? Icons.hourglass_top_rounded
-                            : Icons.add_rounded,
+                            : editing
+                                ? Icons.save_outlined
+                                : Icons.add_rounded,
                         onPressed: submitting || tags.isEmpty ? null : submit,
                       ),
                     ],
@@ -1198,6 +1921,7 @@ class _DialogInput extends StatelessWidget {
   final String label;
   final String hint;
   final int maxLines;
+  final bool enabled;
   final String? errorText;
   final ValueChanged<String>? onChanged;
   final TextInputType? keyboardType;
@@ -1207,6 +1931,7 @@ class _DialogInput extends StatelessWidget {
     required this.label,
     required this.hint,
     this.maxLines = 1,
+    this.enabled = true,
     this.errorText,
     this.onChanged,
     this.keyboardType,
@@ -1221,11 +1946,15 @@ class _DialogInput extends StatelessWidget {
         const SizedBox(height: 8),
         TextField(
           controller: controller,
+          enabled: enabled,
           maxLines: maxLines,
           keyboardType: keyboardType,
           onChanged: onChanged,
-          style: AppTextStyles.formValue,
+          style: AppTextStyles.formValue.copyWith(
+            color: enabled ? AppColours.textMain : AppColours.textMuted,
+          ),
           decoration: AppInputStyle.decoration(hint).copyWith(
+            fillColor: enabled ? AppColours.mutedBox : AppColours.border,
             errorText: errorText,
           ),
         ),

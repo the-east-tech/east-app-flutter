@@ -154,10 +154,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final summaryFuture = widget.role == UserRole.staff
         ? Future<StockReviewSummary?>.value(null)
         : widget.api.todayStockReviewSummary();
-    final reportFuture = widget.api
-        .reportDashboard(days: 7, tenantId: widget.tenantId)
-        .then<ReportDashboard?>((value) => value)
-        .catchError((Object _) => null);
+    // Home only presents the Report Intelligence snapshot already loaded by
+    // Report. It must never create a dashboard refresh request of its own.
+    final reportFuture = widget.api.cachedReportDashboard(
+      days: 7,
+      tenantId: widget.tenantId,
+    );
 
     try {
       final results = await Future.wait<Object?>([
@@ -514,17 +516,23 @@ class _ReportSnapshotCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final data = dashboard;
-    final firstValue = isManagement
-        ? 'RM ${(data?.sales?.netSalesRm ?? 0).toStringAsFixed(2)}'
-        : '${data?.dailyPhotos.currentUserPhotoCount ?? 0}/${data?.dailyPhotos.minimumRequired ?? 5}';
+    final firstValue = data == null
+        ? '—'
+        : isManagement
+            ? 'RM ${(data.sales?.netSalesRm ?? 0).toStringAsFixed(2)}'
+            : '${data.dailyPhotos.currentUserPhotoCount}/${data.dailyPhotos.minimumRequired}';
     final firstLabel = isManagement ? 'Total Sales Today' : 'Daily Photos';
-    final secondValue = isManagement
-        ? '${data?.inventory?.healthScorePercent.toStringAsFixed(0) ?? '0'}%'
-        : (data?.dailyPhotos.currentUserComplete == true ? 'Complete' : 'Pending');
+    final secondValue = data == null
+        ? '—'
+        : isManagement
+            ? '${data.inventory?.healthScorePercent.toStringAsFixed(0) ?? '0'}%'
+            : (data.dailyPhotos.currentUserComplete ? 'Complete' : 'Pending');
     final secondLabel = isManagement ? 'Stock Health' : 'Submission';
-    final thirdValue = isManagement
-        ? '${data?.complaints?.openCount ?? 0}'
-        : '${data?.pendingApprovals ?? 0}';
+    final thirdValue = data == null
+        ? '—'
+        : isManagement
+            ? '${data.complaints?.openCount ?? 0}'
+            : '${data.pendingApprovals}';
     final thirdLabel = isManagement ? 'Open Complaints' : 'Review Status';
 
     return WhiteCard(

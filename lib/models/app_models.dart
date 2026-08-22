@@ -4,6 +4,23 @@ enum UserRole {
   head,
 }
 
+enum KnowledgeVideoLanguage {
+  english('ENGLISH', 'English'),
+  myanmar('MYANMAR', 'Myanmar');
+
+  final String apiValue;
+  final String label;
+
+  const KnowledgeVideoLanguage(this.apiValue, this.label);
+
+  static KnowledgeVideoLanguage fromApi(String? value) {
+    return KnowledgeVideoLanguage.values.firstWhere(
+      (language) => language.apiValue == value?.toUpperCase(),
+      orElse: () => KnowledgeVideoLanguage.english,
+    );
+  }
+}
+
 enum RewardTaskStatus {
   pending,
   inProgress,
@@ -185,6 +202,9 @@ class KnowledgeItem {
   final String? imageAsset;
   final String? mediaType;
   final String expectedOutcome;
+  final KnowledgeVideoLanguage language;
+  final String linkGroupId;
+  final String? linkedSopId;
   final String createdBy;
   final DateTime? createdAt;
 
@@ -200,9 +220,52 @@ class KnowledgeItem {
     this.imageAsset,
     this.mediaType,
     required this.expectedOutcome,
+    this.language = KnowledgeVideoLanguage.english,
+    this.linkGroupId = '',
+    this.linkedSopId,
     this.createdBy = '',
     this.createdAt,
   });
+
+  KnowledgeItem copyWith({
+    String? id,
+    String? youtubeUrl,
+    String? youtubeVideoId,
+    String? title,
+    String? description,
+    String? type,
+    String? tagId,
+    String? tagName,
+    String? imageAsset,
+    String? mediaType,
+    String? expectedOutcome,
+    KnowledgeVideoLanguage? language,
+    String? linkGroupId,
+    String? linkedSopId,
+    bool clearLinkedSopId = false,
+    String? createdBy,
+    DateTime? createdAt,
+  }) {
+    return KnowledgeItem(
+      id: id ?? this.id,
+      youtubeUrl: youtubeUrl ?? this.youtubeUrl,
+      youtubeVideoId: youtubeVideoId ?? this.youtubeVideoId,
+      title: title ?? this.title,
+      description: description ?? this.description,
+      type: type ?? this.type,
+      tagId: tagId ?? this.tagId,
+      tagName: tagName ?? this.tagName,
+      imageAsset: imageAsset ?? this.imageAsset,
+      mediaType: mediaType ?? this.mediaType,
+      expectedOutcome: expectedOutcome ?? this.expectedOutcome,
+      language: language ?? this.language,
+      linkGroupId: linkGroupId ?? this.linkGroupId,
+      linkedSopId:
+          clearLinkedSopId ? null : linkedSopId ?? this.linkedSopId,
+      createdBy: createdBy ?? this.createdBy,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
 }
 
 

@@ -473,6 +473,53 @@ class _MainShellState extends State<MainShell> {
     return saved;
   }
 
+  Future<KnowledgeItem> updateSop(KnowledgeItem item) async {
+    final saved = await widget.api.updateKnowledgeSop(item);
+    if (!mounted) return saved;
+    setState(() {
+      knowledge = knowledge
+          .map((entry) {
+            if (entry.id == saved.id) return saved;
+            final entryGroupId =
+                entry.linkGroupId.isEmpty ? entry.id : entry.linkGroupId;
+            final savedGroupId =
+                saved.linkGroupId.isEmpty ? saved.id : saved.linkGroupId;
+            if (entryGroupId == savedGroupId) {
+              return entry.copyWith(
+                tagId: saved.tagId,
+                tagName: saved.tagName,
+                title: saved.title,
+                expectedOutcome: saved.expectedOutcome,
+                description: saved.description,
+              );
+            }
+            return entry;
+          })
+          .toList();
+      knowledgeLoaded = true;
+    });
+    return saved;
+  }
+
+  Future<void> deleteSops(Set<String> sopIds) async {
+    final selectedGroupIds = knowledge
+        .where((entry) => sopIds.contains(entry.id))
+        .map((entry) => entry.linkGroupId.isEmpty ? entry.id : entry.linkGroupId)
+        .toSet();
+    await widget.api.deleteKnowledgeSops(sopIds);
+    if (!mounted) return;
+    setState(() {
+      knowledge = knowledge
+          .where((entry) {
+            final groupId =
+                entry.linkGroupId.isEmpty ? entry.id : entry.linkGroupId;
+            return !selectedGroupIds.contains(groupId);
+          })
+          .toList();
+      knowledgeLoaded = true;
+    });
+  }
+
   void createStockTag(StockTag tag) {
     setState(() {
       stockTags = [tag, ...stockTags];
@@ -1780,6 +1827,8 @@ class _MainShellState extends State<MainShell> {
               knowledgeItems: knowledge,
               tags: stockTags,
               onCreateSop: createSop,
+              onUpdateSop: updateSop,
+              onDeleteSops: deleteSops,
             ),
           ];
 

@@ -514,6 +514,26 @@ class EastAppApi {
     return ReportDashboard.fromJson(body as Map<String, dynamic>);
   }
 
+  Future<ReportDashboard?> cachedReportDashboard({
+    int days = 7,
+    required String tenantId,
+  }) async {
+    final cacheKey = reportDashboardCacheKey(tenantId, days);
+    final cached = await FeatureDataCache.instance.read(cacheKey);
+    final data = cached?.data;
+    if (data == null) {
+      AppDiagnostics.instance.log('Cache-only miss · $cacheKey');
+      return null;
+    }
+    if (data is! Map<String, dynamic>) {
+      await FeatureDataCache.instance.remove(cacheKey);
+      AppDiagnostics.instance.log('Cache-only invalid · $cacheKey');
+      return null;
+    }
+    AppDiagnostics.instance.log('Cache-only hit · $cacheKey');
+    return ReportDashboard.fromJson(data);
+  }
+
   Future<List<SalesReport>> salesHistory({
     required DateTime from,
     required DateTime to,
@@ -1034,9 +1054,38 @@ class EastAppApi {
     final body = await _requestJson(
       'POST',
       '/api/v1/knowledge/sops',
+      body: knowledgeItemToJson(item, includeLinkedSop: true),
+    ) as Map<String, dynamic>;
+    return knowledgeItemFromJson(body);
+  }
+
+  Future<KnowledgeItem> updateKnowledgeSop(KnowledgeItem item) async {
+    if (item.id.trim().isEmpty) {
+      throw ArgumentError.value(item.id, 'item.id', 'SOP ID is required');
+    }
+    final body = await _requestJson(
+      'PUT',
+      '/api/v1/knowledge/sops/${Uri.encodeComponent(item.id)}',
       body: knowledgeItemToJson(item),
     ) as Map<String, dynamic>;
     return knowledgeItemFromJson(body);
+  }
+
+  Future<void> deleteKnowledgeSops(Set<String> sopIds) async {
+    final ids = sopIds.where((id) => id.trim().isNotEmpty).toList()..sort();
+    if (ids.isEmpty) {
+      throw ArgumentError.value(
+        sopIds,
+        'sopIds',
+        'At least one SOP ID is required',
+      );
+    }
+    await _requestJson(
+      'POST',
+      '/api/v1/knowledge/sops/bulk-delete',
+      body: {'sopIds': ids},
+      expectBody: false,
+    );
   }
 
   Future<EastAppStockSnapshot> stockSnapshot() async {
@@ -2279,4 +2328,3 @@ final class _AsyncMemoryCache<T> {
     _inFlight = null;
   }
 }
-
