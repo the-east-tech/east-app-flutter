@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 
 import '../data/sample_data.dart';
 import '../localization/app_language.dart';
+import '../localization/app_text.dart';
 import '../localization/app_text_scope.dart';
 import '../models/app_models.dart';
 import '../models/api_models.dart';
@@ -19,6 +20,7 @@ import '../utils/app_diagnostics.dart';
 import '../widgets/app_components.dart';
 import '../widgets/app_feedback.dart';
 import '../widgets/app_header.dart';
+import '../widgets/app_settings_sheet.dart';
 import 'attendance_screen.dart';
 import 'home_screen.dart';
 import 'knowledge_screen.dart';
@@ -404,6 +406,31 @@ class _MainShellState extends State<MainShell> {
       language = value;
     });
     widget.onLanguageChanged(value);
+  }
+
+  Future<void> showSettingsSheet() async {
+    AppFeedback.tap();
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      isDismissible: false,
+      enableDrag: false,
+      useSafeArea: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) => AppSettingsSheet(
+        language: language,
+        translationDirection: widget.api.translationDirection,
+        onLanguageChanged: changeLanguage,
+        onTranslationPreview: widget.api.previewContentTranslation,
+        onTranslationChanged: (direction) async {
+          await widget.api.setContentTranslation(direction);
+          if (mounted) setState(() {});
+        },
+      ),
+    );
   }
 
   void submitTask({
@@ -1244,6 +1271,7 @@ class _MainShellState extends State<MainShell> {
       builder: (sheetContext) {
         return AppTextScope(
           language: language,
+          contentTranslations: widget.api.contentTranslations,
           child: FractionallySizedBox(
             heightFactor: 0.92,
             child: Column(
@@ -1254,7 +1282,7 @@ class _MainShellState extends State<MainShell> {
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       IconButton(
-                        tooltip: 'Close',
+                        tooltip: localText.t('Close'),
                         onPressed: () => Navigator.of(sheetContext).pop(),
                         icon: const Icon(Icons.close_rounded),
                       ),
@@ -1271,6 +1299,10 @@ class _MainShellState extends State<MainShell> {
   }
 
   String get currentUserName => widget.session.user.fullName;
+  AppText get localText => AppText(
+        language,
+        contentTranslations: widget.api.contentTranslations,
+      );
 
   String get currentUserId => widget.session.user.employeeId;
 
@@ -1304,7 +1336,7 @@ class _MainShellState extends State<MainShell> {
 
   String buildDebugReport(BuildContext context) {
     return AppDiagnostics.instance.buildReport(
-      appVersion: 'east_app_v280',
+      appVersion: 'east_app_v292',
       role: currentRoleName,
       userName: currentUserName,
       userId: currentUserId,
@@ -1324,9 +1356,9 @@ class _MainShellState extends State<MainShell> {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
-        const SnackBar(
-          content: Text('Debug report copied'),
-          duration: Duration(seconds: 2),
+        SnackBar(
+          content: Text(localText.t('Debug report copied')),
+          duration: const Duration(seconds: 2),
         ),
       );
   }
@@ -1346,6 +1378,7 @@ class _MainShellState extends State<MainShell> {
       builder: (sheetContext) {
         return AppTextScope(
           language: language,
+          contentTranslations: widget.api.contentTranslations,
           child: FractionallySizedBox(
             heightFactor: 0.86,
             child: Padding(
@@ -1369,10 +1402,10 @@ class _MainShellState extends State<MainShell> {
                         ),
                       ),
                       const SizedBox(width: 10),
-                      const Expanded(
+                      Expanded(
                         child: Text(
-                          'Help',
-                          style: TextStyle(
+                          localText.t('Help'),
+                          style: const TextStyle(
                             color: AppColours.textMain,
                             fontSize: AppTextSize.s22,
                             fontWeight: FontWeight.w800,
@@ -1380,7 +1413,7 @@ class _MainShellState extends State<MainShell> {
                         ),
                       ),
                       IconButton(
-                        tooltip: 'Close',
+                        tooltip: localText.t('Close'),
                         onPressed: () => Navigator.of(sheetContext).pop(),
                         icon: const Icon(Icons.close_rounded),
                       ),
@@ -1388,7 +1421,7 @@ class _MainShellState extends State<MainShell> {
                   ),
                   const SizedBox(height: 12),
                   PrimaryButton(
-                    text: 'Copy Debug Report',
+                    text: localText.t('Copy Debug Report'),
                     icon: Icons.content_copy_rounded,
                     onPressed: () => copyDebugReport(sheetContext, report),
                   ),
@@ -1397,13 +1430,15 @@ class _MainShellState extends State<MainShell> {
                     padding: const EdgeInsets.all(12),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      children: const [
-                        Icon(Icons.info_outline_rounded, color: AppColours.textMuted, size: 18),
-                        SizedBox(width: 8),
+                      children: [
+                        const Icon(Icons.info_outline_rounded, color: AppColours.textMuted, size: 18),
+                        const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            'Ask the tester to paste this report into WhatsApp when something fails inside the app.',
-                            style: TextStyle(
+                            localText.t(
+                              'Ask the tester to paste this report into WhatsApp when something fails inside the app.',
+                            ),
+                            style: const TextStyle(
                               color: AppColours.textMuted,
                               fontSize: AppTextSize.s13,
                               fontWeight: FontWeight.w500,
@@ -1415,9 +1450,9 @@ class _MainShellState extends State<MainShell> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  const Text(
-                    'Report preview',
-                    style: TextStyle(
+                  Text(
+                    localText.t('Report preview'),
+                    style: const TextStyle(
                       color: AppColours.textMain,
                       fontSize: AppTextSize.s16,
                       fontWeight: FontWeight.w800,
@@ -1467,6 +1502,7 @@ class _MainShellState extends State<MainShell> {
       builder: (sheetContext) {
         return AppTextScope(
           language: language,
+          contentTranslations: widget.api.contentTranslations,
           child: FractionallySizedBox(
             heightFactor: 0.92,
             child: Column(
@@ -1477,7 +1513,7 @@ class _MainShellState extends State<MainShell> {
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       IconButton(
-                        tooltip: 'Close',
+                        tooltip: localText.t('Close'),
                         onPressed: () => Navigator.of(sheetContext).pop(),
                         icon: const Icon(Icons.close_rounded),
                       ),
@@ -1635,14 +1671,18 @@ class _MainShellState extends State<MainShell> {
         context: context,
         barrierDismissible: false,
         builder: (dialogContext) => AlertDialog(
-          title: Text('Welcome to ${switched.tenant.businessName}'),
+          title: Text(
+            localText.t('Welcome to ${switched.tenant.businessName}'),
+          ),
           content: Text(
-            'The application will use ${switched.user.employeeId} and only data from this business.',
+            localText.t(
+              'The application will use ${switched.user.employeeId} and only data from this business.',
+            ),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('OK'),
+              child: Text(localText.t('OK')),
             ),
           ],
         ),
@@ -1684,6 +1724,7 @@ class _MainShellState extends State<MainShell> {
   Widget build(BuildContext context) {
     return AppTextScope(
       language: language,
+      contentTranslations: widget.api.contentTranslations,
       child: Builder(
         builder: (context) {
           final text = AppTextScope.of(context);
@@ -1849,13 +1890,12 @@ class _MainShellState extends State<MainShell> {
               children: [
                 AppHeader(
                   businessName: widget.session.tenant.businessName,
-                  language: language,
-                  onLanguageChanged: changeLanguage,
                   onIdentityTap: widget.session.user.role.isOwner
                       ? showContextSwitcher
                       : null,
                   totalPoints:
                       pointsLeaderboard?.currentUserTotalPoints ?? 0,
+                  onSettings: showSettingsSheet,
                   onHelp: showHelpSheet,
                   onLogout: logoutToLogin,
                 ),

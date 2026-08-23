@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../localization/app_text_scope.dart';
 import '../models/google_place_models.dart';
 import '../models/setup_models.dart';
 import '../services/east_app_api.dart';
@@ -64,6 +65,7 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
   }
 
   Future<void> completeSetup() async {
+    final text = AppTextScope.of(context);
     FocusScope.of(context).unfocus();
     final setupCode = setupCodeController.text.trim().toUpperCase();
     final businessName = businessNameController.text.trim();
@@ -84,35 +86,50 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
       password,
       confirmation,
     ].any((value) => value.isEmpty)) {
-      showErrorSnackBar(context, 'Complete all fields.');
+      showErrorSnackBar(context, text.t('Complete all fields.'));
       return;
     }
     if (!RegExp(r'^[A-HJ-NP-Z2-9]{10}$').hasMatch(setupCode)) {
-      showErrorSnackBar(context, 'Enter the 10-character setup code from the backend log.');
+      showErrorSnackBar(
+        context,
+        text.t('Enter the 10-character setup code from the backend log.'),
+      );
       return;
     }
     if (!RegExp(r'^[A-Z0-9][A-Z0-9_-]{1,31}$').hasMatch(companyCode)) {
-      showErrorSnackBar(context, 'Company Code must contain 2–32 letters, numbers, _ or -.');
+      showErrorSnackBar(
+        context,
+        text.t('Company Code must contain 2–32 letters, numbers, _ or -.'),
+      );
       return;
     }
     if (!RegExp(r'^[A-Z]{1,3}$').hasMatch(employeePrefix)) {
-      showErrorSnackBar(context, 'Employee ID Prefix must contain 1–3 letters.');
+      showErrorSnackBar(
+        context,
+        text.t('Employee ID Prefix must contain 1–3 letters.'),
+      );
       return;
     }
     if (selectedPlace == null) {
-      showErrorSnackBar(context, 'Select the Google business location.');
+      showErrorSnackBar(
+        context,
+        text.t('Select the Google business location.'),
+      );
       return;
     }
     if (!isValidE164(phoneE164)) {
-      showErrorSnackBar(context, 'Enter a valid phone number.');
+      showErrorSnackBar(context, text.t('Enter a valid phone number.'));
       return;
     }
     if (password.length < 4) {
-      showErrorSnackBar(context, 'Password must contain at least 4 characters.');
+      showErrorSnackBar(
+        context,
+        text.t('Password must contain at least 4 characters.'),
+      );
       return;
     }
     if (password != confirmation) {
-      showErrorSnackBar(context, 'Passwords do not match.');
+      showErrorSnackBar(context, text.t('Passwords do not match.'));
       return;
     }
 
@@ -151,26 +168,30 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
     return showDialog<void>(
       context: context,
       barrierDismissible: false,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Owner Account Created'),
-        content: Text(
-          '${result.businessName}\n'
-          'Company Code: ${result.companyCode}\n'
-          'Employee ID: ${result.employeeId}\n\n'
-          'Use the Company Code, Employee ID and password to sign in.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Continue to Login'),
+      builder: (dialogContext) {
+        final text = AppTextScope.of(dialogContext);
+        return AlertDialog(
+          title: Text(text.t('Owner Account Created')),
+          content: Text(
+            '${result.businessName}\n'
+            '${text.t('Company Code')}: ${result.companyCode}\n'
+            '${text.t('Employee ID')}: ${result.employeeId}\n\n'
+            '${text.t('Use the Company Code, Employee ID and password to sign in.')}',
           ),
-        ],
-      ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: Text(text.t('Continue to Login')),
+            ),
+          ],
+        );
+      },
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     return Scaffold(
       backgroundColor: AppColours.blue,
       body: Center(
@@ -200,18 +221,20 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                const Text(
-                  'Initial Setup',
-                  style: TextStyle(
+                Text(
+                  text.t('Initial Setup'),
+                  style: const TextStyle(
                     fontSize: AppTextSize.s30,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
                 const SizedBox(height: 4),
-                const Text(
-                  'Create the first business and Owner account. Employee ID is generated automatically.',
+                Text(
+                  text.t(
+                    'Create the first business and Owner account. Employee ID is generated automatically.',
+                  ),
                   textAlign: TextAlign.center,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: AppTextSize.s14,
                     color: AppColours.textMuted,
                   ),
@@ -320,9 +343,9 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
                               color: Colors.white,
                             ),
                           )
-                        : const Text(
-                            'Create Business & Owner',
-                            style: TextStyle(
+                        : Text(
+                            text.t('Create Business & Owner'),
+                            style: const TextStyle(
                               fontSize: AppTextSize.s18,
                               fontWeight: FontWeight.w700,
                             ),
@@ -361,10 +384,11 @@ class _SetupField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: AppTextStyles.formLabel),
+        Text(text.t(label), style: AppTextStyles.formLabel),
         const SizedBox(height: 6),
         TextField(
           controller: controller,
@@ -376,7 +400,7 @@ class _SetupField extends StatelessWidget {
           enableSuggestions: !obscureText,
           style: AppTextStyles.formValue,
           decoration: AppInputStyle.decoration(
-            hint,
+            text.t(hint),
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 14,
               vertical: 13,

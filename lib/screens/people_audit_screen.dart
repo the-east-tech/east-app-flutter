@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../localization/app_text_scope.dart';
 import '../models/attendance_models.dart';
 import '../models/people_models.dart';
 import '../services/east_app_api.dart';
@@ -193,6 +194,7 @@ class _PeopleAuditScreenState extends State<PeopleAuditScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     return ListView(
       padding: const EdgeInsets.fromLTRB(14, 10, 14, 24),
       children: [
@@ -204,7 +206,7 @@ class _PeopleAuditScreenState extends State<PeopleAuditScreen> {
           onSubmitted: (_) => loadUsers(reset: true),
           textInputAction: TextInputAction.search,
           onTapOutside: (_) => FocusScope.of(context).unfocus(),
-          decoration: AppInputStyle.decoration('Search employee').copyWith(
+          decoration: AppInputStyle.decoration(text.t('Search employee')).copyWith(
             prefixIcon: const Icon(Icons.search_rounded),
             suffixIcon: searchController.text.trim().isEmpty
                 ? null
@@ -221,17 +223,17 @@ class _PeopleAuditScreenState extends State<PeopleAuditScreen> {
         const SizedBox(height: 10),
         DropdownButtonFormField<bool?>(
           initialValue: activeFilter,
-          decoration: AppInputStyle.decoration('Employee Status'),
-          items: const [
-            DropdownMenuItem<bool?>(value: null, child: Text('All')),
-            DropdownMenuItem<bool?>(value: true, child: Text('Active')),
-            DropdownMenuItem<bool?>(value: false, child: Text('Inactive')),
+          decoration: AppInputStyle.decoration(text.t('Employee Status')),
+          items: [
+            DropdownMenuItem<bool?>(value: null, child: Text(text.t('All'))),
+            DropdownMenuItem<bool?>(value: true, child: Text(text.t('Active'))),
+            DropdownMenuItem<bool?>(value: false, child: Text(text.t('Inactive'))),
           ],
           onChanged: changeActiveFilter,
         ),
         const SizedBox(height: 10),
         PrimaryButton(
-          text: usersLoading ? 'Searching...' : 'Search Employees',
+          text: text.t(usersLoading ? 'Searching...' : 'Search Employees'),
           icon: usersLoading ? null : Icons.search_rounded,
           onPressed: usersLoading ? null : () => loadUsers(reset: true),
         ),
@@ -248,6 +250,7 @@ class _PeopleAuditScreenState extends State<PeopleAuditScreen> {
   }
 
   Widget _pageHeader() {
+    final text = AppTextScope.of(context);
     return Row(
       children: [
         IconButton(
@@ -255,20 +258,20 @@ class _PeopleAuditScreenState extends State<PeopleAuditScreen> {
           icon: const Icon(Icons.arrow_back_rounded),
         ),
         const SizedBox(width: 2),
-        const Expanded(
+        Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'People Audit',
-                style: TextStyle(
+                text.t('People Audit'),
+                style: const TextStyle(
                   fontSize: AppTextSize.s24,
                   fontWeight: FontWeight.w700,
                 ),
               ),
               Text(
-                'Search an employee to view attendance history',
-                style: TextStyle(
+                text.t('Search an employee to view attendance history'),
+                style: const TextStyle(
                   fontSize: AppTextSize.s13,
                   color: AppColours.textMuted,
                   fontWeight: FontWeight.w600,
@@ -282,10 +285,11 @@ class _PeopleAuditScreenState extends State<PeopleAuditScreen> {
   }
 
   Widget _employeeResults() {
+    final text = AppTextScope.of(context);
     if (!hasSearchedUsers) {
-      return const Text(
-        'Enter a name or employee ID, then tap Search Employees.',
-        style: TextStyle(
+      return Text(
+        text.t('Enter a name or employee ID, then tap Search Employees.'),
+        style: const TextStyle(
           fontSize: AppTextSize.s15,
           color: AppColours.textMuted,
           fontWeight: FontWeight.w600,
@@ -305,9 +309,9 @@ class _PeopleAuditScreenState extends State<PeopleAuditScreen> {
       );
     }
     if (users.isEmpty) {
-      return const Text(
-        'No employees found.',
-        style: TextStyle(
+      return Text(
+        text.t('No employees found.'),
+        style: const TextStyle(
           color: AppColours.textMuted,
           fontWeight: FontWeight.w700,
         ),
@@ -319,17 +323,17 @@ class _PeopleAuditScreenState extends State<PeopleAuditScreen> {
       children: [
         Row(
           children: [
-            const Expanded(
+            Expanded(
               child: Text(
-                'Employees',
-                style: TextStyle(
+                text.t('Employees'),
+                style: const TextStyle(
                   fontSize: AppTextSize.s18,
                   fontWeight: FontWeight.w700,
                 ),
               ),
             ),
             Text(
-              '$totalUsers found',
+              text.t('$totalUsers found'),
               style: const TextStyle(
                 color: AppColours.textMuted,
                 fontWeight: FontWeight.w600,
@@ -361,7 +365,9 @@ class _PeopleAuditScreenState extends State<PeopleAuditScreen> {
                   user.fullName,
                   style: const TextStyle(fontWeight: FontWeight.w700),
                 ),
-                subtitle: Text('${user.employeeId} · ${user.role.name}'),
+                subtitle: Text(
+                  '${user.employeeId} · ${text.t(user.role.name)}',
+                ),
                 trailing: selected
                     ? const Icon(
                         Icons.check_circle_rounded,
@@ -385,7 +391,9 @@ class _PeopleAuditScreenState extends State<PeopleAuditScreen> {
         if (!usersLastPage) ...[
           const SizedBox(height: 8),
           PrimaryButton(
-            text: usersLoadingMore ? 'Loading...' : 'Load More Employees',
+            text: text.t(
+              usersLoadingMore ? 'Loading...' : 'Load More Employees',
+            ),
             icon: usersLoadingMore ? null : Icons.expand_more_rounded,
             onPressed:
                 usersLoadingMore ? null : () => loadUsers(reset: false),
@@ -396,12 +404,13 @@ class _PeopleAuditScreenState extends State<PeopleAuditScreen> {
   }
 
   Widget _periodControls() {
+    final text = AppTextScope.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Attendance Period',
-          style: TextStyle(
+        Text(
+          text.t('Attendance Period'),
+          style: const TextStyle(
             fontSize: AppTextSize.s18,
             fontWeight: FontWeight.w700,
           ),
@@ -416,7 +425,7 @@ class _PeopleAuditScreenState extends State<PeopleAuditScreen> {
                 padding: const EdgeInsets.only(right: 8),
                 child: ChoiceChip(
                   selected: selected,
-                  label: Text(item.label),
+                  label: Text(text.t(item.label)),
                   onSelected: reportLoading
                       ? null
                       : (_) => changePeriod(item),
@@ -566,21 +575,24 @@ class _PeopleAuditScreenState extends State<PeopleAuditScreen> {
   }
 
   Widget _payrollContent(EastAppAttendanceUserDetail value) {
+    final text = AppTextScope.of(context);
     final days = value.days;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Attendance Table',
-          style: TextStyle(
+        Text(
+          text.t('Attendance Table'),
+          style: const TextStyle(
             fontSize: AppTextSize.s18,
             fontWeight: FontWeight.w700,
           ),
         ),
         const SizedBox(height: 4),
-        const Text(
-          'Confirmed working time includes completed Check In + Check Out records only.',
-          style: TextStyle(
+        Text(
+          text.t(
+            'Confirmed working time includes completed Check In + Check Out records only.',
+          ),
+          style: const TextStyle(
             fontSize: AppTextSize.s12,
             color: AppColours.textMuted,
             fontWeight: FontWeight.w600,
@@ -588,9 +600,9 @@ class _PeopleAuditScreenState extends State<PeopleAuditScreen> {
         ),
         const SizedBox(height: 8),
         if (days.isEmpty)
-          const Text(
-            'No attendance records in this period.',
-            style: TextStyle(
+          Text(
+            text.t('No attendance records in this period.'),
+            style: const TextStyle(
               color: AppColours.textMuted,
               fontWeight: FontWeight.w700,
             ),
@@ -600,17 +612,17 @@ class _PeopleAuditScreenState extends State<PeopleAuditScreen> {
         const SizedBox(height: 18),
         Row(
           children: [
-            const Expanded(
+            Expanded(
               child: Text(
-                'Attendance Events',
-                style: TextStyle(
+                text.t('Attendance Events'),
+                style: const TextStyle(
                   fontSize: AppTextSize.s18,
                   fontWeight: FontWeight.w700,
                 ),
               ),
             ),
             Text(
-              '${days.length} days',
+              text.t('${days.length} days'),
               style: const TextStyle(
                 color: AppColours.textMuted,
                 fontWeight: FontWeight.w700,
@@ -620,9 +632,9 @@ class _PeopleAuditScreenState extends State<PeopleAuditScreen> {
         ),
         const SizedBox(height: 8),
         if (days.isEmpty)
-          const Text(
-            'No attendance events in this period.',
-            style: TextStyle(
+          Text(
+            text.t('No attendance events in this period.'),
+            style: const TextStyle(
               color: AppColours.textMuted,
               fontWeight: FontWeight.w700,
             ),
@@ -639,6 +651,7 @@ class _PeopleAuditScreenState extends State<PeopleAuditScreen> {
   }
 
   Widget _attendanceTable(List<EastAppAttendanceDay> days) {
+    final text = AppTextScope.of(context);
     return WhiteCard(
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
@@ -647,12 +660,12 @@ class _PeopleAuditScreenState extends State<PeopleAuditScreen> {
           dataRowMinHeight: 44,
           dataRowMaxHeight: 52,
           columnSpacing: 22,
-          columns: const [
-            DataColumn(label: Text('Date')),
-            DataColumn(label: Text('Check In')),
-            DataColumn(label: Text('Check Out')),
-            DataColumn(label: Text('Working Time')),
-            DataColumn(label: Text('Status')),
+          columns: [
+            DataColumn(label: Text(text.t('Date'))),
+            DataColumn(label: Text(text.t('Check In'))),
+            DataColumn(label: Text(text.t('Check Out'))),
+            DataColumn(label: Text(text.t('Working Time'))),
+            DataColumn(label: Text(text.t('Status'))),
           ],
           rows: days
               .map(
@@ -675,13 +688,14 @@ class _PeopleAuditScreenState extends State<PeopleAuditScreen> {
   }
 
   Widget _yearlyContent(EastAppAttendanceUserDetail value) {
+    final text = AppTextScope.of(context);
     final summary = value.summary;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Annual Attendance Performance',
-          style: TextStyle(
+        Text(
+          text.t('Annual Attendance Performance'),
+          style: const TextStyle(
             fontSize: AppTextSize.s18,
             fontWeight: FontWeight.w700,
           ),
@@ -713,17 +727,19 @@ class _PeopleAuditScreenState extends State<PeopleAuditScreen> {
           ),
         ),
         const SizedBox(height: 18),
-        const Text(
-          'Monthly Breakdown',
-          style: TextStyle(
+        Text(
+          text.t('Monthly Breakdown'),
+          style: const TextStyle(
             fontSize: AppTextSize.s18,
             fontWeight: FontWeight.w700,
           ),
         ),
         const SizedBox(height: 4),
-        const Text(
-          'Tap a month to open its detailed payroll attendance view.',
-          style: TextStyle(
+        Text(
+          text.t(
+            'Tap a month to open its detailed payroll attendance view.',
+          ),
+          style: const TextStyle(
             fontSize: AppTextSize.s12,
             color: AppColours.textMuted,
             fontWeight: FontWeight.w600,
@@ -736,6 +752,7 @@ class _PeopleAuditScreenState extends State<PeopleAuditScreen> {
   }
 
   Widget _monthlyTable(List<EastAppAttendanceMonthSummary> months) {
+    final text = AppTextScope.of(context);
     return WhiteCard(
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
@@ -745,13 +762,13 @@ class _PeopleAuditScreenState extends State<PeopleAuditScreen> {
           dataRowMinHeight: 44,
           dataRowMaxHeight: 52,
           columnSpacing: 22,
-          columns: const [
-            DataColumn(label: Text('Month')),
-            DataColumn(label: Text('Present')),
-            DataColumn(label: Text('Completed')),
-            DataColumn(label: Text('Missing Out')),
-            DataColumn(label: Text('Hours')),
-            DataColumn(label: Text('Completion')),
+          columns: [
+            DataColumn(label: Text(text.t('Month'))),
+            DataColumn(label: Text(text.t('Present'))),
+            DataColumn(label: Text(text.t('Completed'))),
+            DataColumn(label: Text(text.t('Missing Out'))),
+            DataColumn(label: Text(text.t('Hours'))),
+            DataColumn(label: Text(text.t('Completion'))),
           ],
           rows: months
               .map(
@@ -797,6 +814,7 @@ class _AuditMetric extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     return WhiteCard(
       child: Row(
         children: [
@@ -815,14 +833,14 @@ class _AuditMetric extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  value,
+                  text.t(value),
                   style: const TextStyle(
                     fontSize: AppTextSize.s18,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
                 Text(
-                  label,
+                  text.t(label),
                   style: const TextStyle(
                     fontSize: AppTextSize.s12,
                     color: AppColours.textMuted,
@@ -845,6 +863,7 @@ class _AttendanceDayCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     final completed = day.completed;
     final statusColour = completed ? AppColours.green : AppColours.red;
     final statusBackground =
@@ -876,14 +895,16 @@ class _AttendanceDayCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      _formatLongDate(day.date),
+                      text.t(_formatLongDate(day.date)),
                       style: const TextStyle(
                         fontSize: AppTextSize.s16,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
                     Text(
-                      completed ? 'Complete' : 'Incomplete attendance',
+                      text.t(
+                        completed ? 'Complete' : 'Incomplete attendance',
+                      ),
                       style: TextStyle(
                         fontSize: AppTextSize.s12,
                         color: statusColour,
@@ -933,7 +954,10 @@ class _AttendanceEventDetail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final type = event.eventType == 'CLOCK_IN' ? 'Check In' : 'Check Out';
+    final text = AppTextScope.of(context);
+    final type = text.t(
+      event.eventType == 'CLOCK_IN' ? 'Check In' : 'Check Out',
+    );
     final distanceKilometres = event.distanceMeters / 1000;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -970,7 +994,9 @@ class _AttendanceEventDetail extends StatelessWidget {
               ),
               const SizedBox(height: 5),
               Text(
-                '${distanceKilometres.toStringAsFixed(2)} km from office',
+                text.t(
+                  '${distanceKilometres.toStringAsFixed(2)} km from office',
+                ),
                 style: const TextStyle(
                   color: AppColours.blue,
                   fontWeight: FontWeight.w800,
@@ -986,7 +1012,9 @@ class _AttendanceEventDetail extends StatelessWidget {
               ),
               const SizedBox(height: 3),
               Text(
-                'Office: ${event.workLocationName} · GPS ±${event.accuracyMeters.round()} m',
+                text.t(
+                  'Office: ${event.workLocationName} · GPS ±${event.accuracyMeters.round()} m',
+                ),
                 style: const TextStyle(
                   fontSize: AppTextSize.s12,
                   color: AppColours.textMuted,
@@ -995,7 +1023,9 @@ class _AttendanceEventDetail extends StatelessWidget {
               ),
               const SizedBox(height: 3),
               Text(
-                'Validated by ${event.validationMethod} · QR + GPS',
+                text.t(
+                  'Validated by ${event.validationMethod} · QR + GPS',
+                ),
                 style: const TextStyle(
                   fontSize: AppTextSize.s12,
                   color: AppColours.green,
@@ -1023,12 +1053,13 @@ class _AttendanceTimeLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     return Row(
       children: [
         SizedBox(
           width: 112,
           child: Text(
-            label,
+            text.t(label),
             style: const TextStyle(
               color: AppColours.textMuted,
               fontWeight: FontWeight.w600,
@@ -1037,7 +1068,7 @@ class _AttendanceTimeLine extends StatelessWidget {
         ),
         Expanded(
           child: Text(
-            value,
+            text.t(value),
             style: TextStyle(
               color: valueColour ?? AppColours.textMain,
               fontWeight: FontWeight.w800,
@@ -1057,11 +1088,12 @@ class _AnnualLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     return Row(
       children: [
         Expanded(
           child: Text(
-            label,
+            text.t(label),
             style: const TextStyle(
               color: AppColours.textMuted,
               fontWeight: FontWeight.w600,
@@ -1070,7 +1102,7 @@ class _AnnualLine extends StatelessWidget {
         ),
         const SizedBox(width: 12),
         Text(
-          value,
+          text.t(value),
           style: const TextStyle(fontWeight: FontWeight.w800),
         ),
       ],
@@ -1085,6 +1117,7 @@ class _StatusLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     final colour = completed ? AppColours.green : AppColours.red;
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -1096,7 +1129,7 @@ class _StatusLabel extends StatelessWidget {
         ),
         const SizedBox(width: 5),
         Text(
-          completed ? 'Complete' : 'Missing Out',
+          text.t(completed ? 'Complete' : 'Missing Out'),
           style: TextStyle(
             color: colour,
             fontWeight: FontWeight.w700,
@@ -1118,6 +1151,7 @@ class _AuditError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     return WhiteCard(
       child: Column(
         children: [
@@ -1134,7 +1168,7 @@ class _AuditError extends StatelessWidget {
           const SizedBox(height: 10),
           OutlinedButton(
             onPressed: onRetry,
-            child: const Text('Retry'),
+            child: Text(text.t('Retry')),
           ),
         ],
       ),

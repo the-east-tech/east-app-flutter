@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../localization/app_text_scope.dart';
 import '../models/auth_models.dart';
 import '../models/google_place_models.dart';
 import '../models/organisation_models.dart';
@@ -142,6 +143,7 @@ class _TenantSetupScreenState extends State<TenantSetupScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     final current = currentBusiness ?? widget.currentTenant;
     final otherContexts = filteredContexts;
     return ListView(
@@ -159,10 +161,12 @@ class _TenantSetupScreenState extends State<TenantSetupScreen> {
             ),
             Expanded(
               child: PageTitle(
-                title: 'Business',
-                subtitle: widget.isOwner
-                    ? 'Edit this business, create a business or switch context'
-                    : 'View and edit this business',
+                title: text.t('Business'),
+                subtitle: text.t(
+                  widget.isOwner
+                      ? 'Edit this business, create a business or switch context'
+                      : 'View and edit this business',
+                ),
               ),
             ),
             if (widget.isOwner)
@@ -171,7 +175,7 @@ class _TenantSetupScreenState extends State<TenantSetupScreen> {
                 child: TextButton.icon(
                   onPressed: openCreateBusiness,
                   icon: const Icon(Icons.add_business_outlined),
-                  label: const Text('Create'),
+                  label: Text(text.t('Create')),
                 ),
               ),
           ],
@@ -187,10 +191,10 @@ class _TenantSetupScreenState extends State<TenantSetupScreen> {
           WhiteCard(
             child: Column(
               children: [
-                Text(error!, textAlign: TextAlign.center),
+                Text(text.t(error!), textAlign: TextAlign.center),
                 const SizedBox(height: 12),
                 PrimaryButton(
-                  text: 'Retry',
+                  text: text.t('Retry'),
                   icon: Icons.refresh_rounded,
                   onPressed: loadBusinesses,
                 ),
@@ -198,9 +202,9 @@ class _TenantSetupScreenState extends State<TenantSetupScreen> {
             ),
           )
         else ...[
-          const Text(
-            'Business',
-            style: TextStyle(
+          Text(
+            text.t('Business'),
+            style: const TextStyle(
               fontSize: AppTextSize.s14,
               fontWeight: FontWeight.w800,
               color: AppColours.textMuted,
@@ -219,15 +223,15 @@ class _TenantSetupScreenState extends State<TenantSetupScreen> {
               controller: searchController,
               onChanged: (_) => setState(() {}),
               decoration: AppInputStyle.decoration(
-                'Search other businesses',
+                text.t('Search other businesses'),
               ).copyWith(
                 prefixIcon: const Icon(Icons.search_rounded),
               ),
             ),
             const SizedBox(height: 12),
-            const Text(
-              'Other Businesses',
-              style: TextStyle(
+            Text(
+              text.t('Other Businesses'),
+              style: const TextStyle(
                 fontSize: AppTextSize.s14,
                 fontWeight: FontWeight.w800,
                 color: AppColours.textMuted,
@@ -235,13 +239,13 @@ class _TenantSetupScreenState extends State<TenantSetupScreen> {
             ),
             const SizedBox(height: 8),
             if (otherContexts.isEmpty)
-              const WhiteCard(
+              WhiteCard(
                 child: Padding(
-                  padding: EdgeInsets.symmetric(vertical: 12),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
                   child: Text(
-                    'No other business context is assigned.',
+                    text.t('No other business context is assigned.'),
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: AppColours.textMuted),
+                    style: const TextStyle(color: AppColours.textMuted),
                   ),
                 ),
               )
@@ -278,6 +282,7 @@ class _BusinessCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     return WhiteCard(
       padding: EdgeInsets.zero,
       child: Pressable(
@@ -315,7 +320,7 @@ class _BusinessCard extends StatelessWidget {
                     Text(
                       [
                         tenant.companyCode,
-                        'Prefix ${tenant.employeeIdPrefix}',
+                        '${text.t('Prefix')} ${tenant.employeeIdPrefix}',
                         ?employeeId,
                       ].join(' · '),
                       style: const TextStyle(
@@ -490,6 +495,7 @@ class _BusinessFormSheetState extends State<_BusinessFormSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     return Padding(
       padding: EdgeInsets.fromLTRB(
         16,
@@ -517,7 +523,7 @@ class _BusinessFormSheetState extends State<_BusinessFormSheet> {
               children: [
                 Expanded(
                   child: Text(
-                    isEditing ? 'Edit Business' : 'Create Business',
+                    text.t(isEditing ? 'Edit Business' : 'Create Business'),
                     style: const TextStyle(
                       fontSize: AppTextSize.s26,
                       fontWeight: FontWeight.w700,
@@ -566,9 +572,11 @@ class _BusinessFormSheetState extends State<_BusinessFormSheet> {
               },
             ),
             const SizedBox(height: 6),
-            const Text(
-              'Company Code and Employee ID Prefix cannot change after creation.',
-              style: TextStyle(
+            Text(
+              text.t(
+                'Company Code and Employee ID Prefix cannot change after creation.',
+              ),
+              style: const TextStyle(
                 fontSize: AppTextSize.s12,
                 color: AppColours.textMuted,
                 fontWeight: FontWeight.w600,
@@ -582,11 +590,13 @@ class _BusinessFormSheetState extends State<_BusinessFormSheet> {
             ),
             const SizedBox(height: 18),
             PrimaryButton(
-              text: saving
-                  ? 'Saving...'
-                  : isEditing
-                      ? 'Save Changes'
-                      : 'Create Business',
+              text: text.t(
+                saving
+                    ? 'Saving...'
+                    : isEditing
+                        ? 'Save Changes'
+                        : 'Create Business',
+              ),
               icon: Icons.save_outlined,
               onPressed: saving ? null : save,
             ),
@@ -618,10 +628,11 @@ class _BusinessInput extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: AppTextStyles.formLabel),
+        Text(text.t(label), style: AppTextStyles.formLabel),
         const SizedBox(height: 6),
         TextField(
           controller: controller,
@@ -629,8 +640,8 @@ class _BusinessInput extends StatelessWidget {
           textCapitalization: textCapitalization,
           textInputAction: TextInputAction.next,
           onChanged: onChanged,
-          decoration: AppInputStyle.decoration(hint).copyWith(
-            errorText: errorText,
+          decoration: AppInputStyle.decoration(text.t(hint)).copyWith(
+            errorText: errorText == null ? null : text.t(errorText!),
           ),
         ),
       ],

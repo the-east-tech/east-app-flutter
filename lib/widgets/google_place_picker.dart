@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../models/google_place_models.dart';
+import '../localization/app_text_scope.dart';
 import '../services/east_app_api.dart';
 import '../theme/app_theme.dart';
 
@@ -45,11 +46,15 @@ class GooglePlaceSelectionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     final selected = place;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Google Business Location', style: AppTextStyles.formLabel),
+        Text(
+          text.t('Google Business Location'),
+          style: AppTextStyles.formLabel,
+        ),
         const SizedBox(height: 6),
         Material(
           color: Colors.transparent,
@@ -85,11 +90,13 @@ class GooglePlaceSelectionCard extends StatelessWidget {
                   const SizedBox(width: 10),
                   Expanded(
                     child: selected == null
-                        ? const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 8),
+                        ? Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
                             child: Text(
-                              'Search and select the exact Google Maps listing',
-                              style: TextStyle(
+                              text.t(
+                                'Search and select the exact Google Maps listing',
+                              ),
+                              style: const TextStyle(
                                 fontSize: AppTextSize.s14,
                                 color: AppColours.textMuted,
                                 fontWeight: FontWeight.w600,
@@ -267,6 +274,7 @@ class _GooglePlacePickerSheetState extends State<_GooglePlacePickerSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     return SizedBox(
       height: MediaQuery.of(context).size.height * 0.82,
       child: Padding(
@@ -292,10 +300,10 @@ class _GooglePlacePickerSheetState extends State<_GooglePlacePickerSheet> {
             const SizedBox(height: 12),
             Row(
               children: [
-                const Expanded(
+                Expanded(
                   child: Text(
-                    'Select Business Location',
-                    style: TextStyle(
+                    text.t('Select Business Location'),
+                    style: const TextStyle(
                       fontSize: AppTextSize.s24,
                       fontWeight: FontWeight.w800,
                     ),
@@ -315,7 +323,7 @@ class _GooglePlacePickerSheetState extends State<_GooglePlacePickerSheet> {
               onChanged: scheduleSearch,
               onSubmitted: (_) => search(),
               decoration: AppInputStyle.decoration(
-                'Search business name or address',
+                text.t('Search business name or address'),
               ).copyWith(
                 prefixIcon: const Icon(Icons.search_rounded),
                 suffixIcon: searching
@@ -333,7 +341,7 @@ class _GooglePlacePickerSheetState extends State<_GooglePlacePickerSheet> {
             if (error != null) ...[
               const SizedBox(height: 8),
               Text(
-                error!,
+                text.t(error!),
                 style: const TextStyle(
                   color: Color(0xFFC73500),
                   fontSize: AppTextSize.s13,
@@ -346,11 +354,13 @@ class _GooglePlacePickerSheetState extends State<_GooglePlacePickerSheet> {
               child: predictions.isEmpty
                   ? Center(
                       child: Text(
-                        searching
-                            ? 'Searching Google Maps…'
-                            : searchController.text.trim().length < 2
-                                ? 'Type at least 2 characters.'
-                                : 'No matching location found.',
+                        text.t(
+                          searching
+                              ? 'Searching Google Maps…'
+                              : searchController.text.trim().length < 2
+                                  ? 'Type at least 2 characters.'
+                                  : 'No matching location found.',
+                        ),
                         textAlign: TextAlign.center,
                         style: const TextStyle(
                           color: AppColours.textMuted,

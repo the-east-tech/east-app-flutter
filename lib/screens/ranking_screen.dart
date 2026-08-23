@@ -80,8 +80,8 @@ class RankingScreen extends StatelessWidget {
         ),
         const SizedBox(height: 14),
         if (leaderboard.members.isEmpty)
-          const WhiteCard(
-            child: Text('No active users found.'),
+          WhiteCard(
+            child: Text(text.t('No active users found.')),
           )
         else
           ...leaderboard.members.map(
@@ -152,7 +152,7 @@ class _LeaderboardRow extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '${member.employeeId} · ${member.roleName}',
+                  '${member.employeeId} · ${text.t(member.roleName)}',
                   style: const TextStyle(
                     fontSize: AppTextSize.s12,
                     color: AppColours.textMuted,

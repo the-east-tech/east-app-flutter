@@ -1,25 +1,22 @@
 import 'package:flutter/material.dart';
 
-import '../localization/app_language.dart';
 import '../localization/app_text_scope.dart';
 import '../theme/app_theme.dart';
 
 class AppHeader extends StatelessWidget {
   final String businessName;
-  final AppLanguage language;
-  final ValueChanged<AppLanguage> onLanguageChanged;
   final VoidCallback? onIdentityTap;
   final int totalPoints;
+  final VoidCallback onSettings;
   final VoidCallback onHelp;
   final VoidCallback onLogout;
 
   const AppHeader({
     super.key,
     required this.businessName,
-    required this.language,
-    required this.onLanguageChanged,
     required this.onIdentityTap,
     required this.totalPoints,
+    required this.onSettings,
     required this.onHelp,
     required this.onLogout,
   });
@@ -104,42 +101,23 @@ class AppHeader extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 6),
-                PopupMenuButton<AppLanguage>(
-                  initialValue: language,
-                  onSelected: onLanguageChanged,
-                  itemBuilder: (context) => AppLanguage.values
-                      .map(
-                        (item) => PopupMenuItem<AppLanguage>(
-                          value: item,
-                          child: Text(item.displayName),
-                        ),
-                      )
-                      .toList(),
+                Tooltip(
+                  message: text.t('Settings'),
                   child: Container(
+                    width: 36,
                     height: 32,
-                    padding: const EdgeInsets.symmetric(horizontal: 9),
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.16),
                       borderRadius: BorderRadius.circular(999),
                     ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          Icons.language_rounded,
-                          color: Colors.white,
-                          size: 16,
-                        ),
-                        const SizedBox(width: 5),
-                        Text(
-                          language.shortLabel,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: AppTextSize.s13,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ],
+                    child: IconButton(
+                      padding: EdgeInsets.zero,
+                      onPressed: onSettings,
+                      icon: const Icon(
+                        Icons.settings_outlined,
+                        color: Colors.white,
+                        size: 19,
+                      ),
                     ),
                   ),
                 ),
@@ -148,7 +126,7 @@ class AppHeader extends StatelessWidget {
                   width: 30,
                   height: 32,
                   child: IconButton(
-                    tooltip: 'Help',
+                    tooltip: text.t('Help'),
                     padding: EdgeInsets.zero,
                     onPressed: onHelp,
                     icon: const Icon(
@@ -162,7 +140,7 @@ class AppHeader extends StatelessWidget {
                   width: 30,
                   height: 32,
                   child: IconButton(
-                    tooltip: 'Logout',
+                    tooltip: text.t('Logout'),
                     padding: EdgeInsets.zero,
                     onPressed: onLogout,
                     icon: const Icon(

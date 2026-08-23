@@ -308,6 +308,7 @@ class _SupplierInfoRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
@@ -323,7 +324,7 @@ class _SupplierInfoRow extends StatelessWidget {
           ),
           Flexible(
             child: Text(
-              value,
+              text.content(value),
               textAlign: TextAlign.right,
               style: TextStyle(
                 fontSize: AppTextSize.s17,

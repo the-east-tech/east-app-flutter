@@ -1,7 +1,7 @@
 enum AppLanguage {
   english,
-  myanmar,
   chinese,
+  myanmar,
 }
 
 extension AppLanguageLabel on AppLanguage {

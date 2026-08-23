@@ -6,6 +6,7 @@ import 'dart:typed_data';
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 
+import '../localization/app_text_scope.dart';
 import '../models/app_models.dart';
 import '../models/people_models.dart';
 import '../models/report_models.dart';
@@ -124,16 +125,17 @@ class _ReportScreenState extends State<ReportScreen>
   }
 
   Future<void> showUpcomingFeature(BuildContext dialogContext) async {
+    final text = AppTextScope.of(dialogContext);
     AppFeedback.warning();
     await showDialog<void>(
       context: dialogContext,
       builder: (context) => AlertDialog(
-        title: const Text('Upcoming Feature'),
-        content: const Text('This feature is not available yet.'),
+        title: Text(text.t('Upcoming Feature')),
+        content: Text(text.t('This feature is not available yet.')),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('OK'),
+            child: Text(text.t('OK')),
           ),
         ],
       ),
@@ -535,6 +537,7 @@ class _ReportHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     return AnimatedBuilder(
       animation: controller,
       builder: (context, _) {
@@ -593,21 +596,23 @@ class _ReportHero extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 12),
-                      const Expanded(
+                      Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Report Intelligence',
-                              style: TextStyle(
+                              text.t('Report Intelligence'),
+                              style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: AppTextSize.s24,
                                 fontWeight: FontWeight.w900,
                               ),
                             ),
                             Text(
-                              'Operational evidence transformed into business decisions',
-                              style: TextStyle(
+                              text.t(
+                                'Operational evidence transformed into business decisions',
+                              ),
+                              style: const TextStyle(
                                 color: Colors.white70,
                                 fontSize: AppTextSize.s13,
                                 fontWeight: FontWeight.w600,
@@ -622,7 +627,7 @@ class _ReportHero extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
                             IconButton.filledTonal(
-                              tooltip: 'Refresh report data',
+                              tooltip: text.t('Refresh report data'),
                               onPressed: onRefresh,
                               style: IconButton.styleFrom(
                                 backgroundColor: Colors.white.withValues(alpha: .16),
@@ -642,7 +647,7 @@ class _ReportHero extends StatelessWidget {
                                   : const Icon(Icons.refresh_rounded),
                             ),
                             Text(
-                              _lastUpdatedText(lastUpdatedAt),
+                              text.t(_lastUpdatedText(lastUpdatedAt)),
                               style: const TextStyle(
                                 color: Colors.white70,
                                 fontSize: AppTextSize.s10,
@@ -746,11 +751,17 @@ class _ReportHero extends StatelessWidget {
                       child: Text(
                         [
                           if ((dashboard?.workforce?.openShiftCount ?? 0) > 0)
-                            '${dashboard!.workforce!.openShiftCount} open shift(s)',
+                            text.t(
+                              '${dashboard!.workforce!.openShiftCount} open shift(s)',
+                            ),
                           if ((dashboard?.countCoverage?.missingCountSkuDays ?? 0) > 0)
-                            '${dashboard!.countCoverage!.missingCountSkuDays} missing SKU-day count(s)',
+                            text.t(
+                              '${dashboard!.countCoverage!.missingCountSkuDays} missing SKU-day count(s)',
+                            ),
                           if ((dashboard?.workforce?.staffCountMismatchDays ?? 0) > 0)
-                            'Attendance mismatch: ${dashboard!.workforce!.staffCountMismatchDays} day(s)',
+                            text.t(
+                              'Attendance mismatch: ${dashboard!.workforce!.staffCountMismatchDays} day(s)',
+                            ),
                         ].join(' · '),
                         style: const TextStyle(
                           color: Colors.white,
@@ -841,6 +852,7 @@ class _ApprovalActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     return Stack(
       clipBehavior: Clip.none,
       children: [
@@ -849,7 +861,7 @@ class _ApprovalActionButton extends StatelessWidget {
           child: FilledButton.tonalIcon(
             onPressed: onPressed,
             icon: const Icon(Icons.fact_check_outlined),
-            label: const Text('Approvals'),
+            label: Text(text.t('Approvals')),
           ),
         ),
         if (count > 0)
@@ -888,6 +900,7 @@ class _HeroMetric extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
       decoration: BoxDecoration(
@@ -899,7 +912,7 @@ class _HeroMetric extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            label,
+            text.t(label),
             style: const TextStyle(
               color: Colors.white70,
               fontSize: AppTextSize.s12,
@@ -918,7 +931,7 @@ class _HeroMetric extends StatelessWidget {
               ),
             ),
             child: Text(
-              value,
+              text.t(value),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
@@ -985,6 +998,7 @@ class _ReportCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -1029,7 +1043,7 @@ class _ReportCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          title,
+                          text.t(title),
                           style: const TextStyle(
                             fontSize: AppTextSize.s19,
                             fontWeight: FontWeight.w900,
@@ -1037,7 +1051,7 @@ class _ReportCard extends StatelessWidget {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          subtitle,
+                          text.t(subtitle),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
@@ -1052,7 +1066,9 @@ class _ReportCard extends StatelessWidget {
                   ),
                   if (onAction != null)
                     IconButton.filledTonal(
-                      tooltip: actionTooltip,
+                      tooltip: actionTooltip == null
+                          ? null
+                          : text.t(actionTooltip!),
                       onPressed: () {
                         AppFeedback.tap();
                         onAction!();
@@ -1070,7 +1086,7 @@ class _ReportCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          metric,
+                          text.t(metric),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
@@ -1080,7 +1096,7 @@ class _ReportCard extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          metricLabel,
+                          text.t(metricLabel),
                           style: const TextStyle(
                             color: AppColours.textMuted,
                             fontSize: AppTextSize.s12,
@@ -1117,6 +1133,7 @@ class _CardBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final appText = AppTextScope.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: BoxDecoration(
@@ -1130,7 +1147,7 @@ class _CardBadge extends StatelessWidget {
           const SizedBox(width: 4),
           Flexible(
             child: Text(
-              text,
+              appText.content(appText.t(text)),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
@@ -1153,6 +1170,7 @@ class _TrendPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     final totalSales = points.fold<double>(0, (sum, item) => sum + item.netSalesRm);
     final totalLeakage = points.fold<double>(
       0,
@@ -1165,17 +1183,17 @@ class _TrendPanel extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Expanded(
+              Expanded(
                 child: Text(
-                  'Sales vs Operational Leakage',
-                  style: TextStyle(
+                  text.t('Sales vs Operational Leakage'),
+                  style: const TextStyle(
                     fontSize: AppTextSize.s17,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
               ),
               Text(
-                '${points.length} days',
+                text.t('${points.length} days'),
                 style: const TextStyle(
                   color: AppColours.textMuted,
                   fontWeight: FontWeight.w700,
@@ -1185,7 +1203,9 @@ class _TrendPanel extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            'RM ${_money(totalSales)} sales · RM ${_money(totalLeakage)} void + waste',
+            text.t(
+              'RM ${_money(totalSales)} sales · RM ${_money(totalLeakage)} void + waste',
+            ),
             style: const TextStyle(
               color: AppColours.textMuted,
               fontSize: AppTextSize.s12,
@@ -1229,6 +1249,7 @@ class _LegendDot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     return Row(
       children: [
         Container(
@@ -1238,7 +1259,7 @@ class _LegendDot extends StatelessWidget {
         ),
         const SizedBox(width: 5),
         Text(
-          label,
+          text.t(label),
           style: const TextStyle(
             fontSize: AppTextSize.s10,
             color: AppColours.textMuted,
@@ -1347,6 +1368,7 @@ Future<T?> _showReportSheet<T>(
   required IconData icon,
   required WidgetBuilder builder,
 }) {
+  final textScope = context.getInheritedWidgetOfExactType<AppTextScope>();
   return showModalBottomSheet<T>(
     context: context,
     isScrollControlled: true,
@@ -1356,7 +1378,7 @@ Future<T?> _showReportSheet<T>(
       final media = MediaQuery.of(sheetContext);
       final keyboardHeight = media.viewInsets.bottom;
       final availableHeight = media.size.height - keyboardHeight;
-      return AnimatedPadding(
+      Widget sheet = AnimatedPadding(
         duration: const Duration(milliseconds: 180),
         curve: Curves.easeOut,
         padding: EdgeInsets.only(bottom: keyboardHeight),
@@ -1399,7 +1421,7 @@ Future<T?> _showReportSheet<T>(
                             const SizedBox(width: 10),
                             Expanded(
                               child: Text(
-                                title,
+                                textScope?.text.t(title) ?? title,
                                 style: const TextStyle(
                                   fontSize: AppTextSize.s20,
                                   fontWeight: FontWeight.w900,
@@ -1425,7 +1447,7 @@ Future<T?> _showReportSheet<T>(
                     child: FilledButton.tonalIcon(
                       onPressed: () => FocusScope.of(sheetContext).unfocus(),
                       icon: const Icon(Icons.keyboard_hide_rounded),
-                      label: const Text('Done'),
+                      label: Text(textScope?.text.t('Done') ?? 'Done'),
                     ),
                   ),
               ],
@@ -1433,6 +1455,14 @@ Future<T?> _showReportSheet<T>(
           ),
         ),
       );
+      if (textScope != null) {
+        sheet = AppTextScope(
+          language: textScope.language,
+          contentTranslations: textScope.contentTranslations,
+          child: sheet,
+        );
+      }
+      return sheet;
     },
   );
 }
@@ -1479,6 +1509,7 @@ class _SalesHistorySheetState extends State<_SalesHistorySheet> {
 
   Future<void> selectDateRange() async {
     if (loading) return;
+    final text = AppTextScope.of(context);
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final selected = await showDateRangePicker(
@@ -1486,14 +1517,14 @@ class _SalesHistorySheetState extends State<_SalesHistorySheet> {
       firstDate: DateTime(today.year - 2, 1, 1),
       lastDate: today,
       initialDateRange: selectedRange,
-      helpText: 'Select Sales report dates',
-      saveText: 'Use Range',
+      helpText: text.t('Select Sales report dates'),
+      saveText: text.t('Use Range'),
     );
     if (selected == null || !mounted) return;
     final inclusiveDays = selected.end.difference(selected.start).inDays + 1;
     if (inclusiveDays > 30) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Select a maximum of 30 days.')),
+        SnackBar(content: Text(text.t('Select a maximum of 30 days.'))),
       );
       return;
     }
@@ -1539,6 +1570,7 @@ class _SalesHistorySheetState extends State<_SalesHistorySheet> {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     return RefreshIndicator(
       onRefresh: hasLoaded ? () => load(forceRefresh: true) : () async {},
       child: ListView(
@@ -1558,21 +1590,23 @@ class _SalesHistorySheetState extends State<_SalesHistorySheet> {
               children: [
                 Row(
                   children: [
-                    const Expanded(
+                    Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Sales Report Loader',
-                            style: TextStyle(
+                            text.t('Sales Report Loader'),
+                            style: const TextStyle(
                               color: Colors.white,
                               fontSize: AppTextSize.s20,
                               fontWeight: FontWeight.w900,
                             ),
                           ),
                           Text(
-                            'Select up to 30 days, then load submitted reports.',
-                            style: TextStyle(
+                            text.t(
+                              'Select up to 30 days, then load submitted reports.',
+                            ),
+                            style: const TextStyle(
                               color: Colors.white70,
                               fontSize: AppTextSize.s12,
                               fontWeight: FontWeight.w600,
@@ -1583,7 +1617,7 @@ class _SalesHistorySheetState extends State<_SalesHistorySheet> {
                     ),
                     if (hasLoaded)
                       IconButton.filledTonal(
-                        tooltip: 'Refresh loaded range',
+                        tooltip: text.t('Refresh loaded range'),
                         onPressed: loading ? null : () => load(forceRefresh: true),
                         style: IconButton.styleFrom(
                           backgroundColor: Colors.white.withValues(alpha: .16),
@@ -1646,18 +1680,18 @@ class _SalesHistorySheetState extends State<_SalesHistorySheet> {
                           )
                         : const Icon(Icons.download_rounded),
                     label: Text(
-                      loading
+                      text.t(loading
                           ? 'Loading...'
                           : hasLoaded
                               ? 'Reload Report'
-                              : 'Load Report',
+                              : 'Load Report'),
                     ),
                   ),
                 ),
                 if (hasLoaded) ...[
                   const SizedBox(height: 8),
                   Text(
-                    _lastUpdatedText(updatedAt),
+                    text.t(_lastUpdatedText(updatedAt)),
                     style: const TextStyle(
                       color: Colors.white70,
                       fontSize: AppTextSize.s10,
@@ -1671,18 +1705,18 @@ class _SalesHistorySheetState extends State<_SalesHistorySheet> {
           const SizedBox(height: 12),
           if (!hasLoaded)
             WhiteCard(
-              child: const Padding(
-                padding: EdgeInsets.all(24),
+              child: Padding(
+                padding: const EdgeInsets.all(24),
                 child: Column(
                   children: [
-                    Icon(
+                    const Icon(
                       Icons.manage_search_rounded,
                       size: 48,
                       color: AppColours.textMuted,
                     ),
-                    SizedBox(height: 10),
+                    const SizedBox(height: 10),
                     Text(
-                      'Select a date range, then tap Load Report.',
+                      text.t('Select a date range, then tap Load Report.'),
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontWeight: FontWeight.w900,
@@ -1695,18 +1729,20 @@ class _SalesHistorySheetState extends State<_SalesHistorySheet> {
             )
           else if (records.isEmpty)
             WhiteCard(
-              child: const Padding(
-                padding: EdgeInsets.all(28),
+              child: Padding(
+                padding: const EdgeInsets.all(28),
                 child: Column(
                   children: [
-                    Icon(
+                    const Icon(
                       Icons.receipt_long_outlined,
                       size: 48,
                       color: AppColours.textMuted,
                     ),
-                    SizedBox(height: 10),
+                    const SizedBox(height: 10),
                     Text(
-                      'No submitted Sales reports in this date range',
+                      text.t(
+                        'No submitted Sales reports in this date range',
+                      ),
                       textAlign: TextAlign.center,
                       style: TextStyle(fontWeight: FontWeight.w900),
                     ),
@@ -1754,7 +1790,7 @@ class _SalesHistorySheetState extends State<_SalesHistorySheet> {
                                   ),
                                 ),
                                 Text(
-                                  'RM ${_money(report.totalSalesRm)} · ${report.submittedByName ?? 'Unknown'}',
+                                  'RM ${_money(report.totalSalesRm)} · ${report.submittedByName ?? text.t('Unknown')}',
                                   style: const TextStyle(
                                     color: AppColours.textMuted,
                                     fontSize: AppTextSize.s12,
@@ -1788,6 +1824,7 @@ class _SalesSubmittedDetail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     return ListView(
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 32),
       children: [
@@ -1813,9 +1850,9 @@ class _SalesSubmittedDetail extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Submission Details',
-                style: TextStyle(fontSize: AppTextSize.s17, fontWeight: FontWeight.w900),
+              Text(
+                text.t('Submission Details'),
+                style: const TextStyle(fontSize: AppTextSize.s17, fontWeight: FontWeight.w900),
               ),
               const SizedBox(height: 10),
               _approvalDetailRow('Report Date', _formatDate(report.reportDate)),
@@ -1837,13 +1874,13 @@ class _SalesSubmittedDetail extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Void Bills',
-                style: TextStyle(fontSize: AppTextSize.s17, fontWeight: FontWeight.w900),
+              Text(
+                text.t('Void Bills'),
+                style: const TextStyle(fontSize: AppTextSize.s17, fontWeight: FontWeight.w900),
               ),
               const SizedBox(height: 10),
               if (report.voidBills.isEmpty)
-                const Text('No void bills recorded.', style: TextStyle(color: AppColours.textMuted))
+                Text(text.t('No void bills recorded.'), style: const TextStyle(color: AppColours.textMuted))
               else
                 ...report.voidBills.map(
                   (item) => Padding(
@@ -1865,7 +1902,10 @@ class _SalesSubmittedDetail extends StatelessWidget {
                           '${item.billNumber} · RM ${_money(item.amountRm)}',
                           style: const TextStyle(fontWeight: FontWeight.w900),
                         ),
-                        Text(item.reason, style: const TextStyle(color: AppColours.textMuted)),
+                        Text(
+                          text.content(item.reason),
+                          style: const TextStyle(color: AppColours.textMuted),
+                        ),
                       ],
                     ),
                   ),
@@ -1884,6 +1924,7 @@ class _WorkflowPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     final colour = _workflowColour(status);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
@@ -1892,7 +1933,7 @@ class _WorkflowPill extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
-        status == 'SUBMITTED' ? 'Pending' : _titleCase(status),
+        text.t(status == 'SUBMITTED' ? 'Pending' : _titleCase(status)),
         style: TextStyle(
           color: colour,
           fontSize: AppTextSize.s10,
@@ -2063,9 +2104,10 @@ class _SalesSheetState extends State<_SalesSheet> {
     FocusScope.of(context).unfocus();
     final confirmed = await confirmDataChange(
       context,
-      action: 'Record this void bill?',
-      details:
-          'Bill $billNumber · RM ${_money(amount)}. The current Sales form values will stay on this page.',
+      action: AppTextScope.of(context).t('Record this void bill?'),
+      details: AppTextScope.of(context).t(
+        'Bill $billNumber · RM ${_money(amount)}. The current Sales form values will stay on this page.',
+      ),
     );
     if (!confirmed || !mounted) return;
     try {
@@ -2087,13 +2129,17 @@ class _SalesSheetState extends State<_SalesSheet> {
         report = refreshed;
         clearVoidDraft(collapse: true);
       });
-      showSuccessSnackBar(context, 'Void bill recorded');
+      showSuccessSnackBar(
+        context,
+        AppTextScope.of(context).t('Void bill recorded'),
+      );
     } on EastAppApiException {
       return;
     }
   }
 
   Widget buildVoidBillsSection(bool editable) {
+    final text = AppTextScope.of(context);
     final count = report.voidBills.length;
     return WhiteCard(
       padding: const EdgeInsets.all(16),
@@ -2127,17 +2173,17 @@ class _SalesSheetState extends State<_SalesSheet> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'Void Bills (Optional)',
-                          style: TextStyle(
+                        Text(
+                          text.t('Void Bills (Optional)'),
+                          style: const TextStyle(
                             fontSize: AppTextSize.s17,
                             fontWeight: FontWeight.w900,
                           ),
                         ),
                         Text(
-                          count == 0
+                          text.t(count == 0
                               ? 'Expand only when a bill was voided.'
-                              : '$count void bill${count == 1 ? '' : 's'} recorded',
+                              : '$count void bill${count == 1 ? '' : 's'} recorded'),
                           style: const TextStyle(
                             color: AppColours.textMuted,
                             fontSize: AppTextSize.s12,
@@ -2189,11 +2235,11 @@ class _SalesSheetState extends State<_SalesSheet> {
                       const Divider(height: 1),
                       const SizedBox(height: 12),
                       if (report.voidBills.isEmpty)
-                        const Padding(
-                          padding: EdgeInsets.only(bottom: 12),
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
                           child: Text(
-                            'No void bills recorded.',
-                            style: TextStyle(
+                            text.t('No void bills recorded.'),
+                            style: const TextStyle(
                               color: AppColours.textMuted,
                               fontWeight: FontWeight.w600,
                             ),
@@ -2218,8 +2264,8 @@ class _SalesSheetState extends State<_SalesSheet> {
                           controller: voidBillNumberController,
                           textInputAction: TextInputAction.next,
                           decoration:
-                              AppInputStyle.decoration('e.g. V-001283').copyWith(
-                            labelText: 'Bill Number',
+                              AppInputStyle.decoration(text.t('e.g. V-001283')).copyWith(
+                            labelText: text.t('Bill Number'),
                             prefixIcon: const Icon(
                               Icons.confirmation_number_outlined,
                             ),
@@ -2238,9 +2284,9 @@ class _SalesSheetState extends State<_SalesSheet> {
                           textInputAction: TextInputAction.done,
                           onSubmitted: (_) => FocusScope.of(context).unfocus(),
                           decoration: AppInputStyle.decoration(
-                            'Explain why the bill was voided',
+                            text.t('Explain why the bill was voided'),
                           ).copyWith(
-                            labelText: 'Reason',
+                            labelText: text.t('Reason'),
                             alignLabelWithHint: true,
                           ),
                         ),
@@ -2255,7 +2301,7 @@ class _SalesSheetState extends State<_SalesSheet> {
                               child: OutlinedButton.icon(
                                 onPressed: () => setState(clearVoidDraft),
                                 icon: const Icon(Icons.clear_rounded),
-                                label: const Text('Clear'),
+                                label: Text(text.t('Clear')),
                               ),
                             ),
                             const SizedBox(width: 10),
@@ -2263,7 +2309,7 @@ class _SalesSheetState extends State<_SalesSheet> {
                               child: FilledButton.icon(
                                 onPressed: recordVoidBill,
                                 icon: const Icon(Icons.add_a_photo_outlined),
-                                label: const Text('Record'),
+                                label: Text(text.t('Record')),
                               ),
                             ),
                           ],
@@ -2285,10 +2331,11 @@ class _SalesSheetState extends State<_SalesSheet> {
       earliestDate: widget.earliestDate,
     );
     if (selected == null || _sameDate(selected, report.reportDate) || !mounted) return;
+    final text = AppTextScope.of(context);
     final confirmed = await confirmDataChange(
       context,
-      action: 'Switch sales report date?',
-      details: 'Any unsaved values on this screen will be replaced.',
+      action: text.t('Switch sales report date?'),
+      details: text.t('Any unsaved values on this screen will be replaced.'),
     );
     if (!confirmed || !mounted) return;
     try {
@@ -2353,10 +2400,13 @@ class _SalesSheetState extends State<_SalesSheet> {
     if (input == null) return;
     FocusScope.of(context).unfocus();
     final total = input.cashTotal + (input.foodDelivery * .60) + input.ewallet;
+    final text = AppTextScope.of(context);
     final confirmed = await confirmDataChange(
       context,
-      action: 'Submit sales report for approval?',
-      details: 'Estimated Total Sales RM ${_money(total)}. Only 60% of Gross Food Delivery Sales is recognised after estimated platform commission. Sales fields and void bills will be locked unless Head or Owner rejects the report.',
+      action: text.t('Submit sales report for approval?'),
+      details: text.t(
+        'Estimated Total Sales RM ${_money(total)}. Only 60% of Gross Food Delivery Sales is recognised after estimated platform commission. Sales fields and void bills will be locked unless Head or Owner rejects the report.',
+      ),
     );
     if (!confirmed || !mounted) return;
     try {
@@ -2374,7 +2424,7 @@ class _SalesSheetState extends State<_SalesSheet> {
       });
       if (!mounted || saved == null) return;
       setState(() => applyReport(saved));
-      showSuccessSnackBar(context, 'Sales report submitted');
+      showSuccessSnackBar(context, text.t('Sales report submitted'));
     } on EastAppApiException {
       return;
     }
@@ -2382,6 +2432,7 @@ class _SalesSheetState extends State<_SalesSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     final editable = report.isEditable;
     return ListView(
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
@@ -2407,20 +2458,20 @@ class _SalesSheetState extends State<_SalesSheet> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Daily Sales Input', style: TextStyle(fontSize: AppTextSize.s17, fontWeight: FontWeight.w900)),
+              Text(text.t('Daily Sales Input'), style: const TextStyle(fontSize: AppTextSize.s17, fontWeight: FontWeight.w900)),
               const SizedBox(height: 4),
-              const Text(
-                'Total Sales is calculated by the server: Cash Total + eWallet Total + 60% of Gross Food Delivery Sales.',
-                style: TextStyle(color: AppColours.textMuted, fontSize: AppTextSize.s12, fontWeight: FontWeight.w600),
+              Text(
+                text.t('Total Sales is calculated by the server: Cash Total + eWallet Total + 60% of Gross Food Delivery Sales.'),
+                style: const TextStyle(color: AppColours.textMuted, fontSize: AppTextSize.s12, fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 14),
               _AmountField(controller: cashTotalController, label: 'Cash Total', enabled: editable),
               const SizedBox(height: 10),
               _AmountField(controller: foodDeliveryController, label: 'Gross Food Delivery Sales', enabled: editable),
               const SizedBox(height: 5),
-              const Text(
-                'Enter the full platform amount. EastApp includes 60% in Total Sales and estimates 40% as platform commission.',
-                style: TextStyle(
+              Text(
+                text.t('Enter the full platform amount. EastApp includes 60% in Total Sales and estimates 40% as platform commission.'),
+                style: const TextStyle(
                   color: AppColours.textMuted,
                   fontSize: AppTextSize.s10,
                   fontWeight: FontWeight.w600,
@@ -2434,7 +2485,7 @@ class _SalesSheetState extends State<_SalesSheet> {
                 enabled: editable,
                 textCapitalization: TextCapitalization.words,
                 textInputAction: TextInputAction.next,
-                decoration: AppInputStyle.decoration('Cash Received By').copyWith(
+                decoration: AppInputStyle.decoration(text.t('Cash Received By')).copyWith(
                   prefixIcon: const Icon(Icons.person_outline_rounded),
                 ),
               ),
@@ -2445,7 +2496,7 @@ class _SalesSheetState extends State<_SalesSheet> {
                 keyboardType: TextInputType.number,
                 textInputAction: TextInputAction.done,
                 onSubmitted: (_) => FocusScope.of(context).unfocus(),
-                decoration: AppInputStyle.decoration('Staff on Duty').copyWith(
+                decoration: AppInputStyle.decoration(text.t('Staff on Duty')).copyWith(
                   prefixIcon: const Icon(Icons.groups_2_outlined),
                 ),
               ),
@@ -2465,7 +2516,7 @@ class _SalesSheetState extends State<_SalesSheet> {
             child: FilledButton.icon(
               onPressed: submit,
               icon: const Icon(Icons.send_rounded),
-              label: const Text('Submit for Approval'),
+              label: Text(text.t('Submit for Approval')),
             ),
           ),
         ],
@@ -2535,10 +2586,13 @@ class _VoidBillFormState extends State<_VoidBillForm> {
       setState(() => validation = 'Enter a valid void amount.');
       return;
     }
+    final text = AppTextScope.of(context);
     final confirmed = await confirmDataChange(
       context,
-      action: 'Record this void bill?',
-      details: 'Bill ${billController.text.trim()} · RM ${_money(amount)}. Photo evidence will be permanently linked.',
+      action: text.t('Record this void bill?'),
+      details: text.t(
+        'Bill ${billController.text.trim()} · RM ${_money(amount)}. Photo evidence will be permanently linked.',
+      ),
     );
     if (!confirmed || !mounted) return;
     try {
@@ -2554,7 +2608,7 @@ class _VoidBillFormState extends State<_VoidBillForm> {
         await widget.onSaved();
       });
       if (!mounted) return;
-      showSuccessSnackBar(context, 'Void bill created');
+      showSuccessSnackBar(context, text.t('Void bill created'));
       Navigator.of(context).pop();
     } on EastAppApiException {
       return;
@@ -2563,6 +2617,7 @@ class _VoidBillFormState extends State<_VoidBillForm> {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     return ListView(
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 30),
       children: [
@@ -2581,8 +2636,8 @@ class _VoidBillFormState extends State<_VoidBillForm> {
             children: [
               TextField(
                 controller: billController,
-                decoration: AppInputStyle.decoration('e.g. V-001283').copyWith(
-                  labelText: 'Bill Number',
+                decoration: AppInputStyle.decoration(text.t('e.g. V-001283')).copyWith(
+                  labelText: text.t('Bill Number'),
                   prefixIcon: const Icon(Icons.confirmation_number_outlined),
                 ),
               ),
@@ -2596,8 +2651,8 @@ class _VoidBillFormState extends State<_VoidBillForm> {
                 controller: reasonController,
                 minLines: 3,
                 maxLines: 5,
-                decoration: AppInputStyle.decoration('Explain why the bill was voided').copyWith(
-                  labelText: 'Reason',
+                decoration: AppInputStyle.decoration(text.t('Explain why the bill was voided')).copyWith(
+                  labelText: text.t('Reason'),
                   alignLabelWithHint: true,
                 ),
               ),
@@ -2611,7 +2666,7 @@ class _VoidBillFormState extends State<_VoidBillForm> {
                 child: FilledButton.icon(
                   onPressed: submit,
                   icon: const Icon(Icons.verified_user_outlined),
-                  label: const Text('Record Void Bill'),
+                  label: Text(text.t('Record Void Bill')),
                 ),
               ),
             ],
@@ -2629,6 +2684,7 @@ class _InventorySheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     return ListView(
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 30),
       children: [
@@ -2665,16 +2721,18 @@ class _InventorySheet extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Inventory Health',
-                      style: TextStyle(
+                    Text(
+                      text.t('Inventory Health'),
+                      style: const TextStyle(
                         fontSize: AppTextSize.s18,
                         fontWeight: FontWeight.w900,
                       ),
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      '${data.healthySkuCount} of ${data.activeSkuCount} SKUs are operating inside their configured range.',
+                      text.t(
+                        '${data.healthySkuCount} of ${data.activeSkuCount} SKUs are operating inside their configured range.',
+                      ),
                       style: const TextStyle(
                         color: AppColours.textMuted,
                         height: 1.35,
@@ -2697,9 +2755,9 @@ class _InventorySheet extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 14),
-        const Text(
-          'Priority Risks',
-          style: TextStyle(
+        Text(
+          text.t('Priority Risks'),
+          style: const TextStyle(
             fontSize: AppTextSize.s18,
             fontWeight: FontWeight.w900,
           ),
@@ -2707,9 +2765,9 @@ class _InventorySheet extends StatelessWidget {
         const SizedBox(height: 8),
         if (data.topRisks.isEmpty)
           WhiteCard(
-            child: const Padding(
-              padding: EdgeInsets.all(22),
-              child: Center(child: Text('No inventory risks detected')),
+            child: Padding(
+              padding: const EdgeInsets.all(22),
+              child: Center(child: Text(text.t('No inventory risks detected'))),
             ),
           )
         else
@@ -2726,7 +2784,7 @@ class _InventorySheet extends StatelessWidget {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          risk.skuName,
+                          text.content(risk.skuName),
                           style: const TextStyle(
                             fontSize: AppTextSize.s16,
                             fontWeight: FontWeight.w900,
@@ -2741,7 +2799,9 @@ class _InventorySheet extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Balance ${_compact(risk.currentBalance)} · Range ${_compact(risk.minimumBalance)}–${_compact(risk.maximumBalance)}',
+                    text.t(
+                      'Balance ${_compact(risk.currentBalance)} · Range ${_compact(risk.minimumBalance)}–${_compact(risk.maximumBalance)}',
+                    ),
                     style: const TextStyle(
                       color: AppColours.textMuted,
                       fontWeight: FontWeight.w700,
@@ -2749,7 +2809,7 @@ class _InventorySheet extends StatelessWidget {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    risk.insight,
+                    text.content(risk.insight),
                     style: const TextStyle(height: 1.35),
                   ),
                 ],
@@ -2780,6 +2840,7 @@ class _WasteSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     final total = records.fold<double>(0, (sum, item) => sum + item.estimatedLossRm);
     return ListView(
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 30),
@@ -2811,13 +2872,13 @@ class _WasteSheet extends StatelessWidget {
           child: FilledButton.icon(
             onPressed: onCreate,
             icon: const Icon(Icons.add_a_photo_outlined),
-            label: const Text('Add Waste Record'),
+            label: Text(text.t('Add Waste Record')),
           ),
         ),
         const SizedBox(height: 14),
-        const Text(
-          'Recent Waste Evidence',
-          style: TextStyle(
+        Text(
+          text.t('Recent Waste Evidence'),
+          style: const TextStyle(
             fontSize: AppTextSize.s17,
             fontWeight: FontWeight.w900,
           ),
@@ -2825,12 +2886,12 @@ class _WasteSheet extends StatelessWidget {
         const SizedBox(height: 8),
         if (records.isEmpty)
           WhiteCard(
-            child: const Padding(
-              padding: EdgeInsets.all(24),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
               child: Center(
                 child: Text(
-                  'No waste records yet',
-                  style: TextStyle(color: AppColours.textMuted),
+                  text.t('No waste records yet'),
+                  style: const TextStyle(color: AppColours.textMuted),
                 ),
               ),
             ),
@@ -2858,7 +2919,7 @@ class _WasteSheet extends StatelessWidget {
                           children: [
                             Expanded(
                               child: Text(
-                                item.itemName,
+                                text.content(item.itemName),
                                 style: const TextStyle(
                                   fontSize: AppTextSize.s15,
                                   fontWeight: FontWeight.w900,
@@ -2885,7 +2946,7 @@ class _WasteSheet extends StatelessWidget {
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          item.reason,
+                          text.content(item.reason),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -3004,11 +3065,13 @@ class _WasteFormState extends State<_WasteForm> {
       return;
     }
     final estimatedLoss = quantity * unitCost;
+    final text = AppTextScope.of(context);
     final confirmed = await confirmDataChange(
       context,
-      action: 'Submit waste report?',
-      details:
-          '${itemController.text.trim()} · ${_compact(quantity)} ${unitController.text.trim()} · Estimated loss RM ${_money(estimatedLoss)}.',
+      action: text.t('Submit waste report?'),
+      details: text.t(
+        '${itemController.text.trim()} · ${_compact(quantity)} ${unitController.text.trim()} · Estimated loss RM ${_money(estimatedLoss)}.',
+      ),
     );
     if (!confirmed || !mounted) return;
     try {
@@ -3027,7 +3090,7 @@ class _WasteFormState extends State<_WasteForm> {
         await widget.onSaved();
       });
       if (!mounted) return;
-      showSuccessSnackBar(context, 'Waste report submitted');
+      showSuccessSnackBar(context, text.t('Waste report submitted'));
       Navigator.of(context).pop();
     } on EastAppApiException {
       return;
@@ -3036,6 +3099,7 @@ class _WasteFormState extends State<_WasteForm> {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     return ListView(
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 30),
       children: [
@@ -3055,19 +3119,19 @@ class _WasteFormState extends State<_WasteForm> {
               DropdownButtonFormField<StockSku?>(
                 initialValue: selectedSku,
                 isExpanded: true,
-                decoration: AppInputStyle.decoration('Optional stock item').copyWith(
-                  labelText: 'SKU',
+                decoration: AppInputStyle.decoration(text.t('Optional stock item')).copyWith(
+                  labelText: text.t('SKU'),
                   prefixIcon: const Icon(Icons.inventory_2_outlined),
                 ),
                 items: [
-                  const DropdownMenuItem<StockSku?>(
+                  DropdownMenuItem<StockSku?>(
                     value: null,
-                    child: Text('Non-SKU item'),
+                    child: Text(text.t('Non-SKU item')),
                   ),
                   ...widget.stockSkus.map(
                     (sku) => DropdownMenuItem<StockSku?>(
                       value: sku,
-                      child: Text(sku.name),
+                      child: Text(text.content(sku.name)),
                     ),
                   ),
                 ],
@@ -3076,8 +3140,8 @@ class _WasteFormState extends State<_WasteForm> {
               const SizedBox(height: 10),
               TextField(
                 controller: itemController,
-                decoration: AppInputStyle.decoration('Item name').copyWith(
-                  labelText: 'Item',
+                decoration: AppInputStyle.decoration(text.t('Item name')).copyWith(
+                  labelText: text.t('Item'),
                 ),
               ),
               const SizedBox(height: 10),
@@ -3088,7 +3152,7 @@ class _WasteFormState extends State<_WasteForm> {
                       controller: quantityController,
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
                       decoration: AppInputStyle.decoration('0').copyWith(
-                        labelText: 'Quantity',
+                        labelText: text.t('Quantity'),
                       ),
                     ),
                   ),
@@ -3096,8 +3160,8 @@ class _WasteFormState extends State<_WasteForm> {
                   Expanded(
                     child: TextField(
                       controller: unitController,
-                      decoration: AppInputStyle.decoration('kg / pcs').copyWith(
-                        labelText: 'Unit',
+                      decoration: AppInputStyle.decoration(text.t('kg / pcs')).copyWith(
+                        labelText: text.t('Unit'),
                       ),
                     ),
                   ),
@@ -3113,8 +3177,8 @@ class _WasteFormState extends State<_WasteForm> {
                 controller: reasonController,
                 minLines: 3,
                 maxLines: 5,
-                decoration: AppInputStyle.decoration('Why was this item wasted?').copyWith(
-                  labelText: 'Reason',
+                decoration: AppInputStyle.decoration(text.t('Why was this item wasted?')).copyWith(
+                  labelText: text.t('Reason'),
                   alignLabelWithHint: true,
                 ),
               ),
@@ -3128,7 +3192,7 @@ class _WasteFormState extends State<_WasteForm> {
                 child: FilledButton.icon(
                   onPressed: submit,
                   icon: const Icon(Icons.send_rounded),
-                  label: const Text('Submit Waste Report'),
+                  label: Text(text.t('Submit Waste Report')),
                 ),
               ),
             ],
@@ -3188,16 +3252,17 @@ class _DailyPhotosSheetState extends State<_DailyPhotosSheet> {
 
   Future<void> capture() async {
     if (!report.isEditable) return;
+    final text = AppTextScope.of(context);
     AppFeedback.warning();
     await showDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Upcoming Feature'),
-        content: const Text('This feature is not available yet.'),
+        title: Text(text.t('Upcoming Feature')),
+        content: Text(text.t('This feature is not available yet.')),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('OK'),
+            child: Text(text.t('OK')),
           ),
         ],
       ),
@@ -3206,11 +3271,13 @@ class _DailyPhotosSheetState extends State<_DailyPhotosSheet> {
 
   Future<void> submit() async {
     if (report.id == null || !report.requirementMet) return;
+    final text = AppTextScope.of(context);
     final confirmed = await confirmDataChange(
       context,
-      action: 'Submit daily photo batch?',
-      details:
-          '${report.photoCount} photos will be locked and sent for manager approval.',
+      action: text.t('Submit daily photo batch?'),
+      details: text.t(
+        '${report.photoCount} photos will be locked and sent for manager approval.',
+      ),
     );
     if (!confirmed || !mounted) return;
     try {
@@ -3222,7 +3289,7 @@ class _DailyPhotosSheetState extends State<_DailyPhotosSheet> {
       if (!mounted || saved == null) return;
       setState(() => report = saved);
       if (!mounted) return;
-      showSuccessSnackBar(context, 'Daily photos submitted');
+      showSuccessSnackBar(context, text.t('Daily photos submitted'));
     } on EastAppApiException {
       return;
     }
@@ -3230,6 +3297,7 @@ class _DailyPhotosSheetState extends State<_DailyPhotosSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     final progress = report.minimumRequired == 0
         ? 0.0
         : (report.photoCount / report.minimumRequired).clamp(0.0, 1.0);
@@ -3277,18 +3345,18 @@ class _DailyPhotosSheetState extends State<_DailyPhotosSheet> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          report.requirementMet
+                          text.t(report.requirementMet
                               ? 'Minimum achieved'
-                              : '${report.minimumRequired - report.photoCount} more needed',
+                              : '${report.minimumRequired - report.photoCount} more needed'),
                           style: const TextStyle(
                             fontSize: AppTextSize.s18,
                             fontWeight: FontWeight.w900,
                           ),
                         ),
                         const SizedBox(height: 4),
-                        const Text(
-                          'No caption needed. Take at least five operational photos each day.',
-                          style: TextStyle(
+                        Text(
+                          text.t('No caption needed. Take at least five operational photos each day.'),
+                          style: const TextStyle(
                             color: AppColours.textMuted,
                             height: 1.35,
                             fontWeight: FontWeight.w600,
@@ -3306,7 +3374,7 @@ class _DailyPhotosSheetState extends State<_DailyPhotosSheet> {
                   child: FilledButton.icon(
                     onPressed: capture,
                     icon: const Icon(Icons.camera_alt_rounded),
-                    label: const Text('Take Photo'),
+                    label: Text(text.t('Take Photo')),
                   ),
                 ),
               ],
@@ -3316,12 +3384,12 @@ class _DailyPhotosSheetState extends State<_DailyPhotosSheet> {
         const SizedBox(height: 12),
         if (report.photos.isEmpty)
           WhiteCard(
-            child: const Padding(
-              padding: EdgeInsets.all(24),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
               child: Center(
                 child: Text(
-                  'No photos taken today',
-                  style: TextStyle(color: AppColours.textMuted),
+                  text.t('No photos taken today'),
+                  style: const TextStyle(color: AppColours.textMuted),
                 ),
               ),
             ),
@@ -3383,7 +3451,7 @@ class _DailyPhotosSheetState extends State<_DailyPhotosSheet> {
             child: FilledButton.icon(
               onPressed: submit,
               icon: const Icon(Icons.send_rounded),
-              label: const Text('Submit for Approval'),
+              label: Text(text.t('Submit for Approval')),
             ),
           ),
         ],
@@ -3409,6 +3477,7 @@ class _ComplaintSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     final open = records.where((item) => item.status == 'OPEN').length;
     final resolved = records.length - open;
     return ListView(
@@ -3441,18 +3510,18 @@ class _ComplaintSheet extends StatelessWidget {
           child: FilledButton.icon(
             onPressed: onCreate,
             icon: const Icon(Icons.add_comment_rounded),
-            label: const Text('Add Complaint'),
+            label: Text(text.t('Add Complaint')),
           ),
         ),
         const SizedBox(height: 14),
         if (records.isEmpty)
           WhiteCard(
-            child: const Padding(
-              padding: EdgeInsets.all(24),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
               child: Center(
                 child: Text(
-                  'No complaints recorded',
-                  style: TextStyle(color: AppColours.textMuted),
+                  text.t('No complaints recorded'),
+                  style: const TextStyle(color: AppColours.textMuted),
                 ),
               ),
             ),
@@ -3480,7 +3549,9 @@ class _ComplaintSheet extends StatelessWidget {
                           children: [
                             Expanded(
                               child: Text(
-                                '${_titleCase(item.customerGender)} · approx. ${item.estimatedAge}',
+                                text.t(
+                                  '${_titleCase(item.customerGender)} · approx. ${item.estimatedAge}',
+                                ),
                                 style: const TextStyle(
                                   fontWeight: FontWeight.w900,
                                 ),
@@ -3491,13 +3562,13 @@ class _ComplaintSheet extends StatelessWidget {
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          item.complaintInfo,
+                          text.content(item.complaintInfo),
                           maxLines: 3,
                           overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 7),
                         Text(
-                          'Action: ${item.actionTaken}',
+                          '${text.t('Action')}: ${text.content(item.actionTaken)}',
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
@@ -3517,9 +3588,9 @@ class _ComplaintSheet extends StatelessWidget {
                             ),
                             icon: const Icon(Icons.edit_outlined, size: 18),
                             label: Text(
-                              item.status == 'OPEN'
+                              text.t(item.status == 'OPEN'
                                   ? 'Resolve Complaint'
-                                  : 'Update Resolution',
+                                  : 'Update Resolution'),
                             ),
                           ),
                         ],
@@ -3620,10 +3691,13 @@ class _ComplaintFormState extends State<_ComplaintForm> {
       setState(() => validation = 'Compensation cannot be negative.');
       return;
     }
+    final text = AppTextScope.of(context);
     final confirmed = await confirmDataChange(
       context,
-      action: 'Submit customer complaint?',
-      details: 'The photo, customer estimate, complaint and action will be stored for business review.',
+      action: text.t('Submit customer complaint?'),
+      details: text.t(
+        'The photo, customer estimate, complaint and action will be stored for business review.',
+      ),
     );
     if (!confirmed || !mounted) return;
     try {
@@ -3645,7 +3719,7 @@ class _ComplaintFormState extends State<_ComplaintForm> {
         await widget.onSaved();
       });
       if (!mounted) return;
-      showSuccessSnackBar(context, 'Complaint report created');
+      showSuccessSnackBar(context, text.t('Complaint report created'));
       Navigator.of(context).pop();
     } on EastAppApiException {
       return;
@@ -3654,6 +3728,7 @@ class _ComplaintFormState extends State<_ComplaintForm> {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     return ListView(
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 30),
       children: [
@@ -3675,14 +3750,14 @@ class _ComplaintFormState extends State<_ComplaintForm> {
                   Expanded(
                     child: DropdownButtonFormField<String>(
                       initialValue: gender,
-                      decoration: AppInputStyle.decoration('Gender').copyWith(
-                        labelText: 'Customer Gender',
+                      decoration: AppInputStyle.decoration(text.t('Gender')).copyWith(
+                        labelText: text.t('Customer Gender'),
                       ),
-                      items: const [
-                        DropdownMenuItem(value: 'MALE', child: Text('Male')),
-                        DropdownMenuItem(value: 'FEMALE', child: Text('Female')),
-                        DropdownMenuItem(value: 'OTHER', child: Text('Other')),
-                        DropdownMenuItem(value: 'UNKNOWN', child: Text('Unknown')),
+                      items: [
+                        DropdownMenuItem(value: 'MALE', child: Text(text.t('Male'))),
+                        DropdownMenuItem(value: 'FEMALE', child: Text(text.t('Female'))),
+                        DropdownMenuItem(value: 'OTHER', child: Text(text.t('Other'))),
+                        DropdownMenuItem(value: 'UNKNOWN', child: Text(text.t('Unknown'))),
                       ],
                       onChanged: (value) => setState(() => gender = value ?? 'UNKNOWN'),
                     ),
@@ -3692,8 +3767,8 @@ class _ComplaintFormState extends State<_ComplaintForm> {
                     child: TextField(
                       controller: ageController,
                       keyboardType: TextInputType.number,
-                      decoration: AppInputStyle.decoration('Age').copyWith(
-                        labelText: 'Estimated Age',
+                      decoration: AppInputStyle.decoration(text.t('Age')).copyWith(
+                        labelText: text.t('Estimated Age'),
                       ),
                     ),
                   ),
@@ -3704,8 +3779,8 @@ class _ComplaintFormState extends State<_ComplaintForm> {
                 controller: infoController,
                 minLines: 3,
                 maxLines: 6,
-                decoration: AppInputStyle.decoration('What did the customer complain about?').copyWith(
-                  labelText: 'Complaint Information',
+                decoration: AppInputStyle.decoration(text.t('What did the customer complain about?')).copyWith(
+                  labelText: text.t('Complaint Information'),
                   alignLabelWithHint: true,
                 ),
               ),
@@ -3713,8 +3788,8 @@ class _ComplaintFormState extends State<_ComplaintForm> {
               TextField(
                 controller: phoneController,
                 keyboardType: TextInputType.phone,
-                decoration: AppInputStyle.decoration('Optional').copyWith(
-                  labelText: 'Phone',
+                decoration: AppInputStyle.decoration(text.t('Optional')).copyWith(
+                  labelText: text.t('Phone'),
                   prefixIcon: const Icon(Icons.phone_outlined),
                 ),
               ),
@@ -3723,8 +3798,8 @@ class _ComplaintFormState extends State<_ComplaintForm> {
                 controller: actionController,
                 minLines: 3,
                 maxLines: 6,
-                decoration: AppInputStyle.decoration('What action was taken?').copyWith(
-                  labelText: 'Action',
+                decoration: AppInputStyle.decoration(text.t('What action was taken?')).copyWith(
+                  labelText: text.t('Action'),
                   alignLabelWithHint: true,
                 ),
               ),
@@ -3736,12 +3811,12 @@ class _ComplaintFormState extends State<_ComplaintForm> {
               const SizedBox(height: 10),
               DropdownButtonFormField<String>(
                 initialValue: status,
-                decoration: AppInputStyle.decoration('Status').copyWith(
-                  labelText: 'Status',
+                decoration: AppInputStyle.decoration(text.t('Status')).copyWith(
+                  labelText: text.t('Status'),
                 ),
-                items: const [
-                  DropdownMenuItem(value: 'OPEN', child: Text('Open')),
-                  DropdownMenuItem(value: 'RESOLVED', child: Text('Resolved')),
+                items: [
+                  DropdownMenuItem(value: 'OPEN', child: Text(text.t('Open'))),
+                  DropdownMenuItem(value: 'RESOLVED', child: Text(text.t('Resolved'))),
                 ],
                 onChanged: (value) => setState(() => status = value ?? 'OPEN'),
               ),
@@ -3755,7 +3830,7 @@ class _ComplaintFormState extends State<_ComplaintForm> {
                 child: FilledButton.icon(
                   onPressed: submit,
                   icon: const Icon(Icons.send_rounded),
-                  label: const Text('Submit Complaint'),
+                  label: Text(text.t('Submit Complaint')),
                 ),
               ),
             ],
@@ -3772,6 +3847,7 @@ Future<void> _showComplaintUpdateDialog(
   required ComplaintReport report,
   required Future<void> Function() onChanged,
 }) async {
+  final text = AppTextScope.of(context);
   final actionController = TextEditingController(text: report.actionTaken);
   final compensationController = TextEditingController(
     text: report.compensationAmountRm == null
@@ -3785,19 +3861,19 @@ Future<void> _showComplaintUpdateDialog(
     barrierDismissible: false,
     builder: (dialogContext) => StatefulBuilder(
       builder: (context, setDialogState) => AlertDialog(
-        title: const Text('Update Complaint'),
+        title: Text(text.t('Update Complaint')),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               DropdownButtonFormField<String>(
                 initialValue: status,
-                decoration: AppInputStyle.decoration('Status').copyWith(
-                  labelText: 'Status',
+                decoration: AppInputStyle.decoration(text.t('Status')).copyWith(
+                  labelText: text.t('Status'),
                 ),
-                items: const [
-                  DropdownMenuItem(value: 'OPEN', child: Text('Open')),
-                  DropdownMenuItem(value: 'RESOLVED', child: Text('Resolved')),
+                items: [
+                  DropdownMenuItem(value: 'OPEN', child: Text(text.t('Open'))),
+                  DropdownMenuItem(value: 'RESOLVED', child: Text(text.t('Resolved'))),
                 ],
                 onChanged: (value) => setDialogState(() => status = value ?? 'OPEN'),
               ),
@@ -3806,8 +3882,8 @@ Future<void> _showComplaintUpdateDialog(
                 controller: actionController,
                 minLines: 3,
                 maxLines: 6,
-                decoration: AppInputStyle.decoration('Action taken').copyWith(
-                  labelText: 'Action',
+                decoration: AppInputStyle.decoration(text.t('Action taken')).copyWith(
+                  labelText: text.t('Action'),
                   alignLabelWithHint: true,
                 ),
               ),
@@ -3826,7 +3902,7 @@ Future<void> _showComplaintUpdateDialog(
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Cancel'),
+            child: Text(text.t('Cancel')),
           ),
           FilledButton(
             onPressed: () async {
@@ -3842,7 +3918,7 @@ Future<void> _showComplaintUpdateDialog(
               }
               final confirmed = await confirmDataChange(
                 dialogContext,
-                action: 'Update complaint status?',
+                action: text.t('Update complaint status?'),
               );
               if (!confirmed || !dialogContext.mounted) return;
               try {
@@ -3858,13 +3934,13 @@ Future<void> _showComplaintUpdateDialog(
                 if (!dialogContext.mounted) return;
                 Navigator.of(dialogContext).pop();
                 if (context.mounted) {
-                  showSuccessSnackBar(context, 'Complaint updated');
+                  showSuccessSnackBar(context, text.t('Complaint updated'));
                 }
               } on EastAppApiException {
                 return;
               }
             },
-            child: const Text('Update'),
+            child: Text(text.t('Update')),
           ),
         ],
       ),
@@ -3936,7 +4012,10 @@ class _ApprovalsSheetState extends State<_ApprovalsSheet> {
       }
       if (!mounted) return;
       if (sales == null && waste == null && dailyPhotos == null) {
-        showWarningSnackBar(context, 'Report evidence could not be loaded.');
+        showWarningSnackBar(
+          context,
+          AppTextScope.of(context).t('Report evidence could not be loaded.'),
+        );
         return;
       }
       await _showReportSheet<void>(
@@ -3975,24 +4054,32 @@ class _ApprovalsSheetState extends State<_ApprovalsSheet> {
     if (!reviewingIds.add(item.id)) return;
     if (mounted) setState(() {});
     try {
+      final text = AppTextScope.of(context);
       final noteController = TextEditingController();
       final note = await showDialog<String?>(
         context: context,
         barrierDismissible: false,
         builder: (dialogContext) => AlertDialog(
-          title: Text(approve ? 'Approve Report' : 'Reject Report'),
+          title: Text(text.t(approve ? 'Approve Report' : 'Reject Report')),
           content: TextField(
             controller: noteController,
             minLines: 3,
             maxLines: 5,
             decoration: AppInputStyle.decoration(
-              approve ? 'Optional approval note' : 'Rejection reason is compulsory',
-            ).copyWith(labelText: 'Review Note', alignLabelWithHint: true),
+              text.t(
+                approve
+                    ? 'Optional approval note'
+                    : 'Rejection reason is compulsory',
+              ),
+            ).copyWith(
+              labelText: text.t('Review Note'),
+              alignLabelWithHint: true,
+            ),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Cancel'),
+              child: Text(text.t('Cancel')),
             ),
             FilledButton(
               onPressed: () {
@@ -4000,7 +4087,7 @@ class _ApprovalsSheetState extends State<_ApprovalsSheet> {
                 if (!approve && value.isEmpty) return;
                 Navigator.of(dialogContext).pop(value);
               },
-              child: Text(approve ? 'Approve' : 'Reject'),
+              child: Text(text.t(approve ? 'Approve' : 'Reject')),
             ),
           ],
         ),
@@ -4009,8 +4096,10 @@ class _ApprovalsSheetState extends State<_ApprovalsSheet> {
       if (!mounted || note == null) return;
       final confirmed = await confirmDataChange(
         context,
-        action: approve ? 'Approve this report?' : 'Reject this report?',
-        details: item.summary,
+        action: text.t(
+          approve ? 'Approve this report?' : 'Reject this report?',
+        ),
+        details: text.content(item.summary),
       );
       if (!confirmed || !mounted) return;
       try {
@@ -4025,7 +4114,10 @@ class _ApprovalsSheetState extends State<_ApprovalsSheet> {
         });
         if (!mounted || completed != true) return;
         setState(() => approvals.removeWhere((entry) => entry.id == item.id));
-        showSuccessSnackBar(context, approve ? 'Report approved' : 'Report rejected');
+        showSuccessSnackBar(
+          context,
+          text.t(approve ? 'Report approved' : 'Report rejected'),
+        );
       } on EastAppApiException {
         return;
       }
@@ -4037,20 +4129,21 @@ class _ApprovalsSheetState extends State<_ApprovalsSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     return ListView(
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 30),
       children: [
         if (approvals.isEmpty)
           WhiteCard(
-            child: const Padding(
-              padding: EdgeInsets.all(28),
+            child: Padding(
+              padding: const EdgeInsets.all(28),
               child: Column(
                 children: [
-                  Icon(Icons.verified_rounded, color: AppColours.green, size: 48),
-                  SizedBox(height: 10),
+                  const Icon(Icons.verified_rounded, color: AppColours.green, size: 48),
+                  const SizedBox(height: 10),
                   Text(
-                    'All reports reviewed',
-                    style: TextStyle(
+                    text.t('All reports reviewed'),
+                    style: const TextStyle(
                       fontSize: AppTextSize.s18,
                       fontWeight: FontWeight.w900,
                     ),
@@ -4087,7 +4180,9 @@ class _ApprovalsSheetState extends State<_ApprovalsSheet> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              _titleCase(item.reportType.replaceAll('_', ' ')),
+                              text.t(
+                                _titleCase(item.reportType.replaceAll('_', ' ')),
+                              ),
                               style: const TextStyle(
                                 fontSize: AppTextSize.s16,
                                 fontWeight: FontWeight.w900,
@@ -4107,7 +4202,7 @@ class _ApprovalsSheetState extends State<_ApprovalsSheet> {
                     ],
                   ),
                   const SizedBox(height: 10),
-                  Text(item.summary),
+                  Text(text.content(item.summary)),
                   const SizedBox(height: 12),
                   SizedBox(
                     width: double.infinity,
@@ -4123,7 +4218,7 @@ class _ApprovalsSheetState extends State<_ApprovalsSheet> {
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
                           : const Icon(Icons.visibility_outlined),
-                      label: const Text('Review & Decide'),
+                      label: Text(text.t('Review & Decide')),
                     ),
                   ),
                 ],
@@ -4159,6 +4254,7 @@ class _ApprovalEvidenceView extends StatelessWidget {
     final salesReport = sales;
     final wasteReport = waste;
     final photoReport = dailyPhotos;
+    final text = AppTextScope.of(context);
     return ListView(
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 30),
       children: [
@@ -4184,7 +4280,9 @@ class _ApprovalEvidenceView extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      _titleCase(approval.reportType.replaceAll('_', ' ')),
+                      text.t(
+                        _titleCase(approval.reportType.replaceAll('_', ' ')),
+                      ),
                       style: const TextStyle(
                         fontSize: AppTextSize.s17,
                         fontWeight: FontWeight.w900,
@@ -4225,9 +4323,9 @@ class _ApprovalEvidenceView extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Sales Submission Details',
-                  style: TextStyle(fontSize: AppTextSize.s17, fontWeight: FontWeight.w900),
+                Text(
+                  text.t('Sales Submission Details'),
+                  style: const TextStyle(fontSize: AppTextSize.s17, fontWeight: FontWeight.w900),
                 ),
                 const SizedBox(height: 10),
                 _approvalDetailRow('Report Date', _formatDate(salesReport.reportDate)),
@@ -4244,18 +4342,18 @@ class _ApprovalEvidenceView extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Void Bill Evidence',
-                  style: TextStyle(
+                Text(
+                  text.t('Void Bill Evidence'),
+                  style: const TextStyle(
                     fontSize: AppTextSize.s17,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
                 const SizedBox(height: 10),
                 if (salesReport.voidBills.isEmpty)
-                  const Text(
-                    'No void bills recorded.',
-                    style: TextStyle(color: AppColours.textMuted),
+                  Text(
+                    text.t('No void bills recorded.'),
+                    style: const TextStyle(color: AppColours.textMuted),
                   )
                 else
                   ...salesReport.voidBills.map(
@@ -4279,7 +4377,7 @@ class _ApprovalEvidenceView extends StatelessWidget {
                             style: const TextStyle(fontWeight: FontWeight.w900),
                           ),
                           Text(
-                            item.reason,
+                            text.content(item.reason),
                             style: const TextStyle(color: AppColours.textMuted),
                           ),
                         ],
@@ -4307,17 +4405,21 @@ class _ApprovalEvidenceView extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  wasteReport.itemName,
+                  text.content(wasteReport.itemName),
                   style: const TextStyle(
                     fontSize: AppTextSize.s18,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
                 const SizedBox(height: 6),
-                Text('${_editableNumber(wasteReport.quantity)} ${wasteReport.unit} · RM ${_money(wasteReport.estimatedLossRm)} estimated loss'),
+                Text(
+                  text.t(
+                    '${_editableNumber(wasteReport.quantity)} ${wasteReport.unit} · RM ${_money(wasteReport.estimatedLossRm)} estimated loss',
+                  ),
+                ),
                 const SizedBox(height: 6),
                 Text(
-                  wasteReport.reason,
+                  text.content(wasteReport.reason),
                   style: const TextStyle(color: AppColours.textMuted),
                 ),
               ],
@@ -4328,7 +4430,9 @@ class _ApprovalEvidenceView extends StatelessWidget {
           WhiteCard(
             padding: const EdgeInsets.all(16),
             child: Text(
-              '${photoReport.photoCount} operational photos submitted by ${photoReport.userName}.',
+              text.t(
+                '${photoReport.photoCount} operational photos submitted by ${photoReport.userName}.',
+              ),
               style: const TextStyle(fontWeight: FontWeight.w800),
             ),
           ),
@@ -4366,7 +4470,7 @@ class _ApprovalEvidenceView extends StatelessWidget {
                 child: OutlinedButton.icon(
                   onPressed: onReject,
                   icon: const Icon(Icons.close_rounded),
-                  label: const Text('Reject'),
+                  label: Text(text.t('Reject')),
                 ),
               ),
               const SizedBox(width: 10),
@@ -4374,7 +4478,7 @@ class _ApprovalEvidenceView extends StatelessWidget {
                 child: FilledButton.icon(
                   onPressed: onApprove,
                   icon: const Icon(Icons.check_rounded),
-                  label: const Text('Approve'),
+                  label: Text(text.t('Approve')),
                 ),
               ),
             ],
@@ -4393,6 +4497,7 @@ class _ReportDateSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     return WhiteCard(
       padding: EdgeInsets.zero,
       child: Pressable(
@@ -4404,10 +4509,10 @@ class _ReportDateSelector extends StatelessWidget {
             children: [
               const Icon(Icons.calendar_month_rounded, color: AppColours.blue),
               const SizedBox(width: 10),
-              const Expanded(
+              Expanded(
                 child: Text(
-                  'Report Date',
-                  style: TextStyle(fontWeight: FontWeight.w800),
+                  text.t('Report Date'),
+                  style: const TextStyle(fontWeight: FontWeight.w800),
                 ),
               ),
               Text(
@@ -4440,6 +4545,7 @@ class _StatusBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     final normalised = status.toUpperCase();
     final colour = switch (normalised) {
       'APPROVED' => AppColours.green,
@@ -4470,7 +4576,7 @@ class _StatusBanner extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  _titleCase(normalised.toLowerCase()),
+                  text.t(_titleCase(normalised.toLowerCase())),
                   style: TextStyle(
                     color: colour,
                     fontSize: AppTextSize.s14,
@@ -4480,7 +4586,7 @@ class _StatusBanner extends StatelessWidget {
                 if (note?.trim().isNotEmpty == true) ...[
                   const SizedBox(height: 3),
                   Text(
-                    note!.trim(),
+                    text.content(note!.trim()),
                     style: const TextStyle(
                       color: AppColours.textMain,
                       fontSize: AppTextSize.s12,
@@ -4512,6 +4618,7 @@ class _MetricGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = (constraints.maxWidth - 10) / 2;
@@ -4534,7 +4641,7 @@ class _MetricGrid extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          item.label,
+                          text.t(item.label),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
@@ -4548,7 +4655,7 @@ class _MetricGrid extends StatelessWidget {
                           fit: BoxFit.scaleDown,
                           alignment: Alignment.centerLeft,
                           child: Text(
-                            item.value,
+                            text.content(item.value),
                             style: TextStyle(
                               color: item.colour,
                               fontSize: AppTextSize.s20,
@@ -4581,12 +4688,13 @@ class _AmountField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     return TextField(
       controller: controller,
       enabled: enabled,
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
       decoration: AppInputStyle.decoration('0.00', prefixText: 'RM ').copyWith(
-        labelText: label,
+        labelText: text.t(label),
         prefixIcon: const Icon(Icons.payments_outlined),
       ),
     );
@@ -4600,6 +4708,7 @@ class _ValidationText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -4614,7 +4723,7 @@ class _ValidationText extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              message,
+              text.t(message),
               style: const TextStyle(
                 color: AppColours.red,
                 fontSize: AppTextSize.s12,
@@ -4636,6 +4745,7 @@ class _VoidBillRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     return Container(
       margin: const EdgeInsets.only(top: 9),
       padding: const EdgeInsets.all(11),
@@ -4669,7 +4779,7 @@ class _VoidBillRow extends StatelessWidget {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  item.reason,
+                  text.content(item.reason),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -4710,6 +4820,7 @@ class _EvidenceCapture extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     return WhiteCard(
       padding: EdgeInsets.zero,
       child: Pressable(
@@ -4766,7 +4877,7 @@ class _EvidenceCapture extends StatelessWidget {
                       ),
                       const SizedBox(height: 10),
                       Text(
-                        photoPath == null ? title : '$title Captured',
+                        text.t(photoPath == null ? title : '$title Captured'),
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: AppTextSize.s18,
@@ -4775,7 +4886,7 @@ class _EvidenceCapture extends StatelessWidget {
                       ),
                       const SizedBox(height: 3),
                       Text(
-                        photoPath == null ? subtitle : 'Tap to retake',
+                        text.t(photoPath == null ? subtitle : 'Tap to retake'),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
@@ -4845,6 +4956,7 @@ class _SeverityPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     final colour = switch (severity.toUpperCase()) {
       'CRITICAL' => AppColours.red,
       'HIGH' => AppColours.orange,
@@ -4858,7 +4970,7 @@ class _SeverityPill extends StatelessWidget {
         borderRadius: BorderRadius.circular(99),
       ),
       child: Text(
-        _titleCase(severity.toLowerCase()),
+        text.t(_titleCase(severity.toLowerCase())),
         style: TextStyle(
           color: colour,
           fontSize: AppTextSize.s10,
@@ -4876,6 +4988,7 @@ class _StatusChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     final colour = switch (status.toUpperCase()) {
       'APPROVED' || 'RESOLVED' => AppColours.green,
       'REJECTED' => AppColours.red,
@@ -4889,7 +5002,7 @@ class _StatusChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(99),
       ),
       child: Text(
-        _titleCase(status.toLowerCase()),
+        text.t(_titleCase(status.toLowerCase())),
         style: TextStyle(
           color: colour,
           fontSize: AppTextSize.s10,
@@ -4915,6 +5028,7 @@ class _MiniInsight extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -4938,7 +5052,7 @@ class _MiniInsight extends StatelessWidget {
           ),
           const SizedBox(height: 2),
           Text(
-            title,
+            text.t(title),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
@@ -5110,13 +5224,14 @@ class _ReportCameraPageState extends State<_ReportCameraPage> {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     final value = controller;
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
-        title: Text(widget.title),
+        title: Text(text.t(widget.title)),
       ),
       body: SafeArea(
         child: Column(
@@ -5144,7 +5259,7 @@ class _ReportCameraPageState extends State<_ReportCameraPage> {
                             OutlinedButton.icon(
                               onPressed: initialiseCamera,
                               icon: const Icon(Icons.refresh_rounded),
-                              label: const Text('Retry Camera'),
+                              label: Text(text.t('Retry Camera')),
                             ),
                           ],
                         ),
@@ -5264,26 +5379,34 @@ String _lastUpdatedText(DateTime? value) {
 }
 
 Widget _approvalDetailRow(String label, String value) {
-  return Padding(
-    padding: const EdgeInsets.only(bottom: 8),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          width: 128,
-          child: Text(
-            label,
-            style: const TextStyle(
-              color: AppColours.textMuted,
-              fontWeight: FontWeight.w700,
+  return Builder(
+    builder: (context) {
+      final text = AppTextScope.of(context);
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: 128,
+              child: Text(
+                text.t(label),
+                style: const TextStyle(
+                  color: AppColours.textMuted,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
             ),
-          ),
+            Expanded(
+              child: Text(
+                text.content(text.t(value)),
+                style: const TextStyle(fontWeight: FontWeight.w800),
+              ),
+            ),
+          ],
         ),
-        Expanded(
-          child: Text(value, style: const TextStyle(fontWeight: FontWeight.w800)),
-        ),
-      ],
-    ),
+      );
+    },
   );
 }
 

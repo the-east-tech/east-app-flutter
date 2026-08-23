@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:http/http.dart' as http;
@@ -16,6 +17,7 @@ import '../models/report_models.dart';
 import '../models/setup_models.dart';
 import '../models/stock_api_models.dart';
 import '../models/app_models.dart';
+import '../models/translation_models.dart';
 import 'api_configuration.dart';
 import 'feature_data_cache.dart';
 import '../utils/app_diagnostics.dart';
@@ -86,6 +88,11 @@ class EastAppApi {
   void Function(bool isProcessing)? onProcessingChanged;
 
   int _processingRequestCount = 0;
+  TranslationDirection? _translationDirection;
+  Future<TranslationPreview>? _translationPreviewRequest;
+  Future<void>? _contentTranslationRequest;
+  final Map<String, String> _contentTranslations = <String, String>{};
+  final Set<String> _knownContent = <String>{};
   final Map<String, Future<Object?>> _featureReadRequests =
       <String, Future<Object?>>{};
   final _availableContextsCache = _AsyncMemoryCache<List<EastAppSession>>(
@@ -104,6 +111,11 @@ class EastAppApi {
         baseUrl = baseUrl ?? ApiConfiguration.baseUrl;
 
   String? get token => _token;
+
+  TranslationDirection? get translationDirection => _translationDirection;
+
+  Map<String, String> get contentTranslations =>
+      UnmodifiableMapView<String, String>(_contentTranslations);
 
   static String reportDashboardCacheKey(String tenantId, int days) =>
       'tenant:$tenantId:report:dashboard:v2:$days';
@@ -138,8 +150,103 @@ class EastAppApi {
     if (_token != token) {
       invalidateAvailableContextsCache();
       invalidateTenantsCache();
+      _clearContentTranslation();
     }
     _token = token;
+  }
+
+  Future<TranslationPreview> previewContentTranslation(
+    TranslationDirection direction,
+  ) {
+    final existing = _translationPreviewRequest;
+    if (existing != null) return existing;
+
+    late final Future<TranslationPreview> request;
+    request = _previewContentTranslation(direction).whenComplete(() {
+      if (identical(_translationPreviewRequest, request)) {
+        _translationPreviewRequest = null;
+      }
+    });
+    _translationPreviewRequest = request;
+    return request;
+  }
+
+  Future<TranslationPreview> _previewContentTranslation(
+    TranslationDirection direction,
+  ) async {
+    final pending = _contentForDirection(direction);
+    if (pending.isEmpty) return TranslationPreview.empty;
+
+    TranslationPreview? combined;
+    const batchSize = 100;
+    for (var offset = 0; offset < pending.length; offset += batchSize) {
+      final end = offset + batchSize < pending.length
+          ? offset + batchSize
+          : pending.length;
+      final body = await _requestJson(
+        'POST',
+        '/api/v1/translations/preview',
+        body: {
+          'sourceLanguage': direction.source.apiValue,
+          'targetLanguage': direction.target.apiValue,
+          'texts': pending.sublist(offset, end),
+        },
+        observeContent: false,
+      ) as Map<String, dynamic>;
+      final preview = TranslationPreview.fromJson(body);
+      combined = combined == null ? preview : combined.merge(preview);
+    }
+    return combined ?? TranslationPreview.empty;
+  }
+
+  Future<void> setContentTranslation(
+    TranslationDirection? direction,
+  ) {
+    final existing = _contentTranslationRequest;
+    if (existing != null) return existing;
+
+    late final Future<void> request;
+    request = _setContentTranslation(direction).whenComplete(() {
+      if (identical(_contentTranslationRequest, request)) {
+        _contentTranslationRequest = null;
+      }
+    });
+    _contentTranslationRequest = request;
+    return request;
+  }
+
+  Future<void> _setContentTranslation(
+    TranslationDirection? direction,
+  ) async {
+    if (direction == null) {
+      _translationDirection = null;
+      _contentTranslations.clear();
+      return;
+    }
+
+    final previousDirection = _translationDirection;
+    final previousTranslations = Map<String, String>.of(_contentTranslations);
+    _translationDirection = direction;
+    _contentTranslations.clear();
+    try {
+      final translated = await _translateTexts(
+        _knownContent.where(direction.source.matches).toList(growable: false),
+        direction,
+      );
+      _contentTranslations.addAll(translated);
+    } catch (_) {
+      _translationDirection = previousDirection;
+      _contentTranslations
+        ..clear()
+        ..addAll(previousTranslations);
+      rethrow;
+    }
+  }
+
+  void _clearContentTranslation() {
+    _translationDirection = null;
+    _contentTranslations.clear();
+    _knownContent.clear();
   }
 
   void invalidateAvailableContextsCache() {
@@ -272,6 +379,7 @@ class EastAppApi {
     ) as Map<String, dynamic>;
     invalidateAvailableContextsCache();
     invalidateTenantsCache();
+    _clearContentTranslation();
     return EastAppSession(
       token: _token ?? '',
       tenant: EastAppTenant.fromJson(body['tenant'] as Map<String, dynamic>),
@@ -1998,6 +2106,7 @@ class EastAppApi {
       final cached = await FeatureDataCache.instance.read(cacheKey);
       if (cached != null) {
         AppDiagnostics.instance.log('Cache hit · $cacheKey');
+        await _observeUserContent(path, cached.data);
         return cached.data;
       }
     }
@@ -2033,13 +2142,17 @@ class EastAppApi {
     bool expectBody = true,
     bool notifyOnUnauthorised = true,
     bool reportError = true,
+    bool observeContent = true,
+    Duration? timeout,
   }) async {
-    final shouldBlock = method != 'GET' ||
-        path.startsWith('/api/v1/reports') &&
-            !path.startsWith('/api/v1/reports/media/');
+    final isTranslationRequest = path.startsWith('/api/v1/translations');
+    final shouldBlock = !isTranslationRequest &&
+        (method != 'GET' ||
+            path.startsWith('/api/v1/reports') &&
+                !path.startsWith('/api/v1/reports/media/'));
     if (shouldBlock) _beginProcessingRequest();
     try {
-      return await _requestJsonInternal(
+      final value = await _requestJsonInternal(
         method,
         path,
         body: body,
@@ -2047,7 +2160,12 @@ class EastAppApi {
         expectBody: expectBody,
         notifyOnUnauthorised: notifyOnUnauthorised,
         reportError: reportError,
+        timeout: timeout,
       );
+      if (authenticated && observeContent && value != null) {
+        await _observeUserContent(path, value);
+      }
+      return value;
     } finally {
       if (shouldBlock) _endProcessingRequest();
     }
@@ -2061,6 +2179,7 @@ class EastAppApi {
     bool expectBody = true,
     bool notifyOnUnauthorised = true,
     bool reportError = true,
+    Duration? timeout,
   }) async {
     final stopwatch = Stopwatch()..start();
     final uri = Uri.parse('$baseUrl$path');
@@ -2123,12 +2242,13 @@ class EastAppApi {
 
     late http.Response response;
     try {
-      response = await request.timeout(_requestTimeout);
+      response = await request.timeout(timeout ?? _requestTimeout);
     } on TimeoutException {
       final error = EastAppApiException(
         statusCode: null,
         code: 'REQUEST_TIMEOUT',
-        message: 'The application server did not respond within 15 seconds.',
+        message:
+            'The application server did not respond within ${(timeout ?? _requestTimeout).inSeconds} seconds.',
         method: method,
         path: path,
         durationMs: stopwatch.elapsedMilliseconds,
@@ -2186,6 +2306,173 @@ class EastAppApi {
       if (reportError) _reportApiError(error);
       throw error;
     }
+  }
+
+  Future<void> _observeUserContent(String path, Object? value) {
+    if (_token == null ||
+        path.startsWith('/api/v1/translations') ||
+        path.startsWith('/api/v1/auth') ||
+        path.startsWith('/api/v1/setup')) {
+      return Future<void>.value();
+    }
+
+    final discovered = <String>{};
+    _collectUserContent(value, discovered);
+    if (discovered.isEmpty) return Future<void>.value();
+    _knownContent.addAll(discovered);
+    return Future<void>.value();
+  }
+
+  List<String> _contentForDirection(TranslationDirection direction) {
+    return <String>{
+      for (final value in _knownContent)
+        if (direction.source.matches(value) &&
+            normaliseContentText(value).isNotEmpty)
+          normaliseContentText(value),
+    }.toList(growable: false);
+  }
+
+  Future<Map<String, String>> _translateTexts(
+    List<String> texts,
+    TranslationDirection direction,
+  ) async {
+    final pending = <String>{
+      for (final value in texts)
+        if (normaliseContentText(value).isNotEmpty)
+          normaliseContentText(value),
+    }.toList(growable: false);
+    if (pending.isEmpty) return <String, String>{};
+
+    final translated = <String, String>{};
+    const batchSize = 6;
+    for (var offset = 0; offset < pending.length; offset += batchSize) {
+      final end = offset + batchSize < pending.length
+          ? offset + batchSize
+          : pending.length;
+      final batch = pending.sublist(offset, end);
+      final body = await _requestJson(
+        'POST',
+        '/api/v1/translations',
+        body: {
+          'sourceLanguage': direction.source.apiValue,
+          'targetLanguage': direction.target.apiValue,
+          'texts': batch,
+        },
+        observeContent: false,
+        timeout: const Duration(seconds: 45),
+      ) as Map<String, dynamic>;
+      final items = body['translations'] as List<dynamic>? ?? const [];
+      for (final raw in items) {
+        if (raw is! Map<String, dynamic>) continue;
+        final source = normaliseContentText(
+          raw['sourceText']?.toString() ?? '',
+        );
+        final target = raw['translatedText']?.toString().trim() ?? '';
+        if (source.isNotEmpty && target.isNotEmpty) {
+          translated[source] = target;
+        }
+      }
+    }
+    return translated;
+  }
+
+  static const Set<String> _translatedStringFields = <String>{
+    'actionTaken',
+    'category',
+    'complaintInfo',
+    'condition',
+    'description',
+    'expectedOutcome',
+    'insight',
+    'itemName',
+    'location',
+    'newValue',
+    'note',
+    'notes',
+    'oldValue',
+    'reason',
+    'recommendedPurchaseFrequency',
+    'reviewNote',
+    'skuCategory',
+    'skuLocation',
+    'skuName',
+    'summary',
+    'supplierItem',
+    'tag',
+    'tagName',
+    'title',
+    'topWasteItem',
+  };
+
+  static const Set<String> _translatedCollectionFields = <String>{
+    'receivingChecklist',
+    'remarks',
+  };
+
+  static void _collectUserContent(
+    Object? value,
+    Set<String> output, {
+    String? field,
+    bool translateCollectionValues = false,
+    Map<String, dynamic>? parent,
+  }) {
+    if (value is String) {
+      final isSkuName = field == 'name' &&
+          parent?.containsKey('minimumBalanceValue') == true &&
+          parent?.containsKey('maximumBalanceValue') == true;
+      if ((translateCollectionValues ||
+              _translatedStringFields.contains(field) ||
+              isSkuName) &&
+          _isUsefulContent(value)) {
+        output.add(normaliseContentText(value));
+      }
+      return;
+    }
+
+    if (value is List<dynamic>) {
+      for (final item in value) {
+        _collectUserContent(
+          item,
+          output,
+          field: field,
+          translateCollectionValues: translateCollectionValues,
+          parent: parent,
+        );
+      }
+      return;
+    }
+
+    if (value is Map<String, dynamic>) {
+      for (final entry in value.entries) {
+        final collectionValues = translateCollectionValues ||
+            _translatedCollectionFields.contains(entry.key);
+        _collectUserContent(
+          entry.value,
+          output,
+          field: entry.key,
+          translateCollectionValues: collectionValues,
+          parent: value,
+        );
+      }
+    }
+  }
+
+  static bool _isUsefulContent(String value) {
+    final text = normaliseContentText(value);
+    if (text.isEmpty || text.length > 2000) return false;
+    if (text.contains('\u0000') ||
+        text.contains('://') ||
+        RegExp(r'^www\.', caseSensitive: false).hasMatch(text) ||
+        RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(text) ||
+        RegExp(
+          r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+          caseSensitive: false,
+        ).hasMatch(text)) {
+      return false;
+    }
+    return RegExp(
+      r'[A-Za-z\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\u1000-\u109f\ua9e0-\ua9ff\uaa60-\uaa7f]',
+    ).hasMatch(text);
   }
 
   EastAppApiException _apiException(

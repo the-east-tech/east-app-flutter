@@ -98,7 +98,7 @@ class _LoginScreenState extends State<LoginScreen> {
               children: [
                 Align(
                   alignment: Alignment.centerRight,
-                  child: _LanguageSwitch(
+                  child: _LoginSettingsButton(
                     language: language,
                     onChanged: (value) {
                       setState(() => language = value);
@@ -198,11 +198,11 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 }
 
-class _LanguageSwitch extends StatelessWidget {
+class _LoginSettingsButton extends StatelessWidget {
   final AppLanguage language;
   final ValueChanged<AppLanguage> onChanged;
 
-  const _LanguageSwitch({
+  const _LoginSettingsButton({
     required this.language,
     required this.onChanged,
   });
@@ -210,6 +210,7 @@ class _LanguageSwitch extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return PopupMenuButton<AppLanguage>(
+      tooltip: AppText(language).t('Settings'),
       initialValue: language,
       onSelected: onChanged,
       itemBuilder: (context) => AppLanguage.values
@@ -229,7 +230,7 @@ class _LanguageSwitch extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.language_rounded, size: 18),
+            const Icon(Icons.settings_outlined, size: 18),
             const SizedBox(width: 6),
             Text(
               language.shortLabel,

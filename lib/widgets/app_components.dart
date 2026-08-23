@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../theme/app_theme.dart';
 import '../services/east_app_api.dart';
+import '../localization/app_text_scope.dart';
 import 'app_feedback.dart';
 
 
@@ -17,6 +18,7 @@ Future<void> showApiErrorDialog(
   await showDialog<void>(
     context: context,
     builder: (dialogContext) {
+      final text = AppTextScope.of(dialogContext);
       final screenHeight = MediaQuery.of(dialogContext).size.height;
       return AlertDialog(
         titlePadding: const EdgeInsets.fromLTRB(20, 18, 12, 0),
@@ -26,14 +28,14 @@ Future<void> showApiErrorDialog(
           children: [
             const Icon(Icons.error_outline_rounded, color: AppColours.red),
             const SizedBox(width: 10),
-            const Expanded(
+            Expanded(
               child: Text(
-                'Technical Error',
-                style: TextStyle(fontWeight: FontWeight.w800),
+                text.t('Technical Error'),
+                style: const TextStyle(fontWeight: FontWeight.w800),
               ),
             ),
             IconButton(
-              tooltip: 'Close',
+              tooltip: text.t('Close'),
               onPressed: () => Navigator.of(dialogContext).pop(),
               icon: const Icon(Icons.close_rounded),
             ),
@@ -62,15 +64,15 @@ Future<void> showApiErrorDialog(
               await Clipboard.setData(ClipboardData(text: details));
               if (!dialogContext.mounted) return;
               ScaffoldMessenger.of(dialogContext).showSnackBar(
-                const SnackBar(content: Text('Error details copied')),
+                SnackBar(content: Text(text.t('Error details copied'))),
               );
             },
             icon: const Icon(Icons.copy_rounded),
-            label: const Text('Copy'),
+            label: Text(text.t('Copy')),
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Close'),
+            child: Text(text.t('Close')),
           ),
         ],
       );
@@ -86,6 +88,7 @@ Future<bool> confirmDataChange(
 }) async {
   await AppFeedback.warning();
   if (!context.mounted) return false;
+  final text = AppTextScope.of(context);
 
   final confirmed = await showDialog<bool>(
     context: context,
@@ -97,15 +100,17 @@ Future<bool> confirmDataChange(
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              action,
+              text.t(action),
               style: const TextStyle(fontWeight: FontWeight.w800),
             ),
           ),
         ],
       ),
       content: Text(
-        details ??
-            'Please review the information carefully. This will change business data.',
+        text.t(
+          details ??
+              'Please review the information carefully. This will change business data.',
+        ),
         style: const TextStyle(
           fontSize: AppTextSize.s14,
           height: 1.4,
@@ -116,11 +121,11 @@ Future<bool> confirmDataChange(
       actions: [
         TextButton(
           onPressed: () => Navigator.of(dialogContext).pop(false),
-          child: const Text('Cancel'),
+          child: Text(text.t('Cancel')),
         ),
         FilledButton(
           onPressed: () => Navigator.of(dialogContext).pop(true),
-          child: const Text('Proceed'),
+          child: Text(text.t('Proceed')),
         ),
       ],
     ),
@@ -135,7 +140,10 @@ void showSuccessSnackBar(BuildContext context, String message) {
   }
 
   AppFeedback.success();
-  _showSuccessBurstOverlay(context, _successBurstMessage(message));
+  _showSuccessBurstOverlay(
+    context,
+    AppTextScope.of(context).t(_successBurstMessage(message)),
+  );
 }
 
 void showWarningSnackBar(BuildContext context, String message) {
@@ -148,7 +156,7 @@ void showErrorSnackBar(BuildContext context, String message) {
   AppFeedback.error();
   _showAppSnackBar(
     context,
-    _compactSnackBarMessage(message),
+    AppTextScope.of(context).t(_compactSnackBarMessage(message)),
     icon: Icons.error_rounded,
     backgroundColor: AppColours.red,
     duration: const Duration(milliseconds: 1900),
@@ -159,7 +167,7 @@ void showTemporaryDisabledMessage(BuildContext context) {
   AppFeedback.warning();
   _showAppSnackBar(
     context,
-    'Temporary disabled',
+    AppTextScope.of(context).t('Temporary disabled'),
     icon: Icons.schedule_rounded,
     backgroundColor: AppColours.textMain,
     duration: const Duration(milliseconds: 1500),
@@ -650,6 +658,7 @@ class PrimaryButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final appText = AppTextScope.of(context);
     final enabled = onPressed != null;
 
     final child = Row(
@@ -661,7 +670,7 @@ class PrimaryButton extends StatelessWidget {
         ],
         Flexible(
           child: Text(
-            text,
+            appText.t(text),
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               fontSize: AppTextSize.s18,
@@ -718,6 +727,7 @@ class SegmentedTabs extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     return Container(
       height: 54,
       padding: const EdgeInsets.all(5),
@@ -741,7 +751,7 @@ class SegmentedTabs extends StatelessWidget {
                   borderRadius: BorderRadius.circular(24),
                 ),
                 child: Text(
-                  tabs[index],
+                  text.t(tabs[index]),
                   style: TextStyle(
                     fontSize: tabs.length > 3 ? AppTextSize.s15 : AppTextSize.s17,
                     fontWeight: FontWeight.w700,
@@ -771,13 +781,14 @@ class PageTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(0, 12, 0, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            title,
+            text.t(title),
             style: const TextStyle(
               fontSize: AppTextSize.s34,
               height: 1.05,
@@ -787,7 +798,7 @@ class PageTitle extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            subtitle,
+            text.t(subtitle),
             style: const TextStyle(
               fontSize: AppTextSize.s18,
               fontWeight: FontWeight.w500,
@@ -816,6 +827,7 @@ class SmallStatusPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final appText = AppTextScope.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
@@ -830,7 +842,7 @@ class SmallStatusPill extends StatelessWidget {
             const SizedBox(width: 4),
           ],
           Text(
-            text,
+            appText.t(text),
             style: TextStyle(
               color: textColour,
               fontWeight: FontWeight.w700,
@@ -854,6 +866,7 @@ class AppProcessingOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     return PopScope(
       canPop: !isProcessing,
       child: Stack(
@@ -871,7 +884,7 @@ class AppProcessingOverlay extends StatelessWidget {
           Center(
             child: Semantics(
               liveRegion: true,
-              label: 'Processing. Please wait.',
+              label: text.t('Processing. Please wait.'),
               child: Container(
                 constraints: const BoxConstraints(maxWidth: 300),
                 margin: const EdgeInsets.symmetric(horizontal: 28),
@@ -890,15 +903,15 @@ class AppProcessingOverlay extends StatelessWidget {
                     ),
                   ],
                 ),
-                child: const Column(
+                child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    CircularProgressIndicator(),
-                    SizedBox(height: 16),
+                    const CircularProgressIndicator(),
+                    const SizedBox(height: 16),
                     Text(
-                      'Processing... Please Wait!',
+                      text.t('Processing... Please Wait!'),
                       textAlign: TextAlign.center,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: AppTextSize.s16,
                         fontWeight: FontWeight.w800,
                         color: AppColours.textMain,
@@ -915,4 +928,3 @@ class AppProcessingOverlay extends StatelessWidget {
     );
   }
 }
-

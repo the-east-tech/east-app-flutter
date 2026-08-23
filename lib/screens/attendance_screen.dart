@@ -337,6 +337,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   }
 
   void showComingSoon(String title) {
+    final text = AppTextScope.of(context);
     AppFeedback.warning();
     _showPeopleBottomSheet(
       context,
@@ -363,7 +364,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    title,
+                    text.t(title),
                     style: const TextStyle(
                       fontSize: AppTextSize.s24,
                       fontWeight: FontWeight.w700,
@@ -377,9 +378,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
               ],
             ),
             const SizedBox(height: 12),
-            const Text(
-              'Coming soon. User setup is enabled first.',
-              style: TextStyle(
+            Text(
+              text.t('Coming soon. User setup is enabled first.'),
+              style: const TextStyle(
                 fontSize: AppTextSize.s16,
                 color: AppColours.textMuted,
                 fontWeight: FontWeight.w700,
@@ -410,7 +411,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
           if (!canGenerateAttendanceQr) {
             showWarningSnackBar(
               context,
-              'Only Owner, Head and Manager can generate attendance QR codes.',
+              AppTextScope.of(context).t(
+                'Only Owner, Head and Manager can generate attendance QR codes.',
+              ),
             );
             return;
           }
@@ -461,7 +464,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     if (!canGenerateAttendanceQr) {
       showWarningSnackBar(
         context,
-        'Only Owner, Head and Manager can generate attendance QR codes.',
+        AppTextScope.of(context).t(
+          'Only Owner, Head and Manager can generate attendance QR codes.',
+        ),
       );
       return;
     }
@@ -503,7 +508,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                 ? 'ANDROID'
                 : Platform.operatingSystem.toUpperCase(),
         deviceOsVersion: Platform.operatingSystemVersion.replaceAll('\n', ' '),
-        appVersion: 'east_app_v280',
+        appVersion: 'east_app_v287',
       );
 
       final refreshed = await widget.api.attendanceToday();
@@ -512,13 +517,15 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       Navigator.of(context).pop();
       showSuccessSnackBar(
         context,
-        event.eventType == 'CLOCK_OUT'
-            ? 'Clock out completed'
-            : 'Clock in completed',
+        AppTextScope.of(context).t(
+          event.eventType == 'CLOCK_OUT'
+              ? 'Clock out completed'
+              : 'Clock in completed',
+        ),
       );
     } on _LocationCaptureException catch (error) {
       if (!mounted) return;
-      showErrorSnackBar(context, error.message);
+      showErrorSnackBar(context, AppTextScope.of(context).t(error.message));
     } on EastAppApiException catch (error) {
       if (!mounted) return;
       showErrorSnackBar(context, error.message);
@@ -590,6 +597,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   }
 
   void _showAttendanceAccessRequired(List<String> issues) {
+    final text = AppTextScope.of(context);
     _showPeopleBottomSheet<void>(
       context,
       heightFactor: 0.48,
@@ -616,10 +624,10 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                   ),
                 ),
                 const SizedBox(width: 12),
-                const Expanded(
+                Expanded(
                   child: Text(
-                    'Location access required',
-                    style: TextStyle(
+                    text.t('Location access required'),
+                    style: const TextStyle(
                       fontSize: AppTextSize.s22,
                       fontWeight: FontWeight.w800,
                     ),
@@ -632,9 +640,11 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
               ],
             ),
             const SizedBox(height: 12),
-            const Text(
-              'GPS location is required for attendance and is recorded with each Check In / Out.',
-              style: TextStyle(
+            Text(
+              text.t(
+                'GPS location is required for attendance and is recorded with each Check In / Out.',
+              ),
+              style: const TextStyle(
                 fontSize: AppTextSize.s14,
                 color: AppColours.textMuted,
                 fontWeight: FontWeight.w700,
@@ -656,7 +666,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        issue,
+                        text.t(issue),
                         style: const TextStyle(
                           fontSize: AppTextSize.s13,
                           color: AppColours.textMain,
@@ -674,7 +684,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
               children: [
                 Expanded(
                   child: PrimaryButton(
-                    text: 'Location Settings',
+                    text: text.t('Location Settings'),
                     icon: Icons.location_on_outlined,
                     onPressed: () => Geolocator.openLocationSettings(),
                     outlined: true,
@@ -683,7 +693,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: PrimaryButton(
-                    text: 'App Settings',
+                    text: text.t('App Settings'),
                     icon: Icons.settings_outlined,
                     onPressed: () => Geolocator.openAppSettings(),
                   ),
@@ -1032,6 +1042,7 @@ class _PeoplePageScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     return ListView(
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 24),
       children: [
@@ -1045,7 +1056,12 @@ class _PeoplePageScaffold extends StatelessWidget {
                 icon: const Icon(Icons.arrow_back_rounded),
               ),
             ),
-            Expanded(child: PageTitle(title: title, subtitle: subtitle)),
+            Expanded(
+              child: PageTitle(
+                title: text.t(title),
+                subtitle: text.t(subtitle),
+              ),
+            ),
             if (trailing != null)
               Padding(
                 padding: const EdgeInsets.only(top: 16),
@@ -1092,6 +1108,7 @@ class _PeopleSetupRefreshBarState extends State<_PeopleSetupRefreshBar> {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     return Material(
       color: const Color(0xFFF6F8FC),
       child: Padding(
@@ -1102,7 +1119,7 @@ class _PeopleSetupRefreshBarState extends State<_PeopleSetupRefreshBar> {
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                updatedText,
+                text.t(updatedText),
                 style: const TextStyle(
                   color: AppColours.textMuted,
                   fontSize: AppTextSize.s12,
@@ -1115,7 +1132,7 @@ class _PeopleSetupRefreshBarState extends State<_PeopleSetupRefreshBar> {
               icon: refreshing
                   ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
                   : const Icon(Icons.refresh_rounded),
-              label: const Text('Refresh'),
+              label: Text(text.t('Refresh')),
             ),
           ],
         ),
@@ -1339,7 +1356,7 @@ class _UserSetupPageState extends State<_UserSetupPage> {
                 const SizedBox(height: 10),
                 OutlinedButton(
                   onPressed: widget.onRetry,
-                  child: const Text('Retry'),
+                  child: Text(text.t('Retry')),
                 ),
               ],
             ),
@@ -1361,7 +1378,9 @@ class _UserSetupPageState extends State<_UserSetupPage> {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.expand_more_rounded),
-                label: Text(widget.loadingMore ? 'Loading...' : 'Load more'),
+                label: Text(
+                  text.t(widget.loadingMore ? 'Loading...' : 'Load more'),
+                ),
               ),
             ),
           ],
@@ -1422,7 +1441,7 @@ class _RoleSetupPage extends StatelessWidget {
                 const SizedBox(height: 10),
                 OutlinedButton(
                   onPressed: onRetry,
-                  child: const Text('Retry'),
+                  child: Text(text.t('Retry')),
                 ),
               ],
             ),
@@ -1448,11 +1467,12 @@ class _RoleSetupPage extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          const WhiteCard(
+          WhiteCard(
             child: Text(
-              'Owner → Head → Manager → Supervisor → Staff1 → Staff2. '
-              'Roles are fixed and cannot be created, renamed or deleted.',
-              style: TextStyle(
+              text.t(
+                'Owner → Head → Manager → Supervisor → Staff1 → Staff2. Roles are fixed and cannot be created, renamed or deleted.',
+              ),
+              style: const TextStyle(
                 color: AppColours.textMuted,
                 fontWeight: FontWeight.w600,
                 height: 1.35,
@@ -1486,12 +1506,13 @@ class _PeopleFilterDropdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
           padding: const EdgeInsets.only(left: 2, bottom: 6),
-          child: Text(label, style: AppTextStyles.formLabel),
+          child: Text(text.t(label), style: AppTextStyles.formLabel),
         ),
         DropdownButtonFormField<String>(
           initialValue: value,
@@ -1499,7 +1520,7 @@ class _PeopleFilterDropdown extends StatelessWidget {
           items: options
               .map((option) => DropdownMenuItem<String>(
                     value: option,
-                    child: Text(option),
+                    child: Text(text.t(option)),
                   ))
               .toList(),
           onChanged: (nextValue) {
@@ -1508,7 +1529,7 @@ class _PeopleFilterDropdown extends StatelessWidget {
             onChanged(nextValue);
           },
           decoration: AppInputStyle.decoration(
-            label,
+            text.t(label),
             contentPadding:
                 const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           ),
@@ -1532,12 +1553,13 @@ class _PeopleRoleList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     if (roles.isEmpty) {
-      return const WhiteCard(
-        padding: EdgeInsets.all(18),
+      return WhiteCard(
+        padding: const EdgeInsets.all(18),
         child: Text(
-          'No role found',
-          style: TextStyle(
+          text.t('No role found'),
+          style: const TextStyle(
             fontSize: AppTextSize.s16,
             color: AppColours.textMuted,
             fontWeight: FontWeight.w700,
@@ -1577,6 +1599,7 @@ class _PeopleRoleRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     return Pressable(
       onTap: onTap,
       borderRadius: BorderRadius.circular(16),
@@ -1605,7 +1628,7 @@ class _PeopleRoleRow extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    role.name,
+                    text.t(role.name),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
@@ -1615,7 +1638,9 @@ class _PeopleRoleRow extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    '$assignedCount ${assignedCount == 1 ? 'user' : 'users'} assigned',
+                    text.t(
+                      '$assignedCount ${assignedCount == 1 ? 'user' : 'users'} assigned',
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
@@ -1629,7 +1654,7 @@ class _PeopleRoleRow extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             SmallStatusPill(
-              text: role.active ? 'Active' : 'Inactive',
+              text: text.t(role.active ? 'Active' : 'Inactive'),
               textColour: role.active ? AppColours.green : AppColours.textMuted,
               backgroundColour:
                   role.active ? AppColours.greenSoft : AppColours.mutedBox,
@@ -1680,6 +1705,7 @@ class _AttendanceMenuSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 22),
       child: Column(
@@ -1689,10 +1715,10 @@ class _AttendanceMenuSheet extends StatelessWidget {
           const SizedBox(height: 14),
           Row(
             children: [
-              const Expanded(
+              Expanded(
                 child: Text(
-                  'Attendance',
-                  style: TextStyle(
+                  text.t('Attendance'),
+                  style: const TextStyle(
                     fontSize: AppTextSize.s24,
                     fontWeight: FontWeight.w700,
                   ),
@@ -1705,9 +1731,11 @@ class _AttendanceMenuSheet extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 4),
-          const Text(
-            'Select an attendance action. Data is loaded only when requested.',
-            style: TextStyle(
+          Text(
+            text.t(
+              'Select an attendance action. Data is loaded only when requested.',
+            ),
+            style: const TextStyle(
               fontSize: AppTextSize.s13,
               color: AppColours.textMuted,
               fontWeight: FontWeight.w600,
@@ -1717,17 +1745,19 @@ class _AttendanceMenuSheet extends StatelessWidget {
           const SizedBox(height: 16),
           _AttendanceFeatureCard(
             icon: Icons.how_to_reg_outlined,
-            title: 'Check In / Out',
-            subtitle: 'Load today\'s attendance, then scan the required QR code.',
+            title: text.t('Check In / Out'),
+            subtitle: text.t(
+              'Load today\'s attendance, then scan the required QR code.',
+            ),
             onTap: onCheckInOut,
           ),
           const SizedBox(height: 12),
           _AttendanceFeatureCard(
             icon: Icons.qr_code_2_rounded,
-            title: 'QR Code',
+            title: text.t('QR Code'),
             subtitle: canGenerateQr
-                ? 'Generate a 30-minute Check In or Check Out QR code.'
-                : 'Owner, Head or Manager permission is required.',
+                ? text.t('Generate a 30-minute Check In or Check Out QR code.')
+                : text.t('Owner, Head or Manager permission is required.'),
             onTap: canGenerateQr ? onQrCode : null,
             disabled: !canGenerateQr,
           ),
@@ -1754,6 +1784,7 @@ class _AttendanceFeatureCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     return Pressable(
       onTap: onTap,
       borderRadius: BorderRadius.circular(18),
@@ -1779,7 +1810,7 @@ class _AttendanceFeatureCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    title,
+                    text.t(title),
                     style: TextStyle(
                       fontSize: AppTextSize.s17,
                       fontWeight: FontWeight.w700,
@@ -1788,7 +1819,7 @@ class _AttendanceFeatureCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 3),
                   Text(
-                    subtitle,
+                    text.t(subtitle),
                     style: const TextStyle(
                       fontSize: AppTextSize.s12,
                       color: AppColours.textMuted,
@@ -1830,6 +1861,7 @@ class _AttendanceCheckInOutSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 22),
       child: Column(
@@ -1839,10 +1871,10 @@ class _AttendanceCheckInOutSheet extends StatelessWidget {
           const SizedBox(height: 14),
           Row(
             children: [
-              const Expanded(
+              Expanded(
                 child: Text(
-                  'Check In / Out',
-                  style: TextStyle(
+                  text.t('Check In / Out'),
+                  style: const TextStyle(
                     fontSize: AppTextSize.s24,
                     fontWeight: FontWeight.w700,
                   ),
@@ -1878,16 +1910,18 @@ class _AttendanceCheckInOutSheet extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        statusLabel,
+                        text.t(statusLabel),
                         style: const TextStyle(
                           fontSize: AppTextSize.s15,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
                       const SizedBox(height: 2),
-                      const Text(
-                        'GPS location and a valid attendance QR are required.',
-                        style: TextStyle(
+                      Text(
+                        text.t(
+                          'GPS location and a valid attendance QR are required.',
+                        ),
+                        style: const TextStyle(
                           fontSize: AppTextSize.s12,
                           color: AppColours.textMuted,
                           fontWeight: FontWeight.w600,
@@ -1944,6 +1978,7 @@ class _AttendanceActionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     return Pressable(
       onTap: enabled ? onTap : null,
       borderRadius: BorderRadius.circular(18),
@@ -1968,7 +2003,7 @@ class _AttendanceActionCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    title,
+                    text.t(title),
                     style: TextStyle(
                       fontSize: AppTextSize.s16,
                       fontWeight: FontWeight.w700,
@@ -1977,7 +2012,7 @@ class _AttendanceActionCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 3),
                   Text(
-                    subtitle,
+                    text.t(subtitle),
                     style: const TextStyle(
                       fontSize: AppTextSize.s12,
                       color: AppColours.textMuted,
@@ -2065,6 +2100,7 @@ class _AttendanceQrGeneratorSheetState extends State<_AttendanceQrGeneratorSheet
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     final value = generated;
     final expired = value != null && remaining == Duration.zero;
     return Padding(
@@ -2076,10 +2112,10 @@ class _AttendanceQrGeneratorSheetState extends State<_AttendanceQrGeneratorSheet
           const SizedBox(height: 14),
           Row(
             children: [
-              const Expanded(
+              Expanded(
                 child: Text(
-                  'Attendance QR Code',
-                  style: TextStyle(
+                  text.t('Attendance QR Code'),
+                  style: const TextStyle(
                     fontSize: AppTextSize.s24,
                     fontWeight: FontWeight.w700,
                   ),
@@ -2092,9 +2128,11 @@ class _AttendanceQrGeneratorSheetState extends State<_AttendanceQrGeneratorSheet
             ],
           ),
           const SizedBox(height: 6),
-          const Text(
-            'Select the action first, then press Generate QR. Each QR works for any employee in this business for 30 minutes.',
-            style: TextStyle(
+          Text(
+            text.t(
+              'Select the action first, then press Generate QR. Each QR works for any employee in this business for 30 minutes.',
+            ),
+            style: const TextStyle(
               fontSize: AppTextSize.s13,
               color: AppColours.textMuted,
               fontWeight: FontWeight.w600,
@@ -2106,14 +2144,20 @@ class _AttendanceQrGeneratorSheetState extends State<_AttendanceQrGeneratorSheet
             initialValue: selectedAction,
             isExpanded: true,
             decoration: InputDecoration(
-              labelText: 'QR Action',
+              labelText: text.t('QR Action'),
               filled: true,
               fillColor: Colors.white,
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
             ),
-            items: const [
-              DropdownMenuItem(value: 'CLOCK_IN', child: Text('Check In')),
-              DropdownMenuItem(value: 'CLOCK_OUT', child: Text('Check Out')),
+            items: [
+              DropdownMenuItem(
+                value: 'CLOCK_IN',
+                child: Text(text.t('Check In')),
+              ),
+              DropdownMenuItem(
+                value: 'CLOCK_OUT',
+                child: Text(text.t('Check Out')),
+              ),
             ],
             onChanged: generating
                 ? null
@@ -2124,11 +2168,11 @@ class _AttendanceQrGeneratorSheetState extends State<_AttendanceQrGeneratorSheet
           ),
           const SizedBox(height: 12),
           PrimaryButton(
-            text: generating
+            text: text.t(generating
                 ? 'Generating...'
                 : value == null
                     ? 'Generate QR'
-                    : 'Generate New QR',
+                    : 'Generate New QR'),
             icon: Icons.qr_code_2_rounded,
             onPressed: generating ? null : generate,
           ),
@@ -2154,7 +2198,7 @@ class _AttendanceQrGeneratorSheetState extends State<_AttendanceQrGeneratorSheet
                         children: [
                           Expanded(
                             child: Text(
-                              value.actionLabel,
+                              text.t(value.actionLabel),
                               style: const TextStyle(
                                 fontSize: AppTextSize.s18,
                                 fontWeight: FontWeight.w800,
@@ -2162,7 +2206,7 @@ class _AttendanceQrGeneratorSheetState extends State<_AttendanceQrGeneratorSheet
                             ),
                           ),
                           SmallStatusPill(
-                            text: expired ? 'Expired' : remainingLabel,
+                            text: expired ? text.t('Expired') : remainingLabel,
                             textColour: expired ? AppColours.red : AppColours.green,
                             backgroundColour: expired ? AppColours.redSoft : AppColours.greenSoft,
                           ),
@@ -2180,9 +2224,11 @@ class _AttendanceQrGeneratorSheetState extends State<_AttendanceQrGeneratorSheet
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        expired
-                            ? 'This QR has expired. Generate a new QR to continue.'
-                            : 'Valid for multiple employees until ${_formatAttendanceQrTime(value.expiresAt)}.',
+                        text.t(
+                          expired
+                              ? 'This QR has expired. Generate a new QR to continue.'
+                              : 'Valid for multiple employees until ${_formatAttendanceQrTime(value.expiresAt)}.',
+                        ),
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: AppTextSize.s13,
@@ -2240,6 +2286,7 @@ class _AttendanceQrScannerSheetState extends State<_AttendanceQrScannerSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 18),
       child: Column(
@@ -2251,7 +2298,7 @@ class _AttendanceQrScannerSheetState extends State<_AttendanceQrScannerSheet> {
             children: [
               Expanded(
                 child: Text(
-                  'Scan ${widget.actionLabel} QR',
+                  text.t('Scan ${widget.actionLabel} QR'),
                   style: const TextStyle(
                     fontSize: AppTextSize.s24,
                     fontWeight: FontWeight.w700,
@@ -2266,7 +2313,9 @@ class _AttendanceQrScannerSheetState extends State<_AttendanceQrScannerSheet> {
           ),
           const SizedBox(height: 6),
           Text(
-            'Scan a valid ${widget.actionLabel} QR code. GPS will be captured after the QR is scanned.',
+            text.t(
+              'Scan a valid ${widget.actionLabel} QR code. GPS will be captured after the QR is scanned.',
+            ),
             style: const TextStyle(
               fontSize: AppTextSize.s13,
               color: AppColours.textMuted,
@@ -2327,6 +2376,7 @@ class _PeopleMiniMetric extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     return WhiteCard(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
       child: Row(
@@ -2335,7 +2385,7 @@ class _PeopleMiniMetric extends StatelessWidget {
           Icon(icon, color: AppColours.blue, size: 18),
           const SizedBox(width: 6),
           Text(
-            value,
+            text.t(value),
             style: const TextStyle(
               fontSize: AppTextSize.s16,
               fontWeight: FontWeight.w700,
@@ -2345,7 +2395,7 @@ class _PeopleMiniMetric extends StatelessWidget {
           const SizedBox(width: 4),
           Flexible(
             child: Text(
-              label,
+              text.t(label),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
@@ -2410,73 +2460,6 @@ class _PeopleMenuGrid extends StatelessWidget {
 }
 
 
-class _AttendanceProgressBadge extends StatelessWidget {
-  final bool inDone;
-  final bool outDone;
-
-  const _AttendanceProgressBadge({
-    required this.inDone,
-    required this.outDone,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _AttendanceProgressPill(label: 'In', done: inDone),
-        const SizedBox(width: 3),
-        _AttendanceProgressPill(label: 'Out', done: outDone),
-      ],
-    );
-  }
-}
-
-class _AttendanceProgressPill extends StatelessWidget {
-  final String label;
-  final bool done;
-
-  const _AttendanceProgressPill({
-    required this.label,
-    required this.done,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final colour = done ? AppColours.green : AppColours.orange;
-    final background = done ? AppColours.greenSoft : AppColours.orangeSoft;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: colour.withValues(alpha: 0.16)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            done ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
-            size: 11,
-            color: colour,
-          ),
-          const SizedBox(width: 2),
-          Text(
-            label,
-            style: TextStyle(
-              color: colour,
-              fontSize: AppTextSize.s12,
-              fontWeight: FontWeight.w800,
-              height: 1,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _PeopleMenuCard extends StatelessWidget {
   final String title;
   final String subtitle;
@@ -2494,6 +2477,7 @@ class _PeopleMenuCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     return WhiteCard(
       padding: EdgeInsets.zero,
       child: Pressable(
@@ -2527,7 +2511,7 @@ class _PeopleMenuCard extends StatelessWidget {
               ),
               const SizedBox(height: 6),
               Text(
-                title,
+                text.t(title),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
@@ -2537,7 +2521,7 @@ class _PeopleMenuCard extends StatelessWidget {
               ),
               const SizedBox(height: 3),
               Text(
-                subtitle,
+                text.t(subtitle),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
@@ -2566,12 +2550,13 @@ class _PeopleUserList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     if (users.isEmpty) {
       return WhiteCard(
         padding: const EdgeInsets.all(18),
-        child: const Text(
-          'No user found',
-          style: TextStyle(
+        child: Text(
+          text.t('No user found'),
+          style: const TextStyle(
             fontSize: AppTextSize.s16,
             color: AppColours.textMuted,
             fontWeight: FontWeight.w700,
@@ -2608,9 +2593,10 @@ class _PeopleUserRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     final lastWorkingText = user.lastWorkingDate == null
         ? ''
-        : ' · Last: ${_formatPeopleDate(user.lastWorkingDate)}';
+        : ' · ${text.t('Last')}: ${_formatPeopleDate(user.lastWorkingDate)}';
 
     return Pressable(
       onTap: onTap,
@@ -2648,7 +2634,7 @@ class _PeopleUserRow extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    '${user.employeeId} · ${user.role} · ${user.phoneNumber}$lastWorkingText',
+                    '${user.employeeId} · ${text.t(user.role)} · ${user.phoneNumber}$lastWorkingText',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
@@ -2662,7 +2648,7 @@ class _PeopleUserRow extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             SmallStatusPill(
-              text: user.active ? 'Active' : 'Inactive',
+              text: text.t(user.active ? 'Active' : 'Inactive'),
               textColour: user.active ? AppColours.green : AppColours.textMuted,
               backgroundColour: user.active ? AppColours.greenSoft : AppColours.mutedBox,
             ),
@@ -2899,15 +2885,16 @@ class _UserFormSheetState extends State<_UserFormSheet> {
     final selected = selectableRoles.firstWhere(
       (role) => role.name == selectedRole,
     );
+    final text = AppTextScope.of(context);
     final confirmed = await confirmDataChange(
       context,
-      action: isEditing ? 'Update User?' : 'Create User?',
-      details: selected.systemKey == 'OWNER' &&
+      action: text.t(isEditing ? 'Update User?' : 'Create User?'),
+      details: text.t(selected.systemKey == 'OWNER' &&
               (!isEditing || widget.user?.roleSystemKey != 'OWNER')
           ? 'This will assign Owner access and a separate employee ID in every business.'
           : isEditing
               ? 'This will update the selected user account and access settings.'
-              : 'This will create an employee ID only inside ${widget.tenant.businessName}.',
+              : 'This will create an employee ID only inside ${widget.tenant.businessName}.'),
     );
     if (!confirmed || !mounted) return;
 
@@ -2931,11 +2918,11 @@ class _UserFormSheetState extends State<_UserFormSheet> {
       Navigator.of(context).pop();
       showSuccessSnackBar(
         context,
-        isEditing
+        text.t(isEditing
             ? 'User updated'
             : generatedEmployeeId == null
                 ? 'User created'
-                : 'User created · $generatedEmployeeId',
+                : 'User created · $generatedEmployeeId'),
       );
     } on EastAppApiException catch (_) {
       if (!mounted) return;
@@ -2946,6 +2933,7 @@ class _UserFormSheetState extends State<_UserFormSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     return Padding(
       padding: EdgeInsets.fromLTRB(
         16,
@@ -2964,7 +2952,7 @@ class _UserFormSheetState extends State<_UserFormSheet> {
               children: [
                 Expanded(
                   child: Text(
-                    isEditing ? 'Edit User' : 'Create User',
+                    text.t(isEditing ? 'Edit User' : 'Create User'),
                     style: const TextStyle(
                       fontSize: AppTextSize.s26,
                       fontWeight: FontWeight.w700,
@@ -2987,15 +2975,17 @@ class _UserFormSheetState extends State<_UserFormSheet> {
                 enabled: false,
               )
             else
-              const WhiteCard(
+              WhiteCard(
                 child: Row(
                   children: [
-                    Icon(Icons.badge_outlined, color: AppColours.blue),
-                    SizedBox(width: 10),
+                    const Icon(Icons.badge_outlined, color: AppColours.blue),
+                    const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        'Employee ID will be generated automatically by this business.',
-                        style: TextStyle(
+                        text.t(
+                          'Employee ID will be generated automatically by this business.',
+                        ),
+                        style: const TextStyle(
                           fontSize: AppTextSize.s14,
                           fontWeight: FontWeight.w700,
                           color: AppColours.textMuted,
@@ -3015,9 +3005,9 @@ class _UserFormSheetState extends State<_UserFormSheet> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'Business',
-                          style: TextStyle(
+                        Text(
+                          text.t('Business'),
+                          style: const TextStyle(
                             fontSize: AppTextSize.s12,
                             color: AppColours.textMuted,
                             fontWeight: FontWeight.w700,
@@ -3064,9 +3054,11 @@ class _UserFormSheetState extends State<_UserFormSheet> {
               ),
               if (!isEditing) ...[
                 const SizedBox(height: 6),
-                const Text(
-                  'When the phone number already belongs to an application login, the same profile and password are reused and only a new employee ID is created for this business.',
-                  style: TextStyle(
+                Text(
+                  text.t(
+                    'When the phone number already belongs to an application login, the same profile and password are reused and only a new employee ID is created for this business.',
+                  ),
+                  style: const TextStyle(
                     fontSize: AppTextSize.s12,
                     color: AppColours.textMuted,
                     fontWeight: FontWeight.w600,
@@ -3101,7 +3093,7 @@ class _UserFormSheetState extends State<_UserFormSheet> {
             ),
             const SizedBox(height: 12),
             PhoneNumberField(
-              label: 'Phone Number',
+              label: text.t('Phone Number'),
               controller: phoneController,
               country: phoneCountry,
               onCountryChanged: (value) {
@@ -3115,16 +3107,16 @@ class _UserFormSheetState extends State<_UserFormSheet> {
             ),
             const SizedBox(height: 12),
             if (rolesLoading)
-              const WhiteCard(
+              WhiteCard(
                 child: Row(
                   children: [
-                    SizedBox(
+                    const SizedBox(
                       width: 20,
                       height: 20,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     ),
-                    SizedBox(width: 10),
-                    Text('Loading roles for this business...'),
+                    const SizedBox(width: 10),
+                    Text(text.t('Loading roles for this business...')),
                   ],
                 ),
               )
@@ -3137,7 +3129,7 @@ class _UserFormSheetState extends State<_UserFormSheet> {
                     TextButton.icon(
                       onPressed: loadAssignableRoles,
                       icon: const Icon(Icons.refresh_rounded),
-                      label: const Text('Retry'),
+                      label: Text(text.t('Retry')),
                     ),
                   ],
                 ),
@@ -3217,11 +3209,11 @@ class _UserFormSheetState extends State<_UserFormSheet> {
             ],
             const SizedBox(height: 16),
             PrimaryButton(
-              text: saving
+              text: text.t(saving
                   ? 'Saving...'
                   : isEditing
                       ? 'Save Changes'
-                      : 'Save User',
+                      : 'Save User'),
               icon: Icons.save_outlined,
               onPressed: saving ? null : submit,
             ),
@@ -3265,11 +3257,13 @@ class _DeleteUserSheetState extends State<_DeleteUserSheet> {
   }
 
   Future<void> submit() async {
+    final text = AppTextScope.of(context);
     final confirmed = await confirmDataChange(
       context,
-      action: 'Deactivate User?',
-      details:
-          'This will set the user to inactive using the selected last working date.',
+      action: text.t('Deactivate User?'),
+      details: text.t(
+        'This will set the user to inactive using the selected last working date.',
+      ),
     );
     if (!confirmed || !mounted) return;
 
@@ -3278,7 +3272,7 @@ class _DeleteUserSheetState extends State<_DeleteUserSheet> {
       await widget.onDeactivateUser(lastWorkingDate);
       if (!mounted) return;
       Navigator.of(context).pop();
-      showSuccessSnackBar(context, 'User set to inactive');
+      showSuccessSnackBar(context, text.t('User set to inactive'));
     } on EastAppApiException catch (_) {
       if (!mounted) return;
     } finally {
@@ -3288,6 +3282,7 @@ class _DeleteUserSheetState extends State<_DeleteUserSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     return Padding(
       padding: EdgeInsets.fromLTRB(
         16,
@@ -3321,9 +3316,9 @@ class _DeleteUserSheetState extends State<_DeleteUserSheet> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Deactivate User',
-                        style: TextStyle(
+                      Text(
+                        text.t('Deactivate User'),
+                        style: const TextStyle(
                           fontSize: AppTextSize.s24,
                           fontWeight: FontWeight.w700,
                         ),
@@ -3356,9 +3351,11 @@ class _DeleteUserSheetState extends State<_DeleteUserSheet> {
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(color: AppColours.red.withValues(alpha: 0.18)),
               ),
-              child: const Text(
-                'Status will be set to Inactive and all sessions will be revoked.',
-                style: TextStyle(
+              child: Text(
+                text.t(
+                  'Status will be set to Inactive and all sessions will be revoked.',
+                ),
+                style: const TextStyle(
                   fontSize: AppTextSize.s14,
                   color: AppColours.red,
                   fontWeight: FontWeight.w700,
@@ -3398,6 +3395,7 @@ class _DangerButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final appText = AppTextScope.of(context);
     return Pressable(
       onTap: onPressed,
       borderRadius: BorderRadius.circular(10),
@@ -3415,7 +3413,7 @@ class _DangerButton extends StatelessWidget {
             const SizedBox(width: 10),
             Flexible(
               child: Text(
-                text,
+                appText.t(text),
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   fontSize: AppTextSize.s18,
@@ -3458,10 +3456,11 @@ class _PeopleInput extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: AppTextStyles.formLabel),
+        Text(text.t(label), style: AppTextStyles.formLabel),
         const SizedBox(height: 6),
         TextField(
           controller: controller,
@@ -3476,10 +3475,10 @@ class _PeopleInput extends StatelessWidget {
           enableSuggestions: !obscureText,
           style: AppTextStyles.formValue,
           decoration: AppInputStyle.decoration(
-            hint,
+            text.t(hint),
             contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
           ).copyWith(
-            errorText: errorText,
+            errorText: errorText == null ? null : text.t(errorText!),
             suffixIcon: suffixIcon,
           ),
         ),
@@ -3507,10 +3506,11 @@ class _DateField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: AppTextStyles.formLabel),
+        Text(text.t(label), style: AppTextStyles.formLabel),
         const SizedBox(height: 6),
         WhiteCard(
           padding: EdgeInsets.zero,
@@ -3525,7 +3525,7 @@ class _DateField extends StatelessWidget {
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      value,
+                      text.t(value),
                       style: TextStyle(
                         fontSize: AppTextSize.s17,
                         fontWeight: FontWeight.w700,
@@ -3543,7 +3543,7 @@ class _DateField extends StatelessWidget {
         if (errorText != null) ...[
           const SizedBox(height: 5),
           Text(
-            errorText!,
+            text.t(errorText!),
             style: const TextStyle(
               fontSize: AppTextSize.s12,
               fontWeight: FontWeight.w700,
@@ -3567,26 +3567,27 @@ class _ActiveStatusField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Active', style: AppTextStyles.formLabel),
+        Text(text.t('Active'), style: AppTextStyles.formLabel),
         const SizedBox(height: 6),
         DropdownButtonFormField<bool>(
           initialValue: value,
-          items: const [
+          items: [
             DropdownMenuItem<bool>(
               value: true,
-              child: Text('Active'),
+              child: Text(text.t('Active')),
             ),
             DropdownMenuItem<bool>(
               value: false,
-              child: Text('Inactive'),
+              child: Text(text.t('Inactive')),
             ),
           ],
           onChanged: onChanged,
           decoration: AppInputStyle.decoration(
-            'Select status',
+            text.t('Select status'),
             contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           ),
           style: const TextStyle(
@@ -3617,6 +3618,7 @@ class _RoleField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     final hasCurrentValue = roles.any((role) => role.name == value);
     final options = hasCurrentValue
         ? roles
@@ -3633,7 +3635,7 @@ class _RoleField extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Role', style: AppTextStyles.formLabel),
+        Text(text.t('Role'), style: AppTextStyles.formLabel),
         const SizedBox(height: 6),
         DropdownButtonFormField<String>(
           initialValue: value,
@@ -3642,16 +3644,20 @@ class _RoleField extends StatelessWidget {
               .map((role) => DropdownMenuItem<String>(
                     value: role.name,
                     child: Text(
-                      role.active ? role.name : '${role.name} · Inactive',
+                      role.active
+                          ? text.t(role.name)
+                          : '${text.t(role.name)} · ${text.t('Inactive')}',
                       overflow: TextOverflow.ellipsis,
                     ),
                   ))
               .toList(),
           onChanged: onChanged,
           decoration: AppInputStyle.decoration(
-            'Select role',
+            text.t('Select role'),
             contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          ).copyWith(errorText: errorText),
+          ).copyWith(
+            errorText: errorText == null ? null : text.t(errorText!),
+          ),
           style: const TextStyle(
             fontSize: AppTextSize.s17,
             fontWeight: FontWeight.w700,
@@ -3661,7 +3667,7 @@ class _RoleField extends StatelessWidget {
         if (helperText != null) ...[
           const SizedBox(height: 6),
           Text(
-            helperText!,
+            text.t(helperText!),
             style: const TextStyle(
               fontSize: AppTextSize.s12,
               fontWeight: FontWeight.w600,

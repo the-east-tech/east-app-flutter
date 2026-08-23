@@ -105,6 +105,7 @@ class _PeoplePointsScreenState extends State<PeoplePointsScreen> {
   }
 
   Future<void> _apply() async {
+    final text = AppTextScope.of(context);
     final user = selectedUser;
     final reason = reasonController.text.trim();
     if (user == null) {
@@ -145,7 +146,7 @@ class _PeoplePointsScreenState extends State<PeoplePointsScreen> {
         _selectFirstUser();
       });
       widget.onLeaderboardChanged(updated);
-      showSuccessSnackBar(context, 'Points updated');
+      showSuccessSnackBar(context, text.t('Points updated'));
     } on EastAppApiException {
       // Global API error handling already shows the technical error.
     }
@@ -169,7 +170,7 @@ class _PeoplePointsScreenState extends State<PeoplePointsScreen> {
         Row(
           children: [
             IconButton(
-              tooltip: 'Back',
+              tooltip: text.t('Back'),
               onPressed: widget.onBack,
               icon: const Icon(Icons.arrow_back_rounded),
             ),
@@ -204,9 +205,9 @@ class _PeoplePointsScreenState extends State<PeoplePointsScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Point Adjustment',
-                style: TextStyle(
+              Text(
+                text.t('Point Adjustment'),
+                style: const TextStyle(
                   fontSize: AppTextSize.s17,
                   fontWeight: FontWeight.w800,
                 ),
@@ -214,16 +215,16 @@ class _PeoplePointsScreenState extends State<PeoplePointsScreen> {
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
                 initialValue: selectedUserId,
-                decoration: const InputDecoration(
-                  labelText: 'Active User',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: text.t('Active User'),
+                  border: const OutlineInputBorder(),
                 ),
                 items: members
                     .map(
                       (member) => DropdownMenuItem<String>(
                         value: member.userId,
                         child: Text(
-                          '${member.fullName} · ${member.employeeId} · ${member.totalPoints} pts',
+                          '${member.fullName} · ${member.employeeId} · ${member.totalPoints} ${text.t('points')}',
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
@@ -241,7 +242,7 @@ class _PeoplePointsScreenState extends State<PeoplePointsScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   IconButton.filledTonal(
-                    tooltip: 'Decrease 1 point',
+                    tooltip: text.t('Decrease 1 point'),
                     onPressed: pointsDelta <= -10 ? null : _decrease,
                     icon: const Icon(Icons.remove_rounded),
                   ),
@@ -258,9 +259,9 @@ class _PeoplePointsScreenState extends State<PeoplePointsScreen> {
                             fontWeight: FontWeight.w800,
                           ),
                         ),
-                        const Text(
-                          'Pending',
-                          style: TextStyle(
+                        Text(
+                          text.t('Pending'),
+                          style: const TextStyle(
                             color: AppColours.textMuted,
                             fontSize: AppTextSize.s12,
                             fontWeight: FontWeight.w600,
@@ -271,7 +272,7 @@ class _PeoplePointsScreenState extends State<PeoplePointsScreen> {
                   ),
                   const SizedBox(width: 18),
                   IconButton.filled(
-                    tooltip: 'Add 1 point',
+                    tooltip: text.t('Add 1 point'),
                     onPressed: pointsDelta >= 10 ? null : _increase,
                     icon: const Icon(Icons.add_rounded),
                   ),
@@ -282,10 +283,10 @@ class _PeoplePointsScreenState extends State<PeoplePointsScreen> {
                 controller: reasonController,
                 maxLength: 300,
                 maxLines: 3,
-                decoration: const InputDecoration(
-                  labelText: 'Reason *',
-                  hintText: 'Compulsory reason for this adjustment',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: text.t('Reason *'),
+                  hintText: text.t('Compulsory reason for this adjustment'),
+                  border: const OutlineInputBorder(),
                 ),
                 onChanged: (_) {
                   if (validationMessage != null) {
@@ -295,7 +296,7 @@ class _PeoplePointsScreenState extends State<PeoplePointsScreen> {
               ),
               if (validationMessage != null) ...[
                 Text(
-                  validationMessage!,
+                  text.t(validationMessage!),
                   style: const TextStyle(
                     color: AppColours.red,
                     fontSize: AppTextSize.s13,
@@ -309,7 +310,7 @@ class _PeoplePointsScreenState extends State<PeoplePointsScreen> {
                 child: FilledButton.icon(
                   onPressed: members.isEmpty ? null : _apply,
                   icon: const Icon(Icons.check_rounded),
-                  label: const Text('Apply Adjustment'),
+                  label: Text(text.t('Apply Adjustment')),
                 ),
               ),
             ],
@@ -318,17 +319,17 @@ class _PeoplePointsScreenState extends State<PeoplePointsScreen> {
         const SizedBox(height: 12),
         Row(
           children: [
-            const Expanded(
+            Expanded(
               child: Text(
-                'Current Business Ranking',
-                style: TextStyle(
+                text.t('Current Business Ranking'),
+                style: const TextStyle(
                   fontSize: AppTextSize.s17,
                   fontWeight: FontWeight.w800,
                 ),
               ),
             ),
             IconButton(
-              tooltip: 'Refresh',
+              tooltip: text.t('Refresh'),
               onPressed: loading ? null : _loadLeaderboard,
               icon: loading
                   ? const SizedBox(
@@ -341,8 +342,8 @@ class _PeoplePointsScreenState extends State<PeoplePointsScreen> {
           ],
         ),
         if (members.isEmpty && !loading)
-          const WhiteCard(
-            child: Text('No active users found.'),
+          WhiteCard(
+            child: Text(text.t('No active users found.')),
           )
         else
           ...members.map(
@@ -377,7 +378,7 @@ class _PeoplePointsScreenState extends State<PeoplePointsScreen> {
                           ),
                         ),
                         Text(
-                          '${member.employeeId} · ${member.roleName}',
+                          '${member.employeeId} · ${text.t(member.roleName)}',
                           style: const TextStyle(
                             color: AppColours.textMuted,
                             fontSize: AppTextSize.s12,

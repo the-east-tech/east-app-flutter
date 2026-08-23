@@ -342,9 +342,9 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
           ],
         ),
         const SizedBox(height: 16),
-        const Text(
-          'SOP',
-          style: TextStyle(
+        Text(
+          text.t('SOP'),
+          style: const TextStyle(
             fontSize: AppTextSize.s22,
             fontWeight: FontWeight.w800,
             color: AppColours.textMain,
@@ -684,7 +684,7 @@ class _SopDetailPageState extends State<_SopDetailPage> {
             ),
             Expanded(
               child: PageTitle(
-                title: selectedItem.title,
+                title: text.content(selectedItem.title),
                 subtitle: '${text.t('SOP Details')} · ${text.t(selectedItem.language.label)}',
               ),
             ),
@@ -741,19 +741,21 @@ class _SopDetailPageState extends State<_SopDetailPage> {
                 runSpacing: 8,
                 children: [
                   SmallStatusPill(
-                    text: 'SOP',
+                    text: text.t('SOP'),
                     icon: Icons.description_outlined,
                     textColour: AppColours.textMain,
                     backgroundColour: AppColours.background,
                   ),
                   SmallStatusPill(
-                    text: widget.tagNameFor(selectedItem.tagId),
+                    text: text.content(
+                      text.t(widget.tagNameFor(selectedItem.tagId)),
+                    ),
                     icon: Icons.sell_outlined,
                     textColour: AppColours.textMain,
                     backgroundColour: AppColours.background,
                   ),
-                  const SmallStatusPill(
-                    text: 'Video',
+                  SmallStatusPill(
+                    text: text.t('Video'),
                     icon: Icons.videocam_outlined,
                     textColour: AppColours.textMain,
                     backgroundColour: AppColours.background,
@@ -767,9 +769,9 @@ class _SopDetailPageState extends State<_SopDetailPage> {
                 ],
               ),
               const SizedBox(height: 16),
-              const Text(
-                'Expected Outcome',
-                style: TextStyle(
+              Text(
+                text.t('Expected Outcome'),
+                style: const TextStyle(
                   fontSize: AppTextSize.s15,
                   fontWeight: FontWeight.w800,
                   color: AppColours.textMain,
@@ -777,13 +779,13 @@ class _SopDetailPageState extends State<_SopDetailPage> {
               ),
               const SizedBox(height: 6),
               Text(
-                selectedItem.expectedOutcome,
+                text.content(selectedItem.expectedOutcome),
                 style: AppTextStyles.formHint.copyWith(height: 1.4),
               ),
               const SizedBox(height: 16),
-              const Text(
-                'Description',
-                style: TextStyle(
+              Text(
+                text.t('Description'),
+                style: const TextStyle(
                   fontSize: AppTextSize.s15,
                   fontWeight: FontWeight.w800,
                   color: AppColours.textMain,
@@ -791,13 +793,13 @@ class _SopDetailPageState extends State<_SopDetailPage> {
               ),
               const SizedBox(height: 6),
               Text(
-                selectedItem.description,
+                text.content(selectedItem.description),
                 style: AppTextStyles.formHint.copyWith(height: 1.4),
               ),
               const SizedBox(height: 16),
-              const Text(
-                'YouTube URL',
-                style: TextStyle(
+              Text(
+                text.t('YouTube URL'),
+                style: const TextStyle(
                   fontSize: AppTextSize.s15,
                   fontWeight: FontWeight.w800,
                   color: AppColours.textMain,
@@ -985,7 +987,7 @@ class _TagSegmentedFilter extends StatelessWidget {
             ),
             for (final tag in tags)
               _TagSegment(
-                label: tag.tag,
+                label: text.content(tag.tag),
                 selected: selectedTagId == tag.id,
                 onTap: () => onChanged(tag.id),
               ),
@@ -1170,7 +1172,7 @@ class _CompactSopGroupCard extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                primary.title,
+                text.content(primary.title),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
@@ -1181,7 +1183,7 @@ class _CompactSopGroupCard extends StatelessWidget {
               ),
               const SizedBox(height: 2),
               Text(
-                '$tagName · ${group.versions.length} ${group.versions.length == 1 ? text.t('Video Version') : text.t('Video Versions')}',
+                '${text.content(text.t(tagName))} · ${group.versions.length} ${group.versions.length == 1 ? text.t('Video Version') : text.t('Video Versions')}',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
@@ -1347,7 +1349,7 @@ class _SopGroupCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      primary.title,
+                      text.content(primary.title),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -1358,7 +1360,7 @@ class _SopGroupCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '$tagName · ${group.versions.length} ${group.versions.length == 1 ? text.t('Video Version') : text.t('Video Versions')}',
+                      '${text.content(text.t(tagName))} · ${group.versions.length} ${group.versions.length == 1 ? text.t('Video Version') : text.t('Video Versions')}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -1375,7 +1377,7 @@ class _SopGroupCard extends StatelessWidget {
           if (showDescription) ...[
             const SizedBox(height: 8),
             Text(
-              primary.description,
+              text.content(primary.description),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: AppTextStyles.formHint.copyWith(height: 1.35),
@@ -1536,9 +1538,11 @@ Future<void> showSopEditorDialog(
           final youtubeError = !showValidation
               ? null
               : videoId == null
-                  ? 'Enter a valid YouTube video URL.'
+                  ? text.t('Enter a valid YouTube video URL.')
                   : duplicateLinkedVideo
-                      ? 'English and Myanmar must use different YouTube videos.'
+                      ? text.t(
+                          'English and Myanmar must use different YouTube videos.',
+                        )
                       : null;
           final availableLinkedVideos = linkableVideos;
 
@@ -1558,12 +1562,16 @@ Future<void> showSopEditorDialog(
 
             final confirmed = await confirmDataChange(
               dialogContext,
-              action: editing ? 'Update SOP?' : 'Create SOP?',
+              action: text.t(editing ? 'Update SOP?' : 'Create SOP?'),
               details: editing
-                  ? 'This will save the edited SOP information.'
+                  ? text.t('This will save the edited SOP information.')
                   : linkedSop == null
-                      ? 'This will create a new SOP for the selected Stock tag.'
-                      : 'This will create and link the ${selectedLanguage.label} video with ${linkedSop.language.label}. Both versions will be deleted together.',
+                      ? text.t(
+                          'This will create a new SOP for the selected Stock tag.',
+                        )
+                      : text.t(
+                          'This will create and link the ${selectedLanguage.label} video with ${linkedSop.language.label}. Both versions will be deleted together.',
+                        ),
             );
             if (!confirmed || !dialogContext.mounted) return;
 
@@ -1635,7 +1643,7 @@ Future<void> showSopEditorDialog(
                       const SizedBox(height: 18),
                       _DialogInput(
                         controller: youtubeController,
-                        label: 'YouTube URL',
+                        label: text.t('YouTube URL'),
                         hint: 'https://www.youtube.com/watch?v=...',
                         keyboardType: TextInputType.url,
                         errorText: youtubeError,
@@ -1715,7 +1723,7 @@ Future<void> showSopEditorDialog(
                               (item) => DropdownMenuItem<String>(
                                 value: item.id,
                                 child: Text(
-                                  '${item.title} · ${text.t(item.language.label)}',
+                                  '${text.content(item.title)} · ${text.t(item.language.label)}',
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),
@@ -1813,10 +1821,10 @@ Future<void> showSopEditorDialog(
                       _DialogInput(
                         controller: titleController,
                         label: text.t('Title'),
-                        hint: 'Example: Belly Pork Preparation',
+                        hint: text.t('Example: Belly Pork Preparation'),
                         enabled: !sharedFieldsLocked,
                         errorText: showValidation && title.isEmpty
-                            ? 'Title is required.'
+                            ? text.t('Title is required.')
                             : null,
                         onChanged: (_) => setDialogState(() {
                           submitError = null;
@@ -1825,12 +1833,14 @@ Future<void> showSopEditorDialog(
                       const SizedBox(height: 16),
                       _DialogInput(
                         controller: outcomeController,
-                        label: 'Expected Outcome',
-                        hint: 'What should staff achieve after following this?',
+                        label: text.t('Expected Outcome'),
+                        hint: text.t(
+                          'What should staff achieve after following this?',
+                        ),
                         maxLines: 2,
                         enabled: !sharedFieldsLocked,
                         errorText: showValidation && outcome.isEmpty
-                            ? 'Expected Outcome is required.'
+                            ? text.t('Expected Outcome is required.')
                             : null,
                         onChanged: (_) => setDialogState(() {
                           submitError = null;
@@ -1840,11 +1850,11 @@ Future<void> showSopEditorDialog(
                       _DialogInput(
                         controller: descriptionController,
                         label: text.t('Description'),
-                        hint: 'Describe the SOP content',
+                        hint: text.t('Describe the SOP content'),
                         maxLines: 3,
                         enabled: !sharedFieldsLocked,
                         errorText: showValidation && description.isEmpty
-                            ? 'Description is required.'
+                            ? text.t('Description is required.')
                             : null,
                         onChanged: (_) => setDialogState(() {
                           submitError = null;

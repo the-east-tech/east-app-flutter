@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../localization/app_text_scope.dart';
 import '../theme/app_theme.dart';
 
 class PhoneCountry {
@@ -94,10 +95,11 @@ class PhoneNumberField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: AppTextStyles.formLabel),
+        Text(text.t(label), style: AppTextStyles.formLabel),
         const SizedBox(height: 6),
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -157,7 +159,7 @@ class PhoneNumberField extends StatelessWidget {
                 enableSuggestions: false,
                 style: AppTextStyles.formValue,
                 decoration: AppInputStyle.decoration(
-                  hint,
+                  text.t(hint),
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: 14,
                     vertical: 13,
@@ -172,7 +174,7 @@ class PhoneNumberField extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(left: 2),
             child: Text(
-              errorText!,
+              text.t(errorText!),
               style: const TextStyle(
                 fontSize: AppTextSize.s12,
                 color: AppColours.red,
@@ -223,6 +225,7 @@ class _PhoneCountryPickerState extends State<_PhoneCountryPicker> {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     final filtered = phoneCountries.where((country) {
       final target = '${country.name} ${country.isoCode} ${country.dialCode}'.toLowerCase();
       return target.contains(query.toLowerCase().trim());
@@ -243,11 +246,11 @@ class _PhoneCountryPickerState extends State<_PhoneCountryPicker> {
               ),
             ),
             const SizedBox(height: 14),
-            const Align(
+            Align(
               alignment: Alignment.centerLeft,
               child: Text(
-                'Country Code',
-                style: TextStyle(
+                text.t('Country Code'),
+                style: const TextStyle(
                   fontSize: AppTextSize.s24,
                   fontWeight: FontWeight.w700,
                 ),
@@ -258,7 +261,9 @@ class _PhoneCountryPickerState extends State<_PhoneCountryPicker> {
               controller: searchController,
               autofocus: true,
               onChanged: (value) => setState(() => query = value),
-              decoration: AppInputStyle.decoration('Search country or code').copyWith(
+              decoration: AppInputStyle.decoration(
+                text.t('Search country or code'),
+              ).copyWith(
                 prefixIcon: const Icon(Icons.search_rounded),
               ),
             ),
@@ -274,7 +279,7 @@ class _PhoneCountryPickerState extends State<_PhoneCountryPicker> {
                     contentPadding: const EdgeInsets.symmetric(horizontal: 4),
                     leading: Text(country.flag, style: const TextStyle(fontSize: 24)),
                     title: Text(
-                      country.name,
+                      text.t(country.name),
                       style: const TextStyle(fontWeight: FontWeight.w700),
                     ),
                     subtitle: Text(country.isoCode),

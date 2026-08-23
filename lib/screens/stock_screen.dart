@@ -35,6 +35,7 @@ Future<T?> showStockBottomSheet<T>(
   double maxHeightFactor = 0.9,
 }) {
   final mediaScope = context.getInheritedWidgetOfExactType<_StockMediaScope>();
+  final textScope = context.getInheritedWidgetOfExactType<AppTextScope>();
   return showModalBottomSheet<T>(
     context: context,
     isScrollControlled: true,
@@ -56,6 +57,13 @@ Future<T?> showStockBottomSheet<T>(
           api: mediaScope.api,
           loadThumbnail: mediaScope.loadThumbnail,
           loadReceivingPhoto: mediaScope.loadReceivingPhoto,
+          child: sheet,
+        );
+      }
+      if (textScope != null) {
+        sheet = AppTextScope(
+          language: textScope.language,
+          contentTranslations: textScope.contentTranslations,
           child: sheet,
         );
       }
@@ -128,6 +136,7 @@ class _SetupDataRefreshBarState extends State<_SetupDataRefreshBar> {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     return Material(
       color: const Color(0xFFF6F8FC),
       child: Padding(
@@ -138,7 +147,7 @@ class _SetupDataRefreshBarState extends State<_SetupDataRefreshBar> {
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                updatedText,
+                text.t(updatedText),
                 style: const TextStyle(
                   color: AppColours.textMuted,
                   fontSize: AppTextSize.s12,
@@ -151,7 +160,7 @@ class _SetupDataRefreshBarState extends State<_SetupDataRefreshBar> {
               icon: refreshing
                   ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
                   : const Icon(Icons.refresh_rounded),
-              label: const Text('Refresh'),
+              label: Text(text.t('Refresh')),
             ),
           ],
         ),
@@ -823,6 +832,7 @@ class _MiniMetric extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     return WhiteCard(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
       child: Row(
@@ -841,7 +851,7 @@ class _MiniMetric extends StatelessWidget {
           const SizedBox(width: 4),
           Flexible(
             child: Text(
-              label,
+              text.t(label),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
@@ -1178,7 +1188,7 @@ class _DailyStockCountPageState extends State<_DailyStockCountPage> {
                   children: [
                     Expanded(
                       child: Text(
-                        sku.name,
+                        AppTextScope.of(context).content(sku.name),
                         style: const TextStyle(fontSize: AppTextSize.s24, fontWeight: FontWeight.w700),
                       ),
                     ),
@@ -1253,7 +1263,7 @@ class _DailyStockCountPageState extends State<_DailyStockCountPage> {
                     children: [
                       Expanded(
                         child: Text(
-                          sku.name,
+                          text.content(sku.name),
                           style: const TextStyle(fontSize: AppTextSize.s24, fontWeight: FontWeight.w700),
                         ),
                       ),
@@ -1499,9 +1509,9 @@ class _DailyStockCountPageState extends State<_DailyStockCountPage> {
         ),
         if (showCountErrors && !canSubmit) ...[
           const SizedBox(height: 10),
-          const Text(
-            'Complete all pending items',
-            style: TextStyle(
+          Text(
+            text.t('Complete all pending items'),
+            style: const TextStyle(
               color: AppColours.red,
               fontSize: AppTextSize.s13,
               fontWeight: FontWeight.w800,
@@ -1631,60 +1641,9 @@ class _SkuPhotoThumb extends StatelessWidget {
     this.fit = BoxFit.cover,
   });
 
-  IconData get _fallbackIcon {
-    final value = '${sku.name} ${sku.photoPath}'.toLowerCase();
-    if (value.contains('chicken')) return Icons.set_meal_outlined;
-    if (value.contains('rice')) return Icons.rice_bowl_outlined;
-    if (value.contains('cup')) return Icons.local_drink_outlined;
-    if (value.contains('egg')) return Icons.egg_outlined;
-    if (value.contains('milk')) return Icons.local_drink_outlined;
-    if (value.contains('oil')) return Icons.oil_barrel_outlined;
-    if (value.contains('tomato') || value.contains('lettuce')) return Icons.eco_outlined;
-    if (value.contains('meat')) return Icons.restaurant_menu_outlined;
-    if (value.contains('pack')) return Icons.inventory_2_outlined;
-    return Icons.image_outlined;
-  }
-
-  String? get _samplePhotoUrl {
-    switch (sku.photoPath) {
-      case 'sample:chicken':
-        return 'https://images.unsplash.com/photo-1604503468506-a8da13d82791?auto=format&fit=crop&w=240&q=70';
-      case 'sample:rice':
-        return 'https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&w=240&q=70';
-      case 'sample:cold_cup':
-        return 'https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?auto=format&fit=crop&w=240&q=70';
-      case 'sample:egg':
-        return 'https://images.unsplash.com/photo-1587486913049-53fc88980cfc?auto=format&fit=crop&w=240&q=70';
-      case 'sample:tomato':
-        return 'https://images.unsplash.com/photo-1561136594-7f68413baa99?auto=format&fit=crop&w=240&q=70';
-      case 'sample:lettuce':
-        return 'https://images.unsplash.com/photo-1622206151226-18ca2c9ab4a1?auto=format&fit=crop&w=240&q=70';
-      case 'sample:milk':
-        return 'https://images.unsplash.com/photo-1563636619-e9143da7973b?auto=format&fit=crop&w=240&q=70';
-      case 'sample:oil':
-        return 'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?auto=format&fit=crop&w=240&q=70';
-      case 'sample:sugar':
-        return 'https://images.unsplash.com/photo-1581268497089-7a975fb491a3?auto=format&fit=crop&w=240&q=70';
-      case 'sample:sauce':
-        return 'https://images.unsplash.com/photo-1472476443507-c7a5948772fc?auto=format&fit=crop&w=240&q=70';
-      case 'sample:pasta':
-        return 'https://images.unsplash.com/photo-1551183053-bf91a1d81141?auto=format&fit=crop&w=240&q=70';
-      case 'sample:dairy':
-        return 'https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&w=240&q=70';
-      case 'sample:coconut':
-        return 'https://images.unsplash.com/photo-1580984969071-a8da5656c2fb?auto=format&fit=crop&w=240&q=70';
-      case 'sample:flour':
-        return 'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=240&q=70';
-      case 'sample:frozen':
-        return 'https://images.unsplash.com/photo-1518013431117-eb1465fa5752?auto=format&fit=crop&w=240&q=70';
-    }
-    return null;
-  }
-
   @override
   Widget build(BuildContext context) {
     final hasPhoto = sku.photoPath.trim().isNotEmpty;
-    final samplePhotoUrl = _samplePhotoUrl;
     final fallback = Container(
       width: size,
       height: size,
@@ -1694,7 +1653,11 @@ class _SkuPhotoThumb extends StatelessWidget {
         border: Border.all(color: AppColours.border),
       ),
       alignment: Alignment.center,
-      child: Icon(_fallbackIcon, size: size * 0.56, color: hasPhoto ? AppColours.blue : AppColours.textMuted),
+      child: Icon(
+        Icons.image_outlined,
+        size: size * 0.56,
+        color: hasPhoto ? AppColours.blue : AppColours.textMuted,
+      ),
     );
     final storageKey = sku.photoPath.trim();
     final storedThumbnail = storageKey.endsWith('.jpg') || storageKey.endsWith('.png');
@@ -1707,14 +1670,6 @@ class _SkuPhotoThumb extends StatelessWidget {
         height: size,
         fit: fit,
         gaplessPlayback: true,
-        errorBuilder: (_, _, _) => fallback,
-      );
-    } else if (samplePhotoUrl != null) {
-      photo = Image.network(
-        samplePhotoUrl,
-        width: size,
-        height: size,
-        fit: fit,
         errorBuilder: (_, _, _) => fallback,
       );
     } else if (storedThumbnail) {
@@ -1764,6 +1719,7 @@ Future<void> showSkuPhotoViewer(
   Uint8List? overrideBytes,
 }) async {
   final mediaScope = context.getInheritedWidgetOfExactType<_StockMediaScope>();
+  final translatedSkuName = AppTextScope.of(context).content(sku.name);
   await Navigator.of(context).push<void>(
     MaterialPageRoute(
       fullscreenDialog: true,
@@ -1773,7 +1729,7 @@ Future<void> showSkuPhotoViewer(
           appBar: AppBar(
             backgroundColor: Colors.black,
             foregroundColor: Colors.white,
-            title: Text(sku.name),
+            title: Text(translatedSkuName),
           ),
           body: SafeArea(
             child: Center(
@@ -1829,6 +1785,7 @@ class _DailyStockMiniCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     final maximum = sku.maximumBalanceValue <= 0 ? 1.0 : sku.maximumBalanceValue;
     final ratio = (currentBalance / maximum).clamp(0.0, 1.0).toDouble();
     final belowMinimum = currentBalance < sku.minimumBalanceValue;
@@ -1886,7 +1843,7 @@ class _DailyStockMiniCard extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            sku.name,
+                            text.content(sku.name),
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
@@ -1959,12 +1916,12 @@ class _DailyStockMiniCard extends StatelessWidget {
                   const SizedBox(height: 8),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.end,
-                    children: const [
-                      Icon(Icons.edit_outlined, size: 14, color: AppColours.blue),
-                      SizedBox(width: 4),
+                    children: [
+                      const Icon(Icons.edit_outlined, size: 14, color: AppColours.blue),
+                      const SizedBox(width: 4),
                       Text(
-                        'Tap to edit',
-                        style: TextStyle(
+                        text.t('Tap to edit'),
+                        style: const TextStyle(
                           fontSize: AppTextSize.s12,
                           color: AppColours.blue,
                           fontWeight: FontWeight.w800,
@@ -2362,15 +2319,15 @@ class _StockReceivingPageState extends State<_StockReceivingPage> {
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(color: AppColours.orange.withValues(alpha: 0.30)),
                 ),
-                child: const Row(
+                child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.warning_amber_rounded, color: AppColours.orange, size: 20),
-                    SizedBox(width: 8),
+                    const Icon(Icons.warning_amber_rounded, color: AppColours.orange, size: 20),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'Bulk submission is risky. Check every record. This action cannot be undone.\n批量提交有风险。请逐项确认。此操作无法撤回。',
-                        style: TextStyle(fontSize: AppTextSize.s12, color: AppColours.orange, fontWeight: FontWeight.w800, height: 1.25),
+                        text.t('Bulk submission is risky. Check every record. This action cannot be undone.'),
+                        style: const TextStyle(fontSize: AppTextSize.s12, color: AppColours.orange, fontWeight: FontWeight.w800, height: 1.25),
                       ),
                     ),
                   ],
@@ -2557,7 +2514,7 @@ class _StockReceivingPageState extends State<_StockReceivingPage> {
               _SkuPhotoThumb(sku: sku, size: 56),
               const SizedBox(height: 8),
               Text(
-                sku.name,
+                AppTextScope.of(context).content(sku.name),
                 maxLines: 2,
                 textAlign: TextAlign.center,
                 overflow: TextOverflow.ellipsis,
@@ -2622,7 +2579,7 @@ class _StockReceivingPageState extends State<_StockReceivingPage> {
         ),
         Expanded(
           child: Text(
-            '$selectedCount selected',
+            text.t('$selectedCount selected'),
             textAlign: TextAlign.center,
             style: const TextStyle(
               fontSize: AppTextSize.s13,
@@ -2651,13 +2608,14 @@ class _StockReceivingPageState extends State<_StockReceivingPage> {
   void showReceivingForm(SupplierProfile supplier, StockSku sku) {
     setState(() => resetReceivingForm(supplier, sku));
     final mediaScope = _StockMediaScope.of(context);
+    final textScope = context.getInheritedWidgetOfExactType<AppTextScope>();
 
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (sheetContext) {
-        return _StockMediaScope(
+        Widget sheet = _StockMediaScope(
           api: mediaScope.api,
           loadThumbnail: mediaScope.loadThumbnail,
           loadReceivingPhoto: mediaScope.loadReceivingPhoto,
@@ -2782,7 +2740,7 @@ class _StockReceivingPageState extends State<_StockReceivingPage> {
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
                                           Text(
-                                            sku.name,
+                                            text.content(sku.name),
                                             maxLines: 1,
                                             overflow: TextOverflow.ellipsis,
                                             style: const TextStyle(
@@ -2857,16 +2815,16 @@ class _StockReceivingPageState extends State<_StockReceivingPage> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     if (sku.receivingChecklist.isEmpty)
-                                      const Text(
-                                        'No checklist set.',
-                                        style: TextStyle(fontSize: AppTextSize.s13, color: AppColours.textMuted, fontWeight: FontWeight.w700),
+                                      Text(
+                                        text.t('No checklist set.'),
+                                        style: const TextStyle(fontSize: AppTextSize.s13, color: AppColours.textMuted, fontWeight: FontWeight.w700),
                                       )
                                     else
                                       ...sku.receivingChecklist.asMap().entries.map((entry) {
                                         return Padding(
                                           padding: const EdgeInsets.only(bottom: 5),
                                           child: Text(
-                                            '${entry.key + 1}. ${entry.value}',
+                                            '${entry.key + 1}. ${text.content(entry.value)}',
                                             style: const TextStyle(fontSize: AppTextSize.s13, color: AppColours.textMain, fontWeight: FontWeight.w700, height: 1.25),
                                           ),
                                         );
@@ -2935,6 +2893,14 @@ class _StockReceivingPageState extends State<_StockReceivingPage> {
             },
           ),
         );
+        if (textScope != null) {
+          sheet = AppTextScope(
+            language: textScope.language,
+            contentTranslations: textScope.contentTranslations,
+            child: sheet,
+          );
+        }
+        return sheet;
       },
     );
   }
@@ -3175,9 +3141,9 @@ class _ReceivingSupplierActionRow extends StatelessWidget {
                             if (!submitted && skuCount > 0) ...[
                               const SizedBox(height: 2),
                               Text(
-                                savedSkuCount >= skuCount
+                                text.t(savedSkuCount >= skuCount
                                     ? '$savedSkuCount SKU received'
-                                    : '${skuCount - savedSkuCount} pending',
+                                    : '${skuCount - savedSkuCount} pending'),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
@@ -3189,7 +3155,7 @@ class _ReceivingSupplierActionRow extends StatelessWidget {
                             ] else if (submitted && savedSkuCount > 0) ...[
                               const SizedBox(height: 2),
                               Text(
-                                '$savedSkuCount SKU saved',
+                                text.t('$savedSkuCount SKU saved'),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
@@ -3343,7 +3309,7 @@ class _ReceivingSkuPickerSheetState extends State<_ReceivingSkuPickerSheet> {
                   _SkuPhotoThumb(sku: sku, size: 56),
                   const SizedBox(height: 8),
                   Text(
-                    sku.name,
+                    AppTextScope.of(context).content(sku.name),
                     maxLines: 2,
                     textAlign: TextAlign.center,
                     overflow: TextOverflow.ellipsis,
@@ -3545,12 +3511,15 @@ class _RestockMessagePageState extends State<_RestockMessagePage> {
     return '${two(now.day)}/${two(now.month)}/${now.year} ${two(hour12)}:${two(now.minute)}$suffix';
   }
 
-  String buildSupplierMessage(_RestockSupplierGroup group) {
+  String buildSupplierMessage(
+    _RestockSupplierGroup group, [
+    String Function(String value)? translate,
+  ]) {
     final lines = <String>[];
     for (var i = 0; i < group.skus.length; i++) {
       final sku = group.skus[i];
       lines.add(
-        '${i + 1}. ${sku.name} - ${formatStockNumber(sku.suggestedRestockAmount)} ${sku.unit}',
+        '${i + 1}. ${translate?.call(sku.name) ?? sku.name} - ${formatStockNumber(sku.suggestedRestockAmount)} ${sku.unit}',
       );
     }
     lines.add('');
@@ -3559,21 +3528,27 @@ class _RestockMessagePageState extends State<_RestockMessagePage> {
     return lines.join('\n');
   }
 
-  String buildAllSupplierMessages() {
+  String buildAllSupplierMessages([String Function(String value)? translate]) {
     final groups = supplierGroups();
     if (groups.isEmpty) return 'No restock needed today.';
-    return groups.map(buildSupplierMessage).join('\n\n---\n\n');
+    return groups
+        .map((group) => buildSupplierMessage(group, translate))
+        .join('\n\n---\n\n');
   }
 
   void copySupplierMessage(BuildContext context, _RestockSupplierGroup group) {
     final text = AppTextScope.of(context);
-    Clipboard.setData(ClipboardData(text: buildSupplierMessage(group)));
+    Clipboard.setData(
+      ClipboardData(text: buildSupplierMessage(group, text.content)),
+    );
     showSuccessSnackBar(context, text.t('Supplier restock message copied'));
   }
 
   void copyAllSupplierMessages(BuildContext context) {
     final text = AppTextScope.of(context);
-    Clipboard.setData(ClipboardData(text: buildAllSupplierMessages()));
+    Clipboard.setData(
+      ClipboardData(text: buildAllSupplierMessages(text.content)),
+    );
     showSuccessSnackBar(context, text.t('All supplier messages copied'));
   }
 
@@ -3589,7 +3564,7 @@ class _RestockMessagePageState extends State<_RestockMessagePage> {
 
   Widget restockSupplierGridCard(BuildContext context, _RestockSupplierGroup group) {
     final text = AppTextScope.of(context);
-    final message = buildSupplierMessage(group);
+    final message = buildSupplierMessage(group, text.content);
     return WhiteCard(
       padding: EdgeInsets.zero,
       child: Pressable(
@@ -3653,7 +3628,7 @@ class _RestockMessagePageState extends State<_RestockMessagePage> {
     final text = AppTextScope.of(context);
     final group = supplierGroupForSku(sku);
     final supplier = preferredSupplierFor(sku);
-    final message = buildSupplierMessage(group);
+    final message = buildSupplierMessage(group, text.content);
 
     return WhiteCard(
       padding: EdgeInsets.zero,
@@ -3683,7 +3658,7 @@ class _RestockMessagePageState extends State<_RestockMessagePage> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      sku.name,
+                      text.content(sku.name),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -4221,10 +4196,17 @@ class _StockReviewPageState extends State<_StockReviewPage> {
   }
 
   Future<void> reviewReceiving(StockReceivingRecord record, String status) async {
+    final text = AppTextScope.of(context);
     final confirmed = await confirmDataChange(
       context,
-      action: status == 'Approved' ? 'Approve Receiving Record?' : 'Reject Receiving Record?',
-      details: 'This will update the review status of this receiving record.',
+      action: text.t(
+        status == 'Approved'
+            ? 'Approve Receiving Record?'
+            : 'Reject Receiving Record?',
+      ),
+      details: text.t(
+        'This will update the review status of this receiving record.',
+      ),
     );
     if (!confirmed || !mounted) return;
     final updated = record.copyWith(
@@ -4239,14 +4221,26 @@ class _StockReviewPageState extends State<_StockReviewPage> {
       selectedIds.remove(record.id);
     });
     Navigator.of(context).pop();
-    showSuccessSnackBar(context, status == 'Approved' ? 'Receiving record approved' : 'Receiving record rejected');
+    showSuccessSnackBar(
+      context,
+      text.t(
+        status == 'Approved'
+            ? 'Receiving record approved'
+            : 'Receiving record rejected',
+      ),
+    );
   }
 
   Future<void> reviewCount(StockSubmission submission, String status) async {
+    final text = AppTextScope.of(context);
     final confirmed = await confirmDataChange(
       context,
-      action: status == 'Approved' ? 'Approve Daily Count?' : 'Reject Daily Count?',
-      details: 'This will update the review status of this daily stock count.',
+      action: text.t(
+        status == 'Approved' ? 'Approve Daily Count?' : 'Reject Daily Count?',
+      ),
+      details: text.t(
+        'This will update the review status of this daily stock count.',
+      ),
     );
     if (!confirmed || !mounted) return;
     final updated = submission.copyWith(
@@ -4261,16 +4255,26 @@ class _StockReviewPageState extends State<_StockReviewPage> {
       selectedIds.remove(submission.id);
     });
     Navigator.of(context).pop();
-    showSuccessSnackBar(context, status == 'Approved' ? 'Daily count approved' : 'Daily count rejected');
+    showSuccessSnackBar(
+      context,
+      text.t(
+        status == 'Approved' ? 'Daily count approved' : 'Daily count rejected',
+      ),
+    );
   }
 
   Future<void> bulkReview(String status) async {
     if (selectedIds.isEmpty || !canReviewSelectedStatus) return;
     final selectedCount = selectedIds.length;
+    final text = AppTextScope.of(context);
     final confirmed = await confirmDataChange(
       context,
-      action: status == 'Approved' ? 'Approve $selectedCount records?' : 'Reject $selectedCount records?',
-      details: 'This will update all selected records.',
+      action: text.t(
+        status == 'Approved'
+            ? 'Approve $selectedCount records?'
+            : 'Reject $selectedCount records?',
+      ),
+      details: text.t('This will update all selected records.'),
     );
     if (!confirmed || !mounted) return;
 
@@ -4307,10 +4311,18 @@ class _StockReviewPageState extends State<_StockReviewPage> {
       selecting = false;
       selectedIds.clear();
     });
-    showSuccessSnackBar(context, status == 'Approved' ? 'Selected records approved' : 'Selected records rejected');
+    showSuccessSnackBar(
+      context,
+      text.t(
+        status == 'Approved'
+            ? 'Selected records approved'
+            : 'Selected records rejected',
+      ),
+    );
   }
 
   void showReceivingDetails(StockReceivingRecord record) {
+    final text = AppTextScope.of(context);
     final conditionColour = receivingConditionColour(record);
     showStockBottomSheet<void>(
       context,
@@ -4327,8 +4339,8 @@ class _StockReviewPageState extends State<_StockReviewPage> {
                 const SizedBox(height: 12),
                 Row(
                   children: [
-                    const Expanded(
-                      child: Text('Receiving Review', style: TextStyle(fontSize: AppTextSize.s24, fontWeight: FontWeight.w800)),
+                    Expanded(
+                      child: Text(text.t('Receiving Review'), style: const TextStyle(fontSize: AppTextSize.s24, fontWeight: FontWeight.w800)),
                     ),
                     IconButton(onPressed: () => Navigator.of(sheetContext).pop(), icon: const Icon(Icons.close_rounded)),
                   ],
@@ -4358,9 +4370,9 @@ class _StockReviewPageState extends State<_StockReviewPage> {
                   const SizedBox(height: 14),
                   Row(
                     children: [
-                      Expanded(child: PrimaryButton(text: 'Reject', outlined: true, icon: Icons.close_rounded, onPressed: () => reviewReceiving(record, 'Rejected'))),
+                      Expanded(child: PrimaryButton(text: text.t('Reject'), outlined: true, icon: Icons.close_rounded, onPressed: () => reviewReceiving(record, 'Rejected'))),
                       const SizedBox(width: 10),
-                      Expanded(child: PrimaryButton(text: 'Approve', icon: Icons.check_rounded, onPressed: () => reviewReceiving(record, 'Approved'))),
+                      Expanded(child: PrimaryButton(text: text.t('Approve'), icon: Icons.check_rounded, onPressed: () => reviewReceiving(record, 'Approved'))),
                     ],
                   ),
                 ],
@@ -4373,6 +4385,7 @@ class _StockReviewPageState extends State<_StockReviewPage> {
   }
 
   void showCountDetails(StockSubmission submission) {
+    final text = AppTextScope.of(context);
     final sku = skuForSubmission(submission);
     final increased = submission.increasedValue;
     final increasedText = '${increased >= 0 ? '+' : ''}${formatStockNumber(increased)} ${sku.unit}';
@@ -4391,8 +4404,8 @@ class _StockReviewPageState extends State<_StockReviewPage> {
                 const SizedBox(height: 12),
                 Row(
                   children: [
-                    const Expanded(
-                      child: Text('Daily Count Review', style: TextStyle(fontSize: AppTextSize.s24, fontWeight: FontWeight.w800)),
+                    Expanded(
+                      child: Text(text.t('Daily Count Review'), style: const TextStyle(fontSize: AppTextSize.s24, fontWeight: FontWeight.w800)),
                     ),
                     IconButton(onPressed: () => Navigator.of(sheetContext).pop(), icon: const Icon(Icons.close_rounded)),
                   ],
@@ -4426,9 +4439,9 @@ class _StockReviewPageState extends State<_StockReviewPage> {
                   const SizedBox(height: 14),
                   Row(
                     children: [
-                      Expanded(child: PrimaryButton(text: 'Reject', outlined: true, icon: Icons.close_rounded, onPressed: () => reviewCount(submission, 'Rejected'))),
+                      Expanded(child: PrimaryButton(text: text.t('Reject'), outlined: true, icon: Icons.close_rounded, onPressed: () => reviewCount(submission, 'Rejected'))),
                       const SizedBox(width: 10),
-                      Expanded(child: PrimaryButton(text: 'Approve', icon: Icons.check_rounded, onPressed: () => reviewCount(submission, 'Approved'))),
+                      Expanded(child: PrimaryButton(text: text.t('Approve'), icon: Icons.check_rounded, onPressed: () => reviewCount(submission, 'Approved'))),
                     ],
                   ),
                 ],
@@ -4441,14 +4454,22 @@ class _StockReviewPageState extends State<_StockReviewPage> {
   }
 
   Widget statusDropdown() {
+    final text = AppTextScope.of(context);
     return DropdownButtonFormField<String>(
       initialValue: statusFilter,
       isExpanded: true,
-      decoration: _inputDecoration('Status').copyWith(
+      decoration: _inputDecoration(text.t('Status')).copyWith(
         isDense: true,
         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       ),
-      items: _statusOptions.map((status) => DropdownMenuItem(value: status, child: Text(status))).toList(),
+      items: _statusOptions
+          .map(
+            (status) => DropdownMenuItem(
+              value: status,
+              child: Text(text.t(status)),
+            ),
+          )
+          .toList(),
       onChanged: (value) {
         if (value == null || value == statusFilter) return;
         setState(() {
@@ -4460,20 +4481,21 @@ class _StockReviewPageState extends State<_StockReviewPage> {
   }
 
   Widget selectionToolbar() {
+    final text = AppTextScope.of(context);
     return WhiteCard(
       child: Row(
         children: [
           Expanded(
             child: Text(
-              '${selectedIds.length} selected',
+              text.t('${selectedIds.length} selected'),
               style: const TextStyle(fontSize: AppTextSize.s14, fontWeight: FontWeight.w800),
             ),
           ),
-          TextButton(onPressed: cancelSelection, child: const Text('Cancel')),
+          TextButton(onPressed: cancelSelection, child: Text(text.t('Cancel'))),
           const SizedBox(width: 4),
-          FilledButton.tonal(onPressed: selectedIds.isEmpty ? null : () => bulkReview('Rejected'), child: const Text('Reject')),
+          FilledButton.tonal(onPressed: selectedIds.isEmpty ? null : () => bulkReview('Rejected'), child: Text(text.t('Reject'))),
           const SizedBox(width: 6),
-          FilledButton(onPressed: selectedIds.isEmpty ? null : () => bulkReview('Approved'), child: const Text('Approve')),
+          FilledButton(onPressed: selectedIds.isEmpty ? null : () => bulkReview('Approved'), child: Text(text.t('Approve'))),
         ],
       ),
     );
@@ -4518,7 +4540,7 @@ class _StockReviewPageState extends State<_StockReviewPage> {
           ? TextButton.icon(
               onPressed: startSelection,
               icon: const Icon(Icons.checklist_rounded),
-              label: const Text('Select'),
+              label: Text(text.t('Select')),
             )
           : null,
       children: [
@@ -4550,7 +4572,9 @@ class _StockReviewPageState extends State<_StockReviewPage> {
         ),
         const SizedBox(height: 12),
         PrimaryButton(
-          text: loading ? 'Searching...' : hasLoaded ? 'Search Again' : 'Search',
+          text: text.t(
+            loading ? 'Searching...' : hasLoaded ? 'Search Again' : 'Search',
+          ),
           icon: loading ? null : Icons.search_rounded,
           onPressed: loading ? null : () => loadRecords(reset: true),
         ),
@@ -4558,7 +4582,9 @@ class _StockReviewPageState extends State<_StockReviewPage> {
         if (!hasLoaded)
           WhiteCard(
             child: Text(
-              'No records are loaded by default. Select Status and Date, then press Search.',
+              text.t(
+                'No records are loaded by default. Select Status and Date, then press Search.',
+              ),
               style: const TextStyle(fontSize: AppTextSize.s15, color: AppColours.textMuted, fontWeight: FontWeight.w600),
             ),
           )
@@ -4578,7 +4604,11 @@ class _StockReviewPageState extends State<_StockReviewPage> {
           if (recordsCount == 0)
             WhiteCard(
               child: Text(
-                isReceiving ? 'No receiving records found.' : 'No daily count records found.',
+                text.t(
+                  isReceiving
+                      ? 'No receiving records found.'
+                      : 'No daily count records found.',
+                ),
                 style: const TextStyle(fontSize: AppTextSize.s16, fontWeight: FontWeight.w700),
               ),
             )
@@ -4635,204 +4665,6 @@ class _StockReviewPageState extends State<_StockReviewPage> {
 }
 
 
-class _ReviewEmptyMessage extends StatelessWidget {
-  final String text;
-
-  const _ReviewEmptyMessage(this.text);
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(14),
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: Text(
-          text,
-          style: const TextStyle(fontSize: AppTextSize.s15, color: AppColours.textMuted, fontWeight: FontWeight.w700),
-        ),
-      ),
-    );
-  }
-}
-
-class _ReviewSearchBar extends StatelessWidget {
-  final TextEditingController searchController;
-  final String searchHint;
-
-  const _ReviewSearchBar({
-    required this.searchController,
-    required this.searchHint,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return TextField(
-      controller: searchController,
-      textInputAction: TextInputAction.search,
-      decoration: _inputDecoration(searchHint).copyWith(
-        prefixIcon: const Icon(Icons.search_rounded),
-        suffixIcon: searchController.text.trim().isEmpty
-            ? null
-            : IconButton(
-                onPressed: searchController.clear,
-                icon: const Icon(Icons.close_rounded),
-              ),
-      ),
-    );
-  }
-}
-
-class _ReviewFilterBar extends StatelessWidget {
-  final TextEditingController searchController;
-  final String searchHint;
-  final String filterLabel;
-  final String filterValue;
-  final List<String> filterOptions;
-  final ValueChanged<String> onFilterChanged;
-
-  const _ReviewFilterBar({
-    required this.searchController,
-    required this.searchHint,
-    required this.filterLabel,
-    required this.filterValue,
-    required this.filterOptions,
-    required this.onFilterChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final currentValue = filterOptions.contains(filterValue) ? filterValue : 'All';
-
-    return Column(
-      children: [
-        TextField(
-          controller: searchController,
-          textInputAction: TextInputAction.search,
-          decoration: _inputDecoration(searchHint).copyWith(
-            prefixIcon: const Icon(Icons.search_rounded),
-            suffixIcon: searchController.text.trim().isEmpty
-                ? null
-                : IconButton(
-                    onPressed: searchController.clear,
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-          ),
-        ),
-        const SizedBox(height: 8),
-        DropdownButtonFormField<String>(
-          initialValue: currentValue,
-          isExpanded: true,
-          decoration: _inputDecoration(filterLabel),
-          items: filterOptions
-              .map((value) => DropdownMenuItem<String>(
-                    value: value,
-                    child: Text(
-                      value,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ))
-              .toList(),
-          onChanged: (value) {
-            if (value == null) return;
-            onFilterChanged(value);
-          },
-        ),
-      ],
-    );
-  }
-}
-
-class _ReviewFolderRow extends StatelessWidget {
-  final String title;
-  final int count;
-  final VoidCallback onTap;
-
-  const _ReviewFolderRow({
-    required this.title,
-    required this.count,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Pressable(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: AppTextSize.s16,
-                  fontWeight: FontWeight.w800,
-                  color: AppColours.textMain,
-                ),
-              ),
-            ),
-            SmallStatusPill(
-              text: '$count',
-              textColour: AppColours.textMuted,
-              backgroundColour: AppColours.background,
-            ),
-            const SizedBox(width: 8),
-            const Icon(Icons.chevron_right_rounded, color: AppColours.textMuted),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ReviewGroupHeader extends StatelessWidget {
-  final String title;
-  final int count;
-
-  const _ReviewGroupHeader({
-    required this.title,
-    required this.count,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(12, 9, 12, 7),
-      color: AppColours.background,
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: AppTextSize.s13,
-                fontWeight: FontWeight.w800,
-                color: AppColours.textMain,
-              ),
-            ),
-          ),
-          Text(
-            '$count',
-            style: const TextStyle(
-              fontSize: AppTextSize.s12,
-              fontWeight: FontWeight.w800,
-              color: AppColours.textMuted,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-
 class _SelectionCircle extends StatelessWidget {
   final bool selected;
   final bool enabled;
@@ -4874,10 +4706,11 @@ class _BulkSummaryCell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final appText = AppTextScope.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
       child: Text(
-        text,
+        appText.content(appText.t(text)),
         maxLines: 2,
         overflow: TextOverflow.ellipsis,
         style: TextStyle(
@@ -4919,6 +4752,7 @@ class _ReceivingReviewRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final item = record.items.isNotEmpty ? record.items.first : null;
+    final text = AppTextScope.of(context);
     final condition = item?.condition ?? 'Unknown';
     final qty = item == null ? '-' : '${formatStockNumber(item.receivedQuantity)} ${item.unit}';
 
@@ -4951,7 +4785,7 @@ class _ReceivingReviewRow extends StatelessWidget {
                       children: [
                         Expanded(
                           child: Text(
-                            item?.skuName ?? record.supplierName,
+                            text.content(item?.skuName ?? record.supplierName),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
@@ -5042,6 +4876,7 @@ class _DailyCountReviewRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     final disabledInSelectMode = selectMode && !selectable;
 
     return Opacity(
@@ -5067,7 +4902,7 @@ class _DailyCountReviewRow extends StatelessWidget {
                       children: [
                         Expanded(
                           child: Text(
-                            sku.name,
+                            text.content(sku.name),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(fontSize: AppTextSize.s16, fontWeight: FontWeight.w800),
@@ -5452,6 +5287,7 @@ class _ReviewInfoRows extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     return Column(
       children: [
         for (final row in rows)
@@ -5463,7 +5299,7 @@ class _ReviewInfoRows extends StatelessWidget {
                 SizedBox(
                   width: 112,
                   child: Text(
-                    row.label,
+                    text.content(text.t(row.label)),
                     style: const TextStyle(
                       fontSize: AppTextSize.s13,
                       color: AppColours.textMuted,
@@ -5473,7 +5309,7 @@ class _ReviewInfoRows extends StatelessWidget {
                 ),
                 Expanded(
                   child: Text(
-                    row.value,
+                    text.content(text.t(row.value)),
                     style: TextStyle(
                       fontSize: AppTextSize.s13,
                       color: row.valueColour ?? AppColours.textMain,
@@ -5658,8 +5494,10 @@ class _SkuSetupPageState extends State<_SkuSetupPage> {
     if (!mounted) return;
     showSuccessSnackBar(
       context,
-      '${result.skusCopied} SKU, ${result.tagsCopied} tags and '
-      '${result.suppliersCopied} suppliers copied.',
+      AppTextScope.of(context).t(
+        '${result.skusCopied} SKU, ${result.tagsCopied} tags and '
+        '${result.suppliersCopied} suppliers copied.',
+      ),
     );
   }
 
@@ -5693,21 +5531,21 @@ class _SkuSetupPageState extends State<_SkuSetupPage> {
               children: [
                 const Icon(Icons.copy_all_rounded, color: AppColours.blue),
                 const SizedBox(width: 10),
-                const Expanded(
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Copy from another business',
-                        style: TextStyle(
+                        text.t('Copy from another business'),
+                        style: const TextStyle(
                           fontSize: AppTextSize.s16,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
                       SizedBox(height: 2),
                       Text(
-                        'Copy selected SKUs with their tags and suppliers.',
-                        style: TextStyle(
+                        text.t('Copy selected SKUs with their tags and suppliers.'),
+                        style: const TextStyle(
                           color: AppColours.textMuted,
                           fontSize: AppTextSize.s12,
                           fontWeight: FontWeight.w600,
@@ -5720,7 +5558,7 @@ class _SkuSetupPageState extends State<_SkuSetupPage> {
                 FilledButton.tonalIcon(
                   onPressed: openCopySkuSheet,
                   icon: const Icon(Icons.arrow_forward_rounded, size: 18),
-                  label: const Text('Copy'),
+                  label: Text(text.t('Copy')),
                 ),
               ],
             ),
@@ -5906,26 +5744,29 @@ class _CopySkuSheetState extends State<_CopySkuSheet> {
       return;
     }
 
+    final text = AppTextScope.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title: Text('Copy SKUs to ${widget.targetTenantName}?'),
+          title: Text(text.t('Copy SKUs to ${widget.targetTenantName}?')),
           content: Text(
-            'The selected SKUs, tags and suppliers will be duplicated from '
-            '${source.businessName} into ${widget.targetTenantName}.\n\n'
-            'This may create duplicate tags, suppliers or SKU records. '
-            'Copied records are independent and future changes will not stay '
-            'synchronised.',
+            text.t(
+              'The selected SKUs, tags and suppliers will be duplicated from '
+              '${source.businessName} into ${widget.targetTenantName}.\n\n'
+              'This may create duplicate tags, suppliers or SKU records. '
+              'Copied records are independent and future changes will not stay '
+              'synchronised.',
+            ),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('Cancel'),
+              child: Text(text.t('Cancel')),
             ),
             FilledButton(
               onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: const Text('Proceed'),
+              child: Text(text.t('Proceed')),
             ),
           ],
         );
@@ -5949,6 +5790,7 @@ class _CopySkuSheetState extends State<_CopySkuSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     final visibleSkus = filteredSkus;
     final allVisibleSelected = visibleSkus.isNotEmpty &&
         visibleSkus.every((sku) => selectedSkuIds.contains(sku.id));
@@ -5961,10 +5803,10 @@ class _CopySkuSheetState extends State<_CopySkuSheet> {
           const SizedBox(height: 12),
           Row(
             children: [
-              const Expanded(
+              Expanded(
                 child: Text(
-                  'Copy SKUs from Business',
-                  style: TextStyle(
+                  text.t('Copy SKUs from Business'),
+                  style: const TextStyle(
                     fontSize: AppTextSize.s24,
                     fontWeight: FontWeight.w700,
                   ),
@@ -5980,7 +5822,7 @@ class _CopySkuSheetState extends State<_CopySkuSheet> {
           DropdownButtonFormField<String>(
             initialValue: sourceTenantId,
             isExpanded: true,
-            decoration: _inputDecoration('Source business'),
+            decoration: _inputDecoration(text.t('Source business')),
             items: sourceTenants
                 .map(
                   (tenant) => DropdownMenuItem<String>(
@@ -6003,7 +5845,7 @@ class _CopySkuSheetState extends State<_CopySkuSheet> {
             controller: searchController,
             enabled: !copying,
             onChanged: (_) => setState(() {}),
-            decoration: _inputDecoration('Search source SKU').copyWith(
+            decoration: _inputDecoration(text.t('Search source SKU')).copyWith(
               prefixIcon: const Icon(Icons.search_rounded),
             ),
           ),
@@ -6012,7 +5854,7 @@ class _CopySkuSheetState extends State<_CopySkuSheet> {
             children: [
               Expanded(
                 child: Text(
-                  '${selectedSkuIds.length} selected',
+                  text.t('${selectedSkuIds.length} selected'),
                   style: const TextStyle(
                     color: AppColours.textMuted,
                     fontWeight: FontWeight.w700,
@@ -6035,7 +5877,9 @@ class _CopySkuSheetState extends State<_CopySkuSheet> {
                           }
                         });
                       },
-                child: Text(allVisibleSelected ? 'Clear visible' : 'Select visible'),
+                child: Text(
+                  text.t(allVisibleSelected ? 'Clear visible' : 'Select visible'),
+                ),
               ),
             ],
           ),
@@ -6044,8 +5888,8 @@ class _CopySkuSheetState extends State<_CopySkuSheet> {
                 ? const Center(child: CircularProgressIndicator())
                 : error != null
                     ? Center(
-                        child: Text(
-                          error!,
+                            child: Text(
+                              text.t(error!),
                           textAlign: TextAlign.center,
                           style: const TextStyle(
                             color: AppColours.textMuted,
@@ -6054,10 +5898,10 @@ class _CopySkuSheetState extends State<_CopySkuSheet> {
                         ),
                       )
                     : visibleSkus.isEmpty
-                        ? const Center(
+                        ? Center(
                             child: Text(
-                              'No SKU found.',
-                              style: TextStyle(
+                              text.t('No SKU found.'),
+                              style: const TextStyle(
                                 color: AppColours.textMuted,
                                 fontWeight: FontWeight.w700,
                               ),
@@ -6073,12 +5917,14 @@ class _CopySkuSheetState extends State<_CopySkuSheet> {
                                 value: selected,
                                 contentPadding: EdgeInsets.zero,
                                 title: Text(
-                                  sku.name,
+                                  text.content(sku.name),
                                   style: const TextStyle(
                                     fontWeight: FontWeight.w700,
                                   ),
                                 ),
-                                subtitle: Text('${sku.category} · ${sku.unit}'),
+                                subtitle: Text(
+                                  '${text.content(sku.category)} · ${sku.unit}',
+                                ),
                                 onChanged: copying
                                     ? null
                                     : (value) {
@@ -6100,14 +5946,14 @@ class _CopySkuSheetState extends State<_CopySkuSheet> {
               Expanded(
                 child: OutlinedButton(
                   onPressed: copying ? null : () => Navigator.of(context).pop(),
-                  child: const Text('Cancel'),
+                  child: Text(text.t('Cancel')),
                 ),
               ),
               const SizedBox(width: 10),
               Expanded(
                 child: FilledButton(
                   onPressed: selectedSkuIds.isEmpty || copying ? null : proceed,
-                  child: Text(copying ? 'Copying…' : 'Proceed'),
+                  child: Text(text.t(copying ? 'Copying…' : 'Proceed')),
                 ),
               ),
             ],
@@ -6165,14 +6011,14 @@ class _SkuCompactRow extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    sku.name,
+                    text.content(sku.name),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(fontSize: AppTextSize.s17, fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    '${sku.category} · ${sku.unit}',
+                    '${text.content(sku.category)} · ${sku.unit}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(fontSize: AppTextSize.s13, color: AppColours.textMuted, fontWeight: FontWeight.w700),
@@ -6561,6 +6407,7 @@ class _SkuDetailContentState extends State<_SkuDetailContent> {
   }
 
   Future<void> showSkuPhotoSourcePicker() async {
+    final text = AppTextScope.of(context);
     final source = await showStockBottomSheet<ImageSource>(
       context,
       maxHeightFactor: 0.42,
@@ -6572,19 +6419,19 @@ class _SkuDetailContentState extends State<_SkuDetailContent> {
           children: [
             stockBottomSheetHandle(),
             const SizedBox(height: 14),
-            const Text(
-              'Replace SKU Photo',
-              style: TextStyle(fontSize: AppTextSize.s22, fontWeight: FontWeight.w800),
+            Text(
+              text.t('Replace SKU Photo'),
+              style: const TextStyle(fontSize: AppTextSize.s22, fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 14),
             ListTile(
               leading: const Icon(Icons.photo_camera_outlined),
-              title: const Text('Camera'),
+              title: Text(text.t('Camera')),
               onTap: () => Navigator.of(sheetContext).pop(ImageSource.camera),
             ),
             ListTile(
               leading: const Icon(Icons.photo_library_outlined),
-              title: const Text('Gallery'),
+              title: Text(text.t('Gallery')),
               onTap: () => Navigator.of(sheetContext).pop(ImageSource.gallery),
             ),
           ],
@@ -6781,6 +6628,7 @@ class _SkuDetailContentState extends State<_SkuDetailContent> {
   }
 
   Widget tagEditRow(String label, TextEditingController controller) {
+    final text = AppTextScope.of(context);
     final options = widget.tags
         .map((tag) => tag.tag.trim())
         .where((value) => value.isNotEmpty)
@@ -6819,7 +6667,9 @@ class _SkuDetailContentState extends State<_SkuDetailContent> {
                       refreshEditValidation();
                     },
               decoration: inlineEditDecoration().copyWith(
-                hintText: options.isEmpty ? 'Create tag first' : 'Select Tag',
+                hintText: text.t(
+                  options.isEmpty ? 'Create tag first' : 'Select Tag',
+                ),
                 errorText: errorText,
               ),
             ),
@@ -6875,6 +6725,7 @@ class _SkuDetailContentState extends State<_SkuDetailContent> {
   }
 
   Widget receivingChecklistRow(String label) {
+    final text = AppTextScope.of(context);
     final values = receivingChecklistControllers
         .map((controller) => controller.text.trim())
         .where((value) => value.isNotEmpty)
@@ -6899,7 +6750,9 @@ class _SkuDetailContentState extends State<_SkuDetailContent> {
               child: TextField(
                 controller: receivingChecklistControllers[index],
                 style: AppTextStyles.formValue,
-                decoration: inlineEditDecoration().copyWith(hintText: 'Checklist ${index + 1}'),
+                decoration: inlineEditDecoration().copyWith(
+                  hintText: text.t('Checklist ${index + 1}'),
+                ),
               ),
             );
           }),
@@ -6910,7 +6763,10 @@ class _SkuDetailContentState extends State<_SkuDetailContent> {
 
 
   Widget suppliersRow(String label) {
-    final value = linkedSupplierNames.isEmpty ? 'None' : linkedSupplierNames.join(', ');
+    final text = AppTextScope.of(context);
+    final value = linkedSupplierNames.isEmpty
+        ? text.t('None')
+        : linkedSupplierNames.join(', ');
     final errorText = supplierError;
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 12),
@@ -6987,7 +6843,15 @@ class _SkuDetailContentState extends State<_SkuDetailContent> {
             const SizedBox(height: 12),
             Row(
               children: [
-                Expanded(child: Text(sku.name, style: const TextStyle(fontSize: AppTextSize.s24, fontWeight: FontWeight.w700))),
+                Expanded(
+                  child: Text(
+                    editing ? sku.name : text.content(sku.name),
+                    style: const TextStyle(
+                      fontSize: AppTextSize.s24,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
                 IconButton(onPressed: widget.onClose, icon: const Icon(Icons.close_rounded)),
               ],
             ),
@@ -7032,7 +6896,7 @@ class _SkuDetailContentState extends State<_SkuDetailContent> {
                       TextButton.icon(
                         onPressed: showSkuPhotoSourcePicker,
                         icon: const Icon(Icons.add_a_photo_outlined, size: 17),
-                        label: const Text('Replace Photo'),
+                        label: Text(text.t('Replace Photo')),
                       ),
                     ],
                   ],
@@ -7707,6 +7571,7 @@ class _AuditEntryCardState extends State<_AuditEntryCard> {
   @override
   Widget build(BuildContext context) {
     final entry = widget.entry;
+    final text = AppTextScope.of(context);
     final roleText = entry.actorRole.isEmpty ? '-' : entry.actorRole.toUpperCase();
     final hasDetails = entry.changes.isNotEmpty || entry.note.trim().isNotEmpty;
 
@@ -7734,14 +7599,14 @@ class _AuditEntryCardState extends State<_AuditEntryCard> {
                             children: [
                               Expanded(
                                 child: Text(
-                                  entry.action,
+                                  text.t(entry.action),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: const TextStyle(fontSize: AppTextSize.s16, fontWeight: FontWeight.w800, color: AppColours.textMain),
                                 ),
                               ),
                               SmallStatusPill(
-                                text: entry.module,
+                                text: text.t(entry.module),
                                 textColour: AppColours.blue,
                                 backgroundColour: AppColours.blueSoft,
                               ),
@@ -7749,7 +7614,7 @@ class _AuditEntryCardState extends State<_AuditEntryCard> {
                           ),
                           const SizedBox(height: 3),
                           Text(
-                            entry.itemName,
+                            text.content(entry.itemName),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(fontSize: AppTextSize.s14, fontWeight: FontWeight.w700, color: AppColours.textMain),
@@ -7766,7 +7631,11 @@ class _AuditEntryCardState extends State<_AuditEntryCard> {
                             Row(
                               children: [
                                 Text(
-                                  entry.changes.isEmpty ? 'Details' : '${entry.changes.length} change${entry.changes.length == 1 ? '' : 's'}',
+                                  text.t(
+                                    entry.changes.isEmpty
+                                        ? 'Details'
+                                        : '${entry.changes.length} change${entry.changes.length == 1 ? '' : 's'}',
+                                  ),
                                   style: const TextStyle(fontSize: AppTextSize.s12, fontWeight: FontWeight.w800, color: AppColours.blue),
                                 ),
                                 const SizedBox(width: 2),
@@ -7804,7 +7673,7 @@ class _AuditEntryCardState extends State<_AuditEntryCard> {
                 if (expanded && entry.note.trim().isNotEmpty) ...[
                   const SizedBox(height: 8),
                   Text(
-                    entry.note,
+                    text.content(entry.note),
                     style: const TextStyle(fontSize: AppTextSize.s13, fontWeight: FontWeight.w600, color: AppColours.textMuted),
                   ),
                 ],
@@ -7824,6 +7693,7 @@ class _AuditChangeRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
       child: Row(
@@ -7832,7 +7702,7 @@ class _AuditChangeRow extends StatelessWidget {
           SizedBox(
             width: 96,
             child: Text(
-              change.field,
+              text.t(change.field),
               style: const TextStyle(fontSize: AppTextSize.s12, fontWeight: FontWeight.w800, color: AppColours.textMuted),
             ),
           ),
@@ -7841,22 +7711,22 @@ class _AuditChangeRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  change.oldValue,
+                  text.content(text.t(change.oldValue)),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontSize: AppTextSize.s13, fontWeight: FontWeight.w600, color: AppColours.textMuted),
                 ),
                 const SizedBox(height: 3),
                 Row(
-                  children: const [
-                    Icon(Icons.arrow_downward_rounded, size: 13, color: AppColours.blue),
-                    SizedBox(width: 4),
-                    Text('changed to', style: TextStyle(fontSize: AppTextSize.s12, fontWeight: FontWeight.w700, color: AppColours.blue)),
+                  children: [
+                    const Icon(Icons.arrow_downward_rounded, size: 13, color: AppColours.blue),
+                    const SizedBox(width: 4),
+                    Text(text.t('changed to'), style: const TextStyle(fontSize: AppTextSize.s12, fontWeight: FontWeight.w700, color: AppColours.blue)),
                   ],
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  change.newValue,
+                  text.content(text.t(change.newValue)),
                   maxLines: 3,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontSize: AppTextSize.s13, fontWeight: FontWeight.w800, color: AppColours.textMain),
@@ -8071,7 +7941,7 @@ class _SkuAssigneePageState extends State<_SkuAssigneePage> {
                       Align(
                         alignment: Alignment.centerLeft,
                         child: Text(
-                          sku.name,
+                          text.content(sku.name),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
@@ -8360,7 +8230,7 @@ class _SkuAssigneePageState extends State<_SkuAssigneePage> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(
-                              sku.name,
+                              text.content(sku.name),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
@@ -8370,7 +8240,7 @@ class _SkuAssigneePageState extends State<_SkuAssigneePage> {
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              '${sku.category} · ${sku.location}',
+                              '${text.content(sku.category)} · ${text.content(sku.location)}',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
@@ -9233,6 +9103,7 @@ class _CompactTagRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     return GestureDetector(
       onLongPress: onLongPress,
       child: Pressable(
@@ -9250,7 +9121,17 @@ class _CompactTagRow extends StatelessWidget {
               child: Icon(selected ? Icons.check_rounded : Icons.sell_outlined, color: selected ? Colors.white : AppColours.blue, size: 21),
             ),
             const SizedBox(width: 12),
-            Expanded(child: Text(tag.tag, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: AppTextSize.s17, fontWeight: FontWeight.w700))),
+            Expanded(
+              child: Text(
+                text.content(tag.tag),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: AppTextSize.s17,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
             if (selecting)
               Checkbox(value: selected, onChanged: (_) => onTap())
             else
@@ -9320,7 +9201,7 @@ class _SetupDetailRow extends StatelessWidget {
                       ),
                     )
                   : Text(
-                      value.isEmpty ? '-' : value,
+                      value.isEmpty ? '-' : AppTextScope.of(context).content(value),
                       textAlign: TextAlign.right,
                       style: AppTextStyles.formValue,
                     ),
@@ -10358,13 +10239,14 @@ class _StockCameraPageState extends State<_StockCameraPage> {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     final value = controller;
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
-        title: Text(widget.title),
+        title: Text(text.t(widget.title)),
       ),
       body: SafeArea(
         child: Column(
@@ -10392,7 +10274,7 @@ class _StockCameraPageState extends State<_StockCameraPage> {
                             OutlinedButton.icon(
                               onPressed: initialiseCamera,
                               icon: const Icon(Icons.refresh_rounded),
-                              label: const Text('Retry Camera'),
+                              label: Text(text.t('Retry Camera')),
                             ),
                           ],
                         ),
@@ -10434,7 +10316,7 @@ class _StockCameraPageState extends State<_StockCameraPage> {
                                     borderRadius: BorderRadius.circular(14),
                                   ),
                                   child: Text(
-                                    widget.subtitle,
+                                    text.t(widget.subtitle),
                                     textAlign: TextAlign.center,
                                     style: const TextStyle(
                                       color: Colors.white,

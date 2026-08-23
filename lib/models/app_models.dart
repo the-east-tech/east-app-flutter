@@ -105,12 +105,14 @@ class StaffTask {
 
 class RecentActivity {
   final String title;
+  final String? translatableContent;
   final String time;
   final int score;
   final String status;
 
   const RecentActivity({
     required this.title,
+    this.translatableContent,
     required this.time,
     required this.score,
     required this.status,
@@ -142,22 +144,6 @@ class CategoryPoint {
     required this.category,
     required this.taskCount,
     required this.score,
-  });
-}
-
-class LeaderboardMember {
-  final String name;
-  final String staffId;
-  final String role;
-  final int score;
-  final int tasks;
-
-  const LeaderboardMember({
-    required this.name,
-    required this.staffId,
-    required this.role,
-    required this.score,
-    required this.tasks,
   });
 }
 

@@ -179,6 +179,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             .map(
               (entry) => RecentActivity(
                 title: '${entry.action}: ${entry.itemName}',
+                translatableContent: entry.itemName,
                 time: entry.timestampText,
                 score: 1,
                 status: entry.module,
@@ -515,6 +516,7 @@ class _ReportSnapshotCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     final data = dashboard;
     final firstValue = data == null
         ? '—'
@@ -553,21 +555,28 @@ class _ReportSnapshotCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Row(
+              Row(
                 children: [
-                  Icon(Icons.auto_graph_rounded, color: Colors.white, size: 21),
-                  SizedBox(width: 8),
+                  const Icon(
+                    Icons.auto_graph_rounded,
+                    color: Colors.white,
+                    size: 21,
+                  ),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Report Intelligence',
-                      style: TextStyle(
+                      text.t('Report Intelligence'),
+                      style: const TextStyle(
                         color: Colors.white,
                         fontSize: AppTextSize.s16,
                         fontWeight: FontWeight.w900,
                       ),
                     ),
                   ),
-                  Icon(Icons.chevron_right_rounded, color: Colors.white70),
+                  const Icon(
+                    Icons.chevron_right_rounded,
+                    color: Colors.white70,
+                  ),
                 ],
               ),
               const SizedBox(height: 12),
@@ -596,6 +605,7 @@ class _ReportSnapshotMetric extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 9),
       decoration: BoxDecoration(
@@ -609,7 +619,7 @@ class _ReportSnapshotMetric extends StatelessWidget {
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
             child: Text(
-              value,
+              text.t(value),
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: AppTextSize.s16,
@@ -619,7 +629,7 @@ class _ReportSnapshotMetric extends StatelessWidget {
           ),
           const SizedBox(height: 3),
           Text(
-            label,
+            text.t(label),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
@@ -724,6 +734,7 @@ class _GoogleRatingCardState extends State<_GoogleRatingCard> {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     final data = rating;
     return WhiteCard(
       padding: const EdgeInsets.all(12),
@@ -746,9 +757,9 @@ class _GoogleRatingCardState extends State<_GoogleRatingCard> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            'Google rating unavailable',
-                            style: TextStyle(
+                          Text(
+                            text.t('Google rating unavailable'),
+                            style: const TextStyle(
                               fontSize: AppTextSize.s15,
                               fontWeight: FontWeight.w800,
                             ),
@@ -767,7 +778,7 @@ class _GoogleRatingCardState extends State<_GoogleRatingCard> {
                       ),
                     ),
                     IconButton(
-                      tooltip: 'Retry',
+                      tooltip: text.t('Retry'),
                       onPressed: load,
                       icon: const Icon(Icons.refresh_rounded),
                     ),
@@ -819,9 +830,9 @@ class _GoogleRatingCardState extends State<_GoogleRatingCard> {
                           Image.network(
                             'https://maps.gstatic.com/mapfiles/api-3/images/powered-by-google-on-white3.png',
                             height: 14,
-                            errorBuilder: (_, _, _) => const Text(
-                              'Google Maps',
-                              style: TextStyle(
+                            errorBuilder: (_, _, _) => Text(
+                              text.t('Google Maps'),
+                              style: const TextStyle(
                                 fontSize: AppTextSize.s12,
                                 color: AppColours.textMuted,
                                 fontWeight: FontWeight.w700,
@@ -846,9 +857,11 @@ class _GoogleRatingCardState extends State<_GoogleRatingCard> {
                           ),
                         ),
                         Text(
-                          data?.userRatingCount == null
-                              ? 'No ratings yet'
-                              : '${data!.userRatingCount} reviews',
+                          text.t(
+                            data?.userRatingCount == null
+                                ? 'No ratings yet'
+                                : '${data!.userRatingCount} reviews',
+                          ),
                           style: const TextStyle(
                             fontSize: AppTextSize.s12,
                             color: AppColours.textMuted,
@@ -1010,6 +1023,12 @@ class _RecentActivityRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
+    final content = activity.translatableContent;
+    final contentSuffix = content == null ? null : ': $content';
+    final title = contentSuffix == null || !activity.title.endsWith(contentSuffix)
+        ? text.content(text.t(activity.title))
+        : '${text.t(activity.title.substring(0, activity.title.length - contentSuffix.length))}: ${text.content(content!)}';
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
       decoration: const BoxDecoration(
@@ -1024,7 +1043,7 @@ class _RecentActivityRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  activity.title,
+                  title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -1066,7 +1085,7 @@ class _RecentActivityRow extends StatelessWidget {
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: Text(
-                  activity.status,
+                  text.t(activity.status),
                   style: TextStyle(
                     fontSize: AppTextSize.s12,
                     color: AppColours.green,
@@ -1169,6 +1188,7 @@ class _AdvertisementCarouselState extends State<_AdvertisementCarousel> {
   }
 
   Future<void> _enlarge(Advertisement advertisement) async {
+    final text = AppTextScope.of(context);
     _autoAdvanceTimer?.cancel();
     await showDialog<void>(
       context: context,
@@ -1204,7 +1224,7 @@ class _AdvertisementCarouselState extends State<_AdvertisementCarousel> {
               child: IconButton.filledTonal(
                 onPressed: () => Navigator.of(dialogContext).pop(),
                 icon: const Icon(Icons.close),
-                tooltip: 'Close',
+                tooltip: text.t('Close'),
               ),
             ),
           ],
@@ -1355,21 +1375,22 @@ class _AdvertisementManagerScreenState
 
   Future<void> deleteAdvertisement(Advertisement advertisement) async {
     if (mutating) return;
+    final text = AppTextScope.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Delete Advertisement?'),
-        content: const Text(
-          'This advertisement will be removed permanently.',
+        title: Text(text.t('Delete Advertisement?')),
+        content: Text(
+          text.t('This advertisement will be removed permanently.'),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancel'),
+            child: Text(text.t('Cancel')),
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Delete'),
+            child: Text(text.t('Delete')),
           ),
         ],
       ),
@@ -1414,8 +1435,9 @@ class _AdvertisementManagerScreenState
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Advertisement')),
+      appBar: AppBar(title: Text(text.t('Advertisement'))),
       floatingActionButton: FloatingActionButton(
         onPressed: mutating ? null : () => edit(),
         child: const Icon(Icons.add),
@@ -1437,14 +1459,14 @@ class _AdvertisementManagerScreenState
                         FilledButton.icon(
                           onPressed: load,
                           icon: const Icon(Icons.refresh),
-                          label: const Text('Retry'),
+                          label: Text(text.t('Retry')),
                         ),
                       ],
                     ),
                   ),
                 )
               : items.isEmpty
-                  ? const Center(child: Text('No advertisements yet.'))
+                  ? Center(child: Text(text.t('No advertisements yet.')))
                   : ListView.separated(
                       padding: const EdgeInsets.all(14),
                       itemCount: items.length,
@@ -1490,8 +1512,8 @@ class _AdvertisementManagerScreenState
                               subtitle: Padding(
                                 padding: const EdgeInsets.only(top: 4),
                                 child: Text(
-                                  'Until ${formatDateTime(context, advertisement.endsAt)}\n'
-                                  '$status · Position ${advertisement.displayOrder + 1}',
+                                  '${text.t('Until')} ${formatDateTime(context, advertisement.endsAt)}\n'
+                                  '${text.t(status)} · ${text.t('Position')} ${advertisement.displayOrder + 1}',
                                 ),
                               ),
                               isThreeLine: true,
@@ -1602,20 +1624,22 @@ class _AdvertisementEditorState extends State<_AdvertisementEditor> {
   Future<void> save() async {
     if (busy) return;
     if (imageStorageKey == null || startsAt == null || endsAt == null) {
+      final text = AppTextScope.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(
-            'Image, start date/time and end date/time are compulsory.',
+            text.t('Image, start date/time and end date/time are compulsory.'),
           ),
         ),
       );
       return;
     }
     if (!endsAt!.isAfter(startsAt!)) {
+      final text = AppTextScope.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(
-            'End date and time must be later than start date and time.',
+            text.t('End date and time must be later than start date and time.'),
           ),
         ),
       );
@@ -1652,14 +1676,15 @@ class _AdvertisementEditorState extends State<_AdvertisementEditor> {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     return PopScope(
       canPop: !busy,
       child: Scaffold(
         appBar: AppBar(
           title: Text(
-            widget.advertisement == null
+            text.t(widget.advertisement == null
                 ? 'Create Advertisement'
-                : 'Edit Advertisement',
+                : 'Edit Advertisement'),
           ),
         ),
         body: ListView(
@@ -1669,14 +1694,14 @@ class _AdvertisementEditorState extends State<_AdvertisementEditor> {
               onPressed: busy ? null : chooseImage,
               icon: const Icon(Icons.photo_library_outlined),
               label: Text(
-                imageStorageKey == null
+                text.t(imageStorageKey == null
                     ? 'Upload advertisement image'
-                    : 'Replace image',
+                    : 'Replace image'),
               ),
             ),
             const SizedBox(height: 8),
-            const Text(
-              'Use a wide banner image. Recommended ratio: 3.45:1.',
+            Text(
+              text.t('Use a wide banner image. Recommended ratio: 3.45:1.'),
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: AppColours.textMuted,
@@ -1703,8 +1728,8 @@ class _AdvertisementEditorState extends State<_AdvertisementEditor> {
             ],
             const SizedBox(height: 16),
             ListTile(
-              title: const Text('Start date & time *'),
-              subtitle: Text(formatDateTime(startsAt)),
+              title: Text(text.t('Start date & time *')),
+              subtitle: Text(text.t(formatDateTime(startsAt))),
               trailing: const Icon(Icons.calendar_month),
               enabled: !busy,
               onTap: () async {
@@ -1715,8 +1740,8 @@ class _AdvertisementEditorState extends State<_AdvertisementEditor> {
               },
             ),
             ListTile(
-              title: const Text('End date & time *'),
-              subtitle: Text(formatDateTime(endsAt)),
+              title: Text(text.t('End date & time *')),
+              subtitle: Text(text.t(formatDateTime(endsAt))),
               trailing: const Icon(Icons.calendar_month),
               enabled: !busy,
               onTap: () async {
@@ -1728,14 +1753,14 @@ class _AdvertisementEditorState extends State<_AdvertisementEditor> {
             ),
             DropdownButtonFormField<int>(
               initialValue: displayOrder,
-              decoration: const InputDecoration(
-                labelText: 'Carousel position',
+              decoration: InputDecoration(
+                labelText: text.t('Carousel position'),
               ),
               items: List.generate(
                 4,
                 (index) => DropdownMenuItem(
                   value: index,
-                  child: Text('Position ${index + 1}'),
+                  child: Text('${text.t('Position')} ${index + 1}'),
                 ),
               ),
               onChanged: busy
@@ -1747,16 +1772,18 @@ class _AdvertisementEditorState extends State<_AdvertisementEditor> {
               onChanged: busy
                   ? null
                   : (value) => setState(() => active = value),
-              title: const Text('Active'),
-              subtitle: const Text(
-                'Only active advertisements publish during their schedule.',
+              title: Text(text.t('Active')),
+              subtitle: Text(
+                text.t('Only active advertisements publish during their schedule.'),
               ),
             ),
             const SizedBox(height: 20),
             FilledButton(
               onPressed: busy ? null : save,
               child: Text(
-                busy ? 'Processing... Please Wait!' : 'Save Advertisement',
+                text.t(
+                  busy ? 'Processing... Please Wait!' : 'Save Advertisement',
+                ),
               ),
             ),
           ],

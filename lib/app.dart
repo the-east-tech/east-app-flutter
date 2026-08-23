@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'localization/app_language.dart';
+import 'localization/app_text_scope.dart';
 import 'models/auth_models.dart';
 import 'models/people_models.dart';
 import 'screens/initial_setup_screen.dart';
@@ -286,9 +287,12 @@ class _TheEastAppState extends State<TheEastApp> {
       title: "Nic's Kitchen",
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
-      builder: (context, child) => AppProcessingOverlay(
-        isProcessing: processingRequest,
-        child: child ?? const SizedBox.shrink(),
+      builder: (context, child) => AppTextScope(
+        language: language,
+        child: AppProcessingOverlay(
+          isProcessing: processingRequest,
+          child: child ?? const SizedBox.shrink(),
+        ),
       ),
       home: _buildHome(),
     );
@@ -390,6 +394,7 @@ class _StartupErrorScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     return Scaffold(
       backgroundColor: AppColours.blue,
       body: Center(
@@ -410,9 +415,9 @@ class _StartupErrorScreen extends StatelessWidget {
                 color: AppColours.red,
               ),
               const SizedBox(height: 12),
-              const Text(
-                'Backend unavailable',
-                style: TextStyle(
+              Text(
+                text.t('Backend unavailable'),
+                style: const TextStyle(
                   fontSize: AppTextSize.s24,
                   fontWeight: FontWeight.w700,
                 ),
@@ -431,12 +436,12 @@ class _StartupErrorScreen extends StatelessWidget {
                 width: double.infinity,
                 child: FilledButton(
                   onPressed: onRetry,
-                  child: const Text('Retry'),
+                  child: Text(text.t('Retry')),
                 ),
               ),
               TextButton(
                 onPressed: onClearSession,
-                child: const Text('Return to login'),
+                child: Text(text.t('Return to login')),
               ),
             ],
           ),
