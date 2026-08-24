@@ -3060,6 +3060,7 @@ class _ReceivingSupplierActionRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     final meta = [
       if (submitted) 'Submitted',
       if (!submitted && supplier.contactPerson.isNotEmpty) supplier.contactPerson,
