@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../localization/app_text_scope.dart';
 import '../models/google_place_models.dart';
@@ -12,11 +13,15 @@ import '../widgets/phone_number_field.dart';
 
 class InitialSetupScreen extends StatefulWidget {
   final EastAppApi api;
+  final String? setupCode;
+  final DateTime? setupCodeExpiresAt;
   final VoidCallback onCompleted;
 
   const InitialSetupScreen({
     super.key,
     required this.api,
+    required this.setupCode,
+    required this.setupCodeExpiresAt,
     required this.onCompleted,
   });
 
@@ -38,7 +43,16 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
   bool submitting = false;
   bool obscurePassword = true;
   bool obscureConfirmation = true;
+  bool setupCodeDialogOpen = false;
   EastAppGooglePlaceDetails? selectedPlace;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) showSetupCode();
+    });
+  }
 
   @override
   void dispose() {
@@ -62,6 +76,89 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
     );
     if (result == null || !mounted) return;
     setState(() => selectedPlace = result);
+  }
+
+  Future<void> showSetupCode() async {
+    final code = widget.setupCode?.trim();
+    if (!mounted || code == null || code.isEmpty || setupCodeDialogOpen) return;
+    setupCodeDialogOpen = true;
+    try {
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) {
+          final text = AppTextScope.of(dialogContext);
+          return AlertDialog(
+            title: Text(text.t('Initial Setup Code')),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  text.t(
+                    'Copy this one-time code. It is available only before Initial Setup is completed.',
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColours.mutedBox,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: SelectableText(
+                    code,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: AppTextSize.s24,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 2,
+                    ),
+                  ),
+                ),
+                if (widget.setupCodeExpiresAt != null) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    '${text.t('Valid until')} '
+                    '${_formatSetupCodeExpiry(widget.setupCodeExpiresAt!)}',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: AppColours.textMuted,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: Text(text.t('Close')),
+              ),
+              FilledButton.icon(
+                onPressed: () async {
+                  await Clipboard.setData(ClipboardData(text: code));
+                  setupCodeController.text = code;
+                  if (dialogContext.mounted) {
+                    Navigator.of(dialogContext).pop();
+                  }
+                  if (mounted) {
+                    showSuccessSnackBar(context, text.t('Setup Code copied.'));
+                  }
+                },
+                icon: const Icon(Icons.copy_rounded),
+                label: Text(text.t('Copy Code')),
+              ),
+            ],
+          );
+        },
+      );
+    } finally {
+      setupCodeDialogOpen = false;
+    }
   }
 
   Future<void> completeSetup() async {
@@ -92,7 +189,7 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
     if (!RegExp(r'^[A-HJ-NP-Z2-9]{10}$').hasMatch(setupCode)) {
       showErrorSnackBar(
         context,
-        text.t('Enter the 10-character setup code from the backend log.'),
+        text.t('Enter the 10-character Setup Code shown by EastApp.'),
       );
       return;
     }
@@ -245,6 +342,13 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
                   controller: setupCodeController,
                   hint: '10-character code',
                   textCapitalization: TextCapitalization.characters,
+                  suffixIcon: widget.setupCode == null
+                      ? null
+                      : IconButton(
+                          onPressed: showSetupCode,
+                          tooltip: text.t('Show Setup Code'),
+                          icon: const Icon(Icons.copy_rounded),
+                        ),
                 ),
                 const SizedBox(height: 12),
                 _SetupField(
@@ -359,6 +463,29 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
       ),
     );
   }
+}
+
+String _formatSetupCodeExpiry(DateTime value) {
+  const months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+  final local = value.toLocal();
+  final hour = local.hour % 12 == 0 ? 12 : local.hour % 12;
+  final minute = local.minute.toString().padLeft(2, '0');
+  final period = local.hour < 12 ? 'AM' : 'PM';
+  return '${local.day} ${months[local.month - 1]} ${local.year}, '
+      '$hour:$minute $period';
 }
 
 class _SetupField extends StatelessWidget {

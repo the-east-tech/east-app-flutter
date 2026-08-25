@@ -1524,8 +1524,15 @@ const Map<String, String> _myanmar = {
   'Apply Adjustment': 'ပြင်ဆင်မှု အတည်ပြုရန်',
   'Current Business Ranking': 'လက်ရှိလုပ်ငန်း အဆင့်သတ်မှတ်ချက်',
   'No active users found.': 'အသုံးပြုနေသော အသုံးပြုသူ မတွေ့ပါ။',
-  'Enter the 10-character setup code from the backend log.':
-      'Backend log မှ စာလုံး ၁၀ လုံးပါ Setup Code ကို ထည့်ပါ။',
+  'Enter the 10-character Setup Code shown by EastApp.':
+      'EastApp တွင် ပြထားသော စာလုံး ၁၀ လုံးပါ Setup Code ကို ထည့်ပါ။',
+  'Initial Setup Code': 'ကနဦး Setup Code',
+  'Copy this one-time code. It is available only before Initial Setup is completed.':
+      'ဤတစ်ကြိမ်သုံးကုဒ်ကို ကူးယူပါ။ Initial Setup မပြီးမီသာ အသုံးပြုနိုင်ပါသည်။',
+  'Valid until': 'သက်တမ်းကုန်ချိန်',
+  'Copy Code': 'ကုဒ်ကူးယူရန်',
+  'Show Setup Code': 'Setup Code ပြရန်',
+  'Setup Code copied.': 'Setup Code ကူးယူပြီး။',
   'Company Code must contain 2–32 letters, numbers, _ or -.':
       'Company Code တွင် စာလုံး၊ ဂဏန်း၊ _ သို့မဟုတ် - စုစုပေါင်း ၂ မှ ၃၂ လုံး ပါရမည်။',
   'Employee ID Prefix must contain 1–3 letters.':
@@ -2668,8 +2675,15 @@ const Map<String, String> _chinese = {
   'Apply Adjustment': '应用调整',
   'Current Business Ranking': '当前业务排名',
   'No active users found.': '未找到启用用户。',
-  'Enter the 10-character setup code from the backend log.':
-      '请输入后端日志中的10位设置代码。',
+  'Enter the 10-character Setup Code shown by EastApp.':
+      '请输入EastApp显示的10位设置代码。',
+  'Initial Setup Code': '初始设置代码',
+  'Copy this one-time code. It is available only before Initial Setup is completed.':
+      '复制此一次性代码。它仅在完成初始设置前可用。',
+  'Valid until': '有效期至',
+  'Copy Code': '复制代码',
+  'Show Setup Code': '显示设置代码',
+  'Setup Code copied.': '设置代码已复制。',
   'Company Code must contain 2–32 letters, numbers, _ or -.':
       '公司代码必须包含2至32个字母、数字、_或-。',
   'Employee ID Prefix must contain 1–3 letters.':

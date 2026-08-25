@@ -31,6 +31,8 @@ class _TheEastAppState extends State<TheEastApp> {
   bool restoringSession = true;
   bool checkingSetup = true;
   bool setupRequired = false;
+  String? initialSetupCode;
+  DateTime? initialSetupCodeExpiresAt;
   String? startupError;
   bool apiErrorDialogOpen = false;
   bool processingRequest = false;
@@ -88,6 +90,8 @@ class _TheEastAppState extends State<TheEastApp> {
       checkingSetup = true;
       restoringSession = true;
       startupError = null;
+      initialSetupCode = null;
+      initialSetupCodeExpiresAt = null;
     });
 
     try {
@@ -106,6 +110,8 @@ class _TheEastAppState extends State<TheEastApp> {
           checkingSetup = false;
           restoringSession = false;
           setupRequired = true;
+          initialSetupCode = status.setupCode;
+          initialSetupCodeExpiresAt = status.setupCodeExpiresAt;
           session = null;
         });
         return;
@@ -114,6 +120,8 @@ class _TheEastAppState extends State<TheEastApp> {
       setState(() {
         checkingSetup = false;
         setupRequired = false;
+        initialSetupCode = null;
+        initialSetupCodeExpiresAt = null;
       });
       await restoreSession();
     } on EastAppApiException catch (error) {
@@ -132,6 +140,8 @@ class _TheEastAppState extends State<TheEastApp> {
   void handleInitialSetupCompleted() {
     setState(() {
       setupRequired = false;
+      initialSetupCode = null;
+      initialSetupCodeExpiresAt = null;
       startupError = null;
       session = null;
     });
@@ -325,6 +335,8 @@ class _TheEastAppState extends State<TheEastApp> {
     if (setupRequired) {
       return InitialSetupScreen(
         api: api,
+        setupCode: initialSetupCode,
+        setupCodeExpiresAt: initialSetupCodeExpiresAt,
         onCompleted: handleInitialSetupCompleted,
       );
     }

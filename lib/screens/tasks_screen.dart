@@ -19,6 +19,20 @@ enum DailyTasksEntry { tasks, setup }
 
 enum _SelectedPhotoAction { remove, retake }
 
+class _DailyTaskTabState {
+  DateTimeRange selectedRange;
+  DailyTaskStatus? selectedStatus;
+  String? selectedTagId;
+  List<DailyTaskRecord> records = const [];
+  DailyTaskOverview overview = DailyTaskOverview.empty;
+  bool loadingRecords = false;
+  bool hasLoadedRecords = false;
+  bool automaticLoadStarted = false;
+  int requestVersion = 0;
+
+  _DailyTaskTabState({required this.selectedRange});
+}
+
 class DailyTasksScreen extends StatefulWidget {
   final EastAppApi api;
   final String tenantId;
@@ -40,19 +54,14 @@ class DailyTasksScreen extends StatefulWidget {
 }
 
 class _DailyTasksScreenState extends State<DailyTasksScreen> {
-  late DateTimeRange selectedRange;
-  late DateTimeRange historyRange;
-  DailyTaskStatus? selectedStatus;
-  String? selectedTagId;
+  late final List<_DailyTaskTabState> taskTabStates;
   List<StockTag> tags = const [];
-  List<DailyTaskRecord> records = const [];
   List<DailyTaskTemplate> templates = const [];
-  DailyTaskOverview overview = DailyTaskOverview.empty;
-  bool loadingRecords = false;
-  bool hasLoadedRecords = false;
   bool loadingTemplates = false;
   bool loadingTags = false;
   int selectedTab = 0;
+
+  _DailyTaskTabState get selectedTaskTab => taskTabStates[selectedTab];
 
   bool get isManagement {
     return const {'OWNER', 'HEAD', 'MANAGER'}
@@ -70,11 +79,17 @@ class _DailyTasksScreenState extends State<DailyTasksScreen> {
   void initState() {
     super.initState();
     final today = _dateOnly(DateTime.now());
-    selectedRange = DateTimeRange(
+    final defaultRange = DateTimeRange(
       start: today.subtract(const Duration(days: 6)),
       end: today,
     );
-    historyRange = selectedRange;
+    taskTabStates = [
+      _DailyTaskTabState(selectedRange: defaultRange),
+      _DailyTaskTabState(
+        selectedRange: DateTimeRange(start: today, end: today),
+      ),
+      _DailyTaskTabState(selectedRange: defaultRange),
+    ];
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       unawaited(loadTags());
@@ -82,34 +97,57 @@ class _DailyTasksScreenState extends State<DailyTasksScreen> {
     });
   }
 
-  Future<void> loadRecords() async {
-    if (loadingRecords) return;
-    if (mounted) setState(() => loadingRecords = true);
+  Future<void> loadRecords({
+    int? tabIndex,
+    bool forceRefresh = false,
+  }) async {
+    final requestedTab = tabIndex ?? selectedTab;
+    if (!mounted ||
+        requestedTab < 0 ||
+        requestedTab >= taskTabStates.length) {
+      return;
+    }
+    final tab = taskTabStates[requestedTab];
+    if (tab.loadingRecords) return;
+    final requestVersion = ++tab.requestVersion;
+    final dateFrom = tab.selectedRange.start;
+    final dateTo = tab.selectedRange.end;
+    final tagId = tab.selectedTagId;
+    final status = tab.selectedStatus;
+    final submittedByMe = !isManagement && requestedTab == 2;
+    setState(() => tab.loadingRecords = true);
     try {
       final result = await widget.api.dailyTaskRecords(
-        dateFrom: selectedRange.start,
-        dateTo: selectedRange.end,
-        tagId: selectedTagId,
-        status: selectedStatus,
-        submittedByMe: showingSubmissions,
+        tenantId: widget.tenantId,
+        dateFrom: dateFrom,
+        dateTo: dateTo,
+        tagId: tagId,
+        status: status,
+        submittedByMe: submittedByMe,
+        forceRefresh: forceRefresh,
       );
-      if (!mounted) return;
+      if (!mounted || tab.requestVersion != requestVersion) return;
       setState(() {
-        records = result.records;
-        overview = result.overview;
-        hasLoadedRecords = true;
-        loadingRecords = false;
+        tab.records = result.records;
+        tab.overview = result.overview;
+        tab.hasLoadedRecords = true;
+        tab.loadingRecords = false;
       });
     } on EastAppApiException {
-      if (mounted) setState(() => loadingRecords = false);
+      if (mounted && tab.requestVersion == requestVersion) {
+        setState(() => tab.loadingRecords = false);
+      }
     }
   }
 
-  Future<void> loadTemplates() async {
+  Future<void> loadTemplates({bool forceRefresh = false}) async {
     if (loadingTemplates) return;
     setState(() => loadingTemplates = true);
     try {
-      final result = await widget.api.dailyTaskTemplates();
+      final result = await widget.api.dailyTaskTemplates(
+        tenantId: widget.tenantId,
+        forceRefresh: forceRefresh,
+      );
       if (!mounted) return;
       setState(() {
         templates = result;
@@ -126,16 +164,18 @@ class _DailyTasksScreenState extends State<DailyTasksScreen> {
     try {
       final result = await widget.api.allStockTags(
         tenantId: widget.tenantId,
-        forceRefresh: true,
+        forceRefresh: false,
       );
       if (!mounted) return;
       setState(() {
         tags = result;
         loadingTags = false;
-        if (selectedTagId != null &&
-            !tags.any((tag) => tag.id == selectedTagId)) {
-          selectedTagId = null;
-          clearLoadedRecords();
+        for (final tab in taskTabStates) {
+          if (tab.selectedTagId != null &&
+              !tags.any((tag) => tag.id == tab.selectedTagId)) {
+            tab.selectedTagId = null;
+            clearLoadedRecords(tab);
+          }
         }
       });
     } on EastAppApiException {
@@ -144,12 +184,13 @@ class _DailyTasksScreenState extends State<DailyTasksScreen> {
   }
 
   Future<void> selectDateRange() async {
-    if (loadingRecords) return;
+    final tab = selectedTaskTab;
+    if (tab.loadingRecords) return;
     final text = AppTextScope.of(context);
     final today = _dateOnly(DateTime.now());
     final value = await showDateRangePicker(
       context: context,
-      initialDateRange: selectedRange,
+      initialDateRange: tab.selectedRange,
       firstDate: DateTime(today.year - 2, 1, 1),
       lastDate: today,
       helpText: text.t('Select Daily Task dates'),
@@ -164,36 +205,45 @@ class _DailyTasksScreenState extends State<DailyTasksScreen> {
       return;
     }
     setState(() {
-      selectedRange = value;
-      historyRange = value;
-      clearLoadedRecords();
+      tab.selectedRange = value;
+      clearLoadedRecords(tab);
     });
   }
 
-  void clearLoadedRecords() {
-    records = const [];
-    overview = DailyTaskOverview.empty;
-    hasLoadedRecords = false;
+  void clearLoadedRecords(_DailyTaskTabState tab) {
+    tab.requestVersion += 1;
+    tab.records = const [];
+    tab.overview = DailyTaskOverview.empty;
+    tab.loadingRecords = false;
+    tab.hasLoadedRecords = false;
   }
 
   Future<void> changeTab(int index) async {
     if (selectedTab == index) return;
     final today = _dateOnly(DateTime.now());
+    final tab = taskTabStates[index];
+    var shouldAutomaticallyLoad = false;
     setState(() {
       selectedTab = index;
-      selectedRange = index == 1
-          ? DateTimeRange(start: today, end: today)
-          : historyRange;
       if (index == 1) {
-        selectedStatus = null;
-        selectedTagId = null;
+        if (tab.selectedRange.start != today ||
+            tab.selectedRange.end != today) {
+          tab.selectedRange = DateTimeRange(start: today, end: today);
+          tab.automaticLoadStarted = false;
+          clearLoadedRecords(tab);
+        }
+        if (!tab.automaticLoadStarted) {
+          tab.automaticLoadStarted = true;
+          shouldAutomaticallyLoad = true;
+        }
       }
-      clearLoadedRecords();
     });
-    if (index == 1) await loadRecords();
+    if (shouldAutomaticallyLoad) await loadRecords(tabIndex: index);
   }
 
   Future<void> openRecord(DailyTaskRecord record) async {
+    final openedTab = selectedTab;
+    final tab = taskTabStates[openedTab];
     final changed = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) => _DailyTaskDetailPage(
@@ -203,7 +253,19 @@ class _DailyTasksScreenState extends State<DailyTasksScreen> {
       ),
     );
     if (!mounted) return;
-    if (hasLoadedRecords) await loadRecords();
+    if (changed == true) {
+      final shouldReload = tab.hasLoadedRecords;
+      widget.api.invalidateDailyTaskRecords(widget.tenantId);
+      setState(() {
+        for (final taskTab in taskTabStates) {
+          clearLoadedRecords(taskTab);
+        }
+        taskTabStates[1].automaticLoadStarted = openedTab == 1;
+      });
+      if (shouldReload) {
+        await loadRecords(tabIndex: openedTab, forceRefresh: true);
+      }
+    }
     final callback = widget.onChanged;
     if (changed == true && callback != null) await callback();
   }
@@ -221,7 +283,6 @@ class _DailyTasksScreenState extends State<DailyTasksScreen> {
     );
     if (!mounted || saved != true) return;
     await loadTemplates();
-    if (hasLoadedRecords) await loadRecords();
     final callback = widget.onChanged;
     if (callback != null) await callback();
   }
@@ -267,41 +328,44 @@ class _DailyTasksScreenState extends State<DailyTasksScreen> {
   }
 
   Widget _buildRecords(AppText text) {
+    final tab = selectedTaskTab;
     return RefreshIndicator(
-      onRefresh: hasLoadedRecords ? loadRecords : () async {},
+      onRefresh: tab.hasLoadedRecords
+          ? () => loadRecords(tabIndex: selectedTab, forceRefresh: true)
+          : () async {},
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(14, 4, 14, 28),
         children: [
           _DailyTaskFilterCard(
-            selectedRange: selectedRange,
+            selectedRange: tab.selectedRange,
             todayOnly: showingToday,
-            selectedStatus: selectedStatus,
-            selectedTagId: selectedTagId,
+            selectedStatus: tab.selectedStatus,
+            selectedTagId: tab.selectedTagId,
             tags: tags,
             loadingTags: loadingTags,
             onDateRange: selectDateRange,
             onStatus: (value) => setState(() {
-              selectedStatus = value;
-              clearLoadedRecords();
+              tab.selectedStatus = value;
+              clearLoadedRecords(tab);
             }),
             onTag: (value) => setState(() {
-              selectedTagId = value;
-              clearLoadedRecords();
+              tab.selectedTagId = value;
+              clearLoadedRecords(tab);
             }),
-            onLoad: loadRecords,
+            onLoad: () => loadRecords(tabIndex: selectedTab),
           ),
-          if (hasLoadedRecords) ...[
+          if (tab.hasLoadedRecords) ...[
             const SizedBox(height: 12),
-            _DailyTaskOverviewCard(overview: overview),
+            _DailyTaskOverviewCard(overview: tab.overview),
           ],
           const SizedBox(height: 12),
-          if (loadingRecords)
+          if (tab.loadingRecords)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 70),
               child: Center(child: CircularProgressIndicator()),
             )
-          else if (!hasLoadedRecords)
+          else if (!tab.hasLoadedRecords)
             WhiteCard(
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 28),
@@ -325,7 +389,7 @@ class _DailyTasksScreenState extends State<DailyTasksScreen> {
                 ),
               ),
             )
-          else if (records.isEmpty)
+          else if (tab.records.isEmpty)
             WhiteCard(
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 28),
@@ -354,7 +418,7 @@ class _DailyTasksScreenState extends State<DailyTasksScreen> {
               ),
             )
           else
-            for (final record in records)
+            for (final record in tab.records)
               _DailyTaskRecordCard(
                 record: record,
                 onTap: () => openRecord(record),
@@ -366,7 +430,7 @@ class _DailyTasksScreenState extends State<DailyTasksScreen> {
 
   Widget _buildTemplates(AppText text) {
     return RefreshIndicator(
-      onRefresh: loadTemplates,
+      onRefresh: () => loadTemplates(forceRefresh: true),
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(14, 4, 14, 96),
@@ -907,11 +971,16 @@ class _DailyTaskDetailPageState extends State<_DailyTaskDetailPage> {
     try {
       final result = await widget.api.dailyTaskRecord(record.id);
       if (!mounted) return;
+      final serverRecordChanged = result.status != record.status ||
+          result.photoCount != record.photoCount ||
+          result.submittedAt != record.submittedAt ||
+          result.ratedAt != record.ratedAt;
       final pathsToDelete = result.status == DailyTaskStatus.pending
           ? const <String>[]
           : List<String>.from(selectedPhotoPaths);
       setState(() {
         record = result;
+        changed = changed || serverRecordChanged;
         loading = false;
         if (result.status != DailyTaskStatus.pending) {
           selectedChecklistItemIds.clear();
@@ -1077,7 +1146,10 @@ class _DailyTaskDetailPageState extends State<_DailyTaskDetailPage> {
         ],
       ),
     );
-    if (mounted) await refresh();
+    if (mounted) {
+      changed = true;
+      await refresh();
+    }
   }
 
   Future<void> submit() async {
@@ -1132,7 +1204,12 @@ class _DailyTaskDetailPageState extends State<_DailyTaskDetailPage> {
   @override
   Widget build(BuildContext context) {
     final text = AppTextScope.of(context);
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) close();
+      },
+      child: Scaffold(
         backgroundColor: AppColours.background,
         appBar: AppBar(
           leading: IconButton(
@@ -1388,6 +1465,7 @@ class _DailyTaskDetailPageState extends State<_DailyTaskDetailPage> {
             ],
           ),
         ),
+      ),
     );
   }
 }
@@ -1938,7 +2016,7 @@ class _DailyTaskTemplatePageState extends State<DailyTaskTemplatePage> {
     try {
       final result = await widget.api.allStockTags(
         tenantId: widget.tenantId,
-        forceRefresh: true,
+        forceRefresh: false,
       );
       if (!mounted) return;
       final next = List<StockTag>.from(result);
@@ -1995,6 +2073,7 @@ class _DailyTaskTemplatePageState extends State<DailyTaskTemplatePage> {
     try {
       if (widget.template == null) {
         await widget.api.createDailyTaskTemplate(
+          tenantId: widget.tenantId,
           title: title,
           instruction: instructionController.text,
           tagId: selectedTagId,
@@ -2004,6 +2083,7 @@ class _DailyTaskTemplatePageState extends State<DailyTaskTemplatePage> {
         );
       } else {
         await widget.api.updateDailyTaskTemplate(
+          tenantId: widget.tenantId,
           templateId: widget.template!.id,
           title: title,
           instruction: instructionController.text,

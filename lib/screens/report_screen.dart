@@ -438,31 +438,39 @@ class _ReportScreenState extends State<ReportScreen>
   }
 
   Future<void> showDailyTasks() async {
+    var changed = false;
     await Navigator.of(context).push<void>(
       MaterialPageRoute(
         builder: (_) => DailyTasksScreen(
           api: widget.api,
           tenantId: widget.tenantId,
           currentUser: widget.currentUser,
+          onChanged: () async {
+            changed = true;
+          },
         ),
       ),
     );
-    if (mounted) await handleChanged();
+    if (mounted && changed) await handleChanged();
   }
 
   Future<void> showCreateDailyTask() async {
     if (!canReview) return;
+    var changed = false;
     await Navigator.of(context).push<void>(
       MaterialPageRoute(
         builder: (_) => DailyTasksScreen(
           api: widget.api,
           tenantId: widget.tenantId,
           currentUser: widget.currentUser,
+          onChanged: () async {
+            changed = true;
+          },
           initialEntry: DailyTasksEntry.setup,
         ),
       ),
     );
-    if (mounted) await handleChanged();
+    if (mounted && changed) await handleChanged();
   }
 
   Future<void> showComplaints() async {

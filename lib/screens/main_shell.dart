@@ -1008,6 +1008,12 @@ class _MainShellState extends State<MainShell> {
     await widget.api.invalidateFeatureCache(prefix);
   }
 
+  Future<void> invalidateStockTagCaches() async {
+    final tenantId = widget.session.tenant.id;
+    await invalidateSetupCache(EastAppApi.stockTagsCachePrefix(tenantId));
+    widget.api.invalidateDailyTaskRecords(tenantId);
+  }
+
   Future<void> createStockTagRemote(StockTag tag) async {
     final saved = await widget.api.createStockTag(
       tag.tag,
@@ -1015,7 +1021,7 @@ class _MainShellState extends State<MainShell> {
           .map((user) => user.userId)
           .toList(growable: false),
     );
-    await invalidateSetupCache(EastAppApi.stockTagsCachePrefix(widget.session.tenant.id));
+    await invalidateStockTagCaches();
     if (!mounted) return;
     setState(() {
       stockTags = [saved, ...stockTags];
@@ -1025,7 +1031,7 @@ class _MainShellState extends State<MainShell> {
 
   Future<void> updateStockTagRemote(StockTag tag) async {
     final saved = await widget.api.updateStockTag(tag);
-    await invalidateSetupCache(EastAppApi.stockTagsCachePrefix(widget.session.tenant.id));
+    await invalidateStockTagCaches();
     if (!mounted) return;
     setState(() {
       stockTagsUpdatedAt = DateTime.now();
@@ -1039,7 +1045,7 @@ class _MainShellState extends State<MainShell> {
     for (final tagId in tagIds) {
       await widget.api.deleteStockTag(tagId);
     }
-    await invalidateSetupCache(EastAppApi.stockTagsCachePrefix(widget.session.tenant.id));
+    await invalidateStockTagCaches();
     if (!mounted) return true;
     setState(() {
       stockTagsUpdatedAt = DateTime.now();
@@ -1341,7 +1347,7 @@ class _MainShellState extends State<MainShell> {
 
   String buildDebugReport(BuildContext context) {
     return AppDiagnostics.instance.buildReport(
-      appVersion: 'east_app_v298',
+      appVersion: 'east_app_v301',
       role: currentRoleName,
       userName: currentUserName,
       userId: currentUserId,
