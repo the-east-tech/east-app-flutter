@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../localization/app_text_scope.dart';
-import '../models/api_models.dart';
 import '../models/advertisement_models.dart';
 import '../models/app_models.dart';
 import '../models/google_place_models.dart';
@@ -67,6 +66,10 @@ class HomeScreen extends StatefulWidget {
   final String tenantId;
   final String businessName;
   final List<StaffTask> tasks;
+  final StockReviewSummary? reviewSummary;
+  final ReportDashboard? reportDashboard;
+  final List<RecentActivity> recentActivities;
+  final Future<void> Function({bool forceRefresh}) onRefresh;
   final int googleRatingRefreshSignal;
   final VoidCallback onViewTasks;
   final VoidCallback onReports;
@@ -82,6 +85,10 @@ class HomeScreen extends StatefulWidget {
     required this.tenantId,
     required this.businessName,
     required this.tasks,
+    required this.reviewSummary,
+    required this.reportDashboard,
+    required this.recentActivities,
+    required this.onRefresh,
     required this.googleRatingRefreshSignal,
     required this.onViewTasks,
     required this.onReports,
@@ -95,19 +102,14 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
-  StockReviewSummary? reviewSummary;
-  ReportDashboard? reportDashboard;
-  List<RecentActivity> homeRecentActivities = const [];
   List<Advertisement> activeAdvertisements = const [];
   Timer? _advertisementScheduleTimer;
-  int _loadGeneration = 0;
   int _advertisementLoadGeneration = 0;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    loadHomeData();
     unawaited(_loadAdvertisements());
   }
 
@@ -133,62 +135,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       _advertisementLoadGeneration++;
       activeAdvertisements = const [];
       unawaited(_loadAdvertisements());
-    }
-    if (oldWidget.tenantId != widget.tenantId ||
-        oldWidget.role != widget.role ||
-        oldWidget.isOwner != widget.isOwner) {
-      loadHomeData();
-    }
-  }
-
-  Future<void> loadHomeData() async {
-    final loadGeneration = ++_loadGeneration;
-    final now = DateTime.now();
-    final auditFuture = widget.api.stockAudit(
-      from: now.subtract(const Duration(days: 29)),
-      to: now,
-      mine: true,
-      page: 0,
-      size: 5,
-    );
-    final summaryFuture = widget.role == UserRole.staff
-        ? Future<StockReviewSummary?>.value(null)
-        : widget.api.todayStockReviewSummary();
-    // Home only presents the Report Intelligence snapshot already loaded by
-    // Report. It must never create a dashboard refresh request of its own.
-    final reportFuture = widget.api.cachedReportDashboard(
-      days: 7,
-      tenantId: widget.tenantId,
-    );
-
-    try {
-      final results = await Future.wait<Object?>([
-        auditFuture,
-        summaryFuture,
-        reportFuture,
-      ]);
-      final audit = results[0] as EastAppPage<StockAuditEntry>;
-      final summary = results[1] as StockReviewSummary?;
-      final reports = results[2] as ReportDashboard?;
-      if (!mounted || loadGeneration != _loadGeneration) return;
-      setState(() {
-        reviewSummary = summary;
-        reportDashboard = reports;
-        homeRecentActivities = audit.content
-            .take(5)
-            .map(
-              (entry) => RecentActivity(
-                title: '${entry.action}: ${entry.itemName}',
-                translatableContent: entry.itemName,
-                time: entry.timestampText,
-                score: 1,
-                status: entry.module,
-              ),
-            )
-            .toList(growable: false);
-      });
-    } on EastAppApiException {
-      // The global API error handler already shows the request failure.
     }
   }
 
@@ -256,12 +202,16 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _openAdvertisementManager(BuildContext context) async {
+    var changed = false;
     await Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => _AdvertisementManagerScreen(api: widget.api),
+        builder: (_) => _AdvertisementManagerScreen(
+          api: widget.api,
+          onChanged: () => changed = true,
+        ),
       ),
     );
-    if (!mounted) return;
+    if (!mounted || !changed) return;
     await widget.api.invalidateFeatureCache(
       EastAppApi.advertisementFeedCacheKey(widget.tenantId),
     );
@@ -272,10 +222,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     final text = AppTextScope.of(context);
     final isManagement = widget.role != UserRole.staff;
-    final pendingReviewCount = reviewSummary?.pendingReview ?? 0;
-    final doneReviewCount = reviewSummary?.done ?? 0;
-    final totalReviewCount = reviewSummary?.total ?? 0;
-    final taskOverview = reportDashboard?.dailyTasks;
+    final pendingReviewCount = widget.reviewSummary?.pendingReview ?? 0;
+    final doneReviewCount = widget.reviewSummary?.done ?? 0;
+    final totalReviewCount = widget.reviewSummary?.total ?? 0;
+    final taskOverview = widget.reportDashboard?.dailyTasks;
     final taskDone = taskOverview?.done ?? 0;
     final taskTotal = taskOverview?.total ?? 0;
     final taskPending = taskOverview?.pending ?? 0;
@@ -283,9 +233,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final taskProgress = taskTotal == 0
         ? 0.0
         : (taskDone / taskTotal).clamp(0.0, 1.0);
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 24),
-      children: [
+    return RefreshIndicator(
+      onRefresh: () => widget.onRefresh(forceRefresh: true),
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 24),
+        children: [
         PageTitle(
           title: widget.businessName,
           subtitle: text.t('Home Dashboard'),
@@ -412,7 +365,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         ),
         const SizedBox(height: 10),
         _ReportSnapshotCard(
-          dashboard: reportDashboard,
+          dashboard: widget.reportDashboard,
           isManagement: isManagement,
           onTap: widget.onReports,
         ),
@@ -495,13 +448,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 ),
               ),
               const Divider(height: 1),
-              ...homeRecentActivities.map(
+              ...widget.recentActivities.map(
                 (item) => _RecentActivityRow(activity: item),
               ),
             ],
           ),
         ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -1326,8 +1280,12 @@ class _AdvertisementCarouselState extends State<_AdvertisementCarousel> {
 
 class _AdvertisementManagerScreen extends StatefulWidget {
   final EastAppApi api;
+  final VoidCallback onChanged;
 
-  const _AdvertisementManagerScreen({required this.api});
+  const _AdvertisementManagerScreen({
+    required this.api,
+    required this.onChanged,
+  });
 
   @override
   State<_AdvertisementManagerScreen> createState() =>
@@ -1372,7 +1330,7 @@ class _AdvertisementManagerScreenState
 
   Future<void> edit([Advertisement? advertisement]) async {
     if (mutating) return;
-    final changed = await Navigator.of(context).push<bool>(
+    final saved = await Navigator.of(context).push<Advertisement>(
       MaterialPageRoute(
         builder: (_) => _AdvertisementEditor(
           api: widget.api,
@@ -1380,7 +1338,18 @@ class _AdvertisementManagerScreenState
         ),
       ),
     );
-    if (changed == true) await load();
+    if (saved == null || !mounted) return;
+    setState(() {
+      final existingIndex = items.indexWhere((item) => item.id == saved.id);
+      if (existingIndex < 0) {
+        items = [saved, ...items];
+      } else {
+        items = items
+            .map((item) => item.id == saved.id ? saved : item)
+            .toList(growable: false);
+      }
+    });
+    widget.onChanged();
   }
 
   Future<void> deleteAdvertisement(Advertisement advertisement) async {
@@ -1410,7 +1379,13 @@ class _AdvertisementManagerScreenState
     setState(() => mutating = true);
     try {
       await widget.api.deleteAdvertisement(advertisement.id);
-      await load();
+      if (!mounted) return;
+      setState(() {
+        items = items
+            .where((item) => item.id != advertisement.id)
+            .toList(growable: false);
+      });
+      widget.onChanged();
     } on EastAppApiException {
       return;
     } finally {
@@ -1658,8 +1633,9 @@ class _AdvertisementEditorState extends State<_AdvertisementEditor> {
 
     setState(() => busy = true);
     try {
+      late final Advertisement saved;
       if (widget.advertisement == null) {
-        await widget.api.createAdvertisement(
+        saved = await widget.api.createAdvertisement(
           imageStorageKey: imageStorageKey!,
           startsAt: startsAt!,
           endsAt: endsAt!,
@@ -1667,7 +1643,7 @@ class _AdvertisementEditorState extends State<_AdvertisementEditor> {
           active: active,
         );
       } else {
-        await widget.api.updateAdvertisement(
+        saved = await widget.api.updateAdvertisement(
           id: widget.advertisement!.id,
           imageStorageKey: imageStorageKey!,
           startsAt: startsAt!,
@@ -1676,7 +1652,7 @@ class _AdvertisementEditorState extends State<_AdvertisementEditor> {
           active: active,
         );
       }
-      if (mounted) Navigator.pop(context, true);
+      if (mounted) Navigator.pop(context, saved);
     } on EastAppApiException {
       return;
     } finally {

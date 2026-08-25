@@ -30,6 +30,7 @@ class AttendanceScreen extends StatefulWidget {
   final EastAppTenant currentTenant;
   final EastAppLeaderboard? pointsLeaderboard;
   final ValueChanged<EastAppLeaderboard> onPointsChanged;
+  final VoidCallback onReportDataInvalidated;
   final ValueChanged<EastAppUser> onCurrentUserChanged;
   final Future<void> Function(EastAppSession context) onBusinessContextSelected;
   final Future<void> Function(EastAppTenant tenant) onBusinessCreated;
@@ -46,6 +47,7 @@ class AttendanceScreen extends StatefulWidget {
     required this.currentTenant,
     required this.pointsLeaderboard,
     required this.onPointsChanged,
+    required this.onReportDataInvalidated,
     required this.onCurrentUserChanged,
     required this.onBusinessContextSelected,
     required this.onBusinessCreated,
@@ -78,6 +80,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   bool usersLastPage = true;
   bool usersLoading = false;
   bool usersLoadingMore = false;
+  bool usersLoaded = false;
   String? usersError;
   String usersSearch = '';
   bool? usersActiveFilter;
@@ -131,6 +134,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       usersLastPage = true;
       usersLoading = false;
       usersLoadingMore = false;
+      usersLoaded = false;
       usersError = null;
       usersSearch = '';
       usersActiveFilter = null;
@@ -188,6 +192,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         usersLastPage = result.last;
         usersLoading = false;
         usersLoadingMore = false;
+        usersLoaded = true;
         usersUpdatedAt = widget.api.featureCacheUpdatedAt(cacheKey) ?? DateTime.now();
       });
     } on EastAppApiException catch (error) {
@@ -196,6 +201,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         usersError = error.message;
         usersLoading = false;
         usersLoadingMore = false;
+        usersLoaded = true;
       });
     }
   }
@@ -242,18 +248,34 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   }
 
   void updateUsersSearch(String value) {
-    usersSearch = value.trim();
-    unawaited(loadUsers(reset: true));
+    setState(() {
+      usersSearch = value.trim();
+      _clearLoadedUserQuery();
+    });
   }
 
   void updateUsersActiveFilter(bool? value) {
-    usersActiveFilter = value;
-    unawaited(loadUsers(reset: true));
+    setState(() {
+      usersActiveFilter = value;
+      _clearLoadedUserQuery();
+    });
   }
 
   void updateUsersRoleFilter(String? value) {
-    usersRoleFilter = value;
-    unawaited(loadUsers(reset: true));
+    setState(() {
+      usersRoleFilter = value;
+      _clearLoadedUserQuery();
+    });
+  }
+
+  void _clearLoadedUserQuery() {
+    users = [];
+    usersPage = 0;
+    usersTotal = 0;
+    usersLastPage = true;
+    usersLoaded = false;
+    usersError = null;
+    usersUpdatedAt = null;
   }
 
   void openPage(_PeoplePage nextPage) {
@@ -278,7 +300,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     AppFeedback.select();
     setState(() => page = nextPage);
     if (nextPage == _PeoplePage.users) {
-      unawaited(loadUsers(reset: true));
       unawaited(loadRoles());
     } else if (nextPage == _PeoplePage.roles) {
       unawaited(loadRoles());
@@ -508,10 +529,14 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                 ? 'ANDROID'
                 : Platform.operatingSystem.toUpperCase(),
         deviceOsVersion: Platform.operatingSystemVersion.replaceAll('\n', ' '),
-        appVersion: 'east_app_v287',
+        appVersion: 'east_app_v303',
       );
 
       final refreshed = await widget.api.attendanceToday();
+      await widget.api.invalidateFeatureCache(
+        'tenant:${widget.currentTenant.id}:report:',
+      );
+      widget.onReportDataInvalidated();
       if (!mounted) return;
       setState(() => todayAttendance = refreshed);
       Navigator.of(context).pop();
@@ -712,6 +737,19 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     return '${widget.currentUser.id}-$timestamp-$random';
   }
 
+  Future<void> invalidateUserRelatedCaches() async {
+    final tenantId = widget.currentTenant.id;
+    await Future.wait([
+      widget.api.invalidateFeatureCache(EastAppApi.usersCachePrefix(tenantId)),
+      widget.api.invalidateFeatureCache(EastAppApi.rolesCachePrefix(tenantId)),
+      widget.api.invalidateFeatureCache(EastAppApi.stockTagsCachePrefix(tenantId)),
+      widget.api.invalidateFeatureCache('tenant:$tenantId:report:'),
+    ]);
+    widget.api.invalidateDailyTaskRecords(tenantId);
+    widget.api.invalidateDailyTaskTemplates(tenantId);
+    widget.onReportDataInvalidated();
+  }
+
   Future<void> openUserForm() async {
     if (!canCreateUsers) {
       showWarningSnackBar(
@@ -743,7 +781,10 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
             startDate: draft.startDate,
             endDate: draft.endDate,
           );
-          unawaited(loadUsers(reset: true, forceRefresh: true));
+          await invalidateUserRelatedCaches();
+          if (usersLoaded) {
+            unawaited(loadUsers(reset: true, forceRefresh: true));
+          }
           unawaited(loadRoles(force: true));
           return created.employeeId;
         },
@@ -800,8 +841,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
               password: draft.password!,
             );
           }
+          await invalidateUserRelatedCaches();
           await Future.wait([
-            loadUsers(reset: true, forceRefresh: true),
+            if (usersLoaded) loadUsers(reset: true, forceRefresh: true),
             loadRoles(force: true),
           ]);
           return null;
@@ -842,8 +884,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
             startDate: user.startDate,
             endDate: lastWorkingDate,
           );
+          await invalidateUserRelatedCaches();
           await Future.wait([
-            loadUsers(reset: true, forceRefresh: true),
+            if (usersLoaded) loadUsers(reset: true, forceRefresh: true),
             loadRoles(force: true),
           ]);
         },
@@ -946,6 +989,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
           child: _UserSetupPage(
             users: users,
             totalUsers: usersTotal,
+            hasLoaded: usersLoaded,
             loading: usersLoading,
             loadingMore: usersLoadingMore,
             lastPage: usersLastPage,
@@ -959,6 +1003,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
             onCreateUser: openUserForm,
             onUserTap: canManageUsers ? openEditUserForm : null,
             onSearchChanged: updateUsersSearch,
+            onSearch: () => unawaited(loadUsers(reset: true)),
             onActiveFilterChanged: updateUsersActiveFilter,
             onRoleFilterChanged: updateUsersRoleFilter,
             onLoadMore: () => loadUsers(reset: false),
@@ -1144,6 +1189,7 @@ class _PeopleSetupRefreshBarState extends State<_PeopleSetupRefreshBar> {
 class _UserSetupPage extends StatefulWidget {
   final List<_PeopleUser> users;
   final int totalUsers;
+  final bool hasLoaded;
   final bool loading;
   final bool loadingMore;
   final bool lastPage;
@@ -1157,6 +1203,7 @@ class _UserSetupPage extends StatefulWidget {
   final VoidCallback onCreateUser;
   final ValueChanged<_PeopleUser>? onUserTap;
   final ValueChanged<String> onSearchChanged;
+  final VoidCallback onSearch;
   final ValueChanged<bool?> onActiveFilterChanged;
   final ValueChanged<String?> onRoleFilterChanged;
   final Future<void> Function() onLoadMore;
@@ -1165,6 +1212,7 @@ class _UserSetupPage extends StatefulWidget {
   const _UserSetupPage({
     required this.users,
     required this.totalUsers,
+    required this.hasLoaded,
     required this.loading,
     required this.loadingMore,
     required this.lastPage,
@@ -1178,6 +1226,7 @@ class _UserSetupPage extends StatefulWidget {
     required this.onCreateUser,
     required this.onUserTap,
     required this.onSearchChanged,
+    required this.onSearch,
     required this.onActiveFilterChanged,
     required this.onRoleFilterChanged,
     required this.onLoadMore,
@@ -1190,21 +1239,15 @@ class _UserSetupPage extends StatefulWidget {
 
 class _UserSetupPageState extends State<_UserSetupPage> {
   final searchController = TextEditingController();
-  Timer? searchDebounce;
 
   @override
   void dispose() {
-    searchDebounce?.cancel();
     searchController.dispose();
     super.dispose();
   }
 
   void handleSearch(String value) {
-    searchDebounce?.cancel();
-    searchDebounce = Timer(
-      const Duration(milliseconds: 350),
-      () => widget.onSearchChanged(value),
-    );
+    widget.onSearchChanged(value);
     setState(() {});
   }
 
@@ -1276,6 +1319,10 @@ class _UserSetupPageState extends State<_UserSetupPage> {
           controller: searchController,
           style: AppTextStyles.formValue,
           onChanged: handleSearch,
+          onSubmitted: (value) {
+            widget.onSearchChanged(value);
+            widget.onSearch();
+          },
           textInputAction: TextInputAction.search,
           onTapOutside: (_) => FocusScope.of(context).unfocus(),
           decoration: AppInputStyle.decoration(
@@ -1287,7 +1334,6 @@ class _UserSetupPageState extends State<_UserSetupPage> {
                 : IconButton(
                     onPressed: () {
                       AppFeedback.select();
-                      searchDebounce?.cancel();
                       searchController.clear();
                       FocusScope.of(context).unfocus();
                       setState(() {});
@@ -1334,6 +1380,12 @@ class _UserSetupPageState extends State<_UserSetupPage> {
           },
         ),
         const SizedBox(height: 14),
+        PrimaryButton(
+          text: text.t('Search Users'),
+          icon: Icons.search_rounded,
+          onPressed: widget.loading ? null : widget.onSearch,
+        ),
+        const SizedBox(height: 14),
         if (widget.loading)
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 50),
@@ -1359,6 +1411,17 @@ class _UserSetupPageState extends State<_UserSetupPage> {
                   child: Text(text.t('Retry')),
                 ),
               ],
+            ),
+          )
+        else if (!widget.hasLoaded)
+          WhiteCard(
+            child: Text(
+              text.t('Choose any filters, then tap Search Users.'),
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: AppColours.textMuted,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           )
         else ...[

@@ -38,7 +38,7 @@ class _PeoplePointsScreenState extends State<PeoplePointsScreen> {
     super.initState();
     leaderboard = widget.initialLeaderboard;
     _selectFirstUser();
-    _loadLeaderboard();
+    if (leaderboard == null) _loadLeaderboard();
   }
 
   @override

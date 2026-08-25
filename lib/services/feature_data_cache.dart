@@ -19,9 +19,12 @@ class FeatureDataCache {
 
   static final FeatureDataCache instance = FeatureDataCache._();
   static const String _prefix = 'eastapp_feature_cache_v1_';
+  static const int _maximumStoredEntries = 200;
 
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
   final Map<String, CachedFeatureData> _memory = <String, CachedFeatureData>{};
+  Future<void>? _maintenanceRequest;
+  bool _maintenanceComplete = false;
 
   String _storageKey(String key) {
     final encoded = base64Url.encode(utf8.encode(key)).replaceAll('=', '');
@@ -37,10 +40,70 @@ class FeatureDataCache {
 
   DateTime? updatedAt(String key) => _memory[key]?.updatedAt;
 
+  Future<void> _ensureMaintained() {
+    if (_maintenanceComplete) return Future<void>.value();
+    final existing = _maintenanceRequest;
+    if (existing != null) return existing;
+
+    late final Future<void> request;
+    request = _pruneStoredEntriesSafely().whenComplete(() {
+      _maintenanceComplete = true;
+      if (identical(_maintenanceRequest, request)) {
+        _maintenanceRequest = null;
+      }
+    });
+    _maintenanceRequest = request;
+    return request;
+  }
+
+  Future<void> _pruneStoredEntriesSafely() async {
+    try {
+      await _pruneStoredEntries();
+    } on Object {
+      // Cache maintenance must never block live data from loading.
+    }
+  }
+
+  Future<void> _pruneStoredEntries() async {
+    final all = await _storage.readAll();
+    final today = _todayKey();
+    final retained = <({String storageKey, DateTime updatedAt})>[];
+    final keysToDelete = <String>[];
+
+    for (final entry in all.entries) {
+      if (!entry.key.startsWith(_prefix)) continue;
+      try {
+        final envelope = jsonDecode(entry.value) as Map<String, dynamic>;
+        final dayKey = envelope['dayKey'] as String?;
+        final updatedAt = DateTime.parse(envelope['updatedAt'] as String);
+        if (dayKey != today) {
+          keysToDelete.add(entry.key);
+        } else {
+          retained.add((storageKey: entry.key, updatedAt: updatedAt));
+        }
+      } on Object {
+        keysToDelete.add(entry.key);
+      }
+    }
+
+    retained.sort((left, right) => right.updatedAt.compareTo(left.updatedAt));
+    if (retained.length > _maximumStoredEntries) {
+      keysToDelete.addAll(
+        retained
+            .skip(_maximumStoredEntries)
+            .map((entry) => entry.storageKey),
+      );
+    }
+    for (final key in keysToDelete.toSet()) {
+      await _storage.delete(key: key);
+    }
+  }
+
   Future<CachedFeatureData?> read(
     String key, {
     bool invalidateOnNewDay = true,
   }) async {
+    await _ensureMaintained();
     final memoryValue = _memory[key];
     if (memoryValue != null) {
       if (!invalidateOnNewDay || memoryValue.dayKey == _todayKey()) {
@@ -72,6 +135,7 @@ class FeatureDataCache {
   }
 
   Future<void> write(String key, Object? data) async {
+    await _ensureMaintained();
     final value = CachedFeatureData(
       data: data,
       updatedAt: DateTime.now(),
@@ -121,5 +185,6 @@ class FeatureDataCache {
     for (final key in all.keys.where((key) => key.startsWith(_prefix))) {
       await _storage.delete(key: key);
     }
+    _maintenanceComplete = true;
   }
 }

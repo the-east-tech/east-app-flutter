@@ -96,6 +96,14 @@ class EastAppApi {
   final Set<String> _knownContent = <String>{};
   final Map<String, Future<Object?>> _featureReadRequests =
       <String, Future<Object?>>{};
+  final Map<String, int> _featureCacheRevisions = <String, int>{};
+  int _featureCacheEpoch = 0;
+  final LinkedHashMap<String, Uint8List> _mediaBytesCache =
+      LinkedHashMap<String, Uint8List>();
+  final Map<String, Future<Uint8List>> _mediaBytesRequests =
+      <String, Future<Uint8List>>{};
+  int _mediaBytesCacheSize = 0;
+  int _mediaBytesCacheGeneration = 0;
   final _availableContextsCache = _AsyncMemoryCache<List<EastAppSession>>(
     ttl: const Duration(minutes: 5),
   );
@@ -137,6 +145,18 @@ class EastAppApi {
     DateTime to,
   ) =>
       'tenant:$tenantId:report:sales-history:${formatApiDate(from)}:${formatApiDate(to)}';
+  static String wasteHistoryCacheKey(
+    String tenantId,
+    DateTime from,
+    DateTime to,
+  ) =>
+      'tenant:$tenantId:report:waste-history:${formatApiDate(from)}:${formatApiDate(to)}';
+  static String complaintHistoryCacheKey(
+    String tenantId,
+    DateTime from,
+    DateTime to,
+  ) =>
+      'tenant:$tenantId:report:complaint-history:${formatApiDate(from)}:${formatApiDate(to)}';
   static String stockTagsCachePrefix(String tenantId) =>
       'tenant:$tenantId:setup:stock-tags:';
   static String stockSuppliersCachePrefix(String tenantId) =>
@@ -157,10 +177,26 @@ class EastAppApi {
   DateTime? featureCacheUpdatedAt(String cacheKey) =>
       FeatureDataCache.instance.updatedAt(cacheKey);
 
-  Future<void> invalidateFeatureCache(String keyPrefix) =>
-      FeatureDataCache.instance.removeByPrefix(keyPrefix);
+  Future<void> invalidateFeatureCache(String keyPrefix) async {
+    _featureCacheEpoch += 1;
+    final matchingKeys = <String>{
+      ..._featureCacheRevisions.keys.where((key) => key.startsWith(keyPrefix)),
+      ..._featureReadRequests.keys.where((key) => key.startsWith(keyPrefix)),
+    };
+    for (final key in matchingKeys) {
+      _featureCacheRevisions[key] = (_featureCacheRevisions[key] ?? 0) + 1;
+    }
+    _featureReadRequests.removeWhere((key, _) => key.startsWith(keyPrefix));
+    await FeatureDataCache.instance.removeByPrefix(keyPrefix);
+  }
 
-  Future<void> clearFeatureCaches() => FeatureDataCache.instance.clearAll();
+  Future<void> clearFeatureCaches() async {
+    _featureCacheEpoch += 1;
+    _featureCacheRevisions.clear();
+    _featureReadRequests.clear();
+    _clearMediaBytesCache();
+    await FeatureDataCache.instance.clearAll();
+  }
 
   void invalidateDailyTaskRecords(String tenantId) {
     final prefix = dailyTaskRecordsCachePrefix(tenantId);
@@ -185,12 +221,22 @@ class EastAppApi {
     _dailyTaskTemplateRequests.clear();
   }
 
+  void _clearMediaBytesCache() {
+    _mediaBytesCacheGeneration += 1;
+    _mediaBytesCache.clear();
+    _mediaBytesRequests.clear();
+    _mediaBytesCacheSize = 0;
+  }
+
   void useToken(String? token) {
     if (_token != token) {
+      _featureCacheEpoch += 1;
+      _featureReadRequests.clear();
       invalidateAvailableContextsCache();
       invalidateTenantsCache();
       _clearContentTranslation();
       _clearDailyTaskMemoryCaches();
+      _clearMediaBytesCache();
     }
     _token = token;
   }
@@ -417,9 +463,11 @@ class EastAppApi {
       '/api/v1/auth/context',
       body: {'userId': userId},
     ) as Map<String, dynamic>;
+    await clearFeatureCaches();
     invalidateAvailableContextsCache();
     invalidateTenantsCache();
     _clearContentTranslation();
+    _clearDailyTaskMemoryCaches();
     return EastAppSession(
       token: _token ?? '',
       tenant: EastAppTenant.fromJson(body['tenant'] as Map<String, dynamic>),
@@ -819,15 +867,21 @@ class EastAppApi {
   Future<List<WasteReport>> wasteReports({
     required DateTime from,
     required DateTime to,
+    String? tenantId,
+    bool forceRefresh = false,
   }) async {
     final query = Uri(queryParameters: {
       'from': formatApiDate(from),
       'to': formatApiDate(to),
     }).query;
-    final body = await _requestJson(
-      'GET',
-      '/api/v1/reports/waste?$query',
-    ) as List<dynamic>;
+    final path = '/api/v1/reports/waste?$query';
+    final body = (tenantId == null
+        ? await _requestJson('GET', path)
+        : await _requestCachedJson(
+            path,
+            cacheKey: wasteHistoryCacheKey(tenantId, from, to),
+            forceRefresh: forceRefresh,
+          )) as List<dynamic>;
     return body
         .map((item) => WasteReport.fromJson(item as Map<String, dynamic>))
         .toList(growable: false);
@@ -1199,15 +1253,21 @@ class EastAppApi {
   Future<List<ComplaintReport>> complaintReports({
     required DateTime from,
     required DateTime to,
+    String? tenantId,
+    bool forceRefresh = false,
   }) async {
     final query = Uri(queryParameters: {
       'from': formatApiDate(from),
       'to': formatApiDate(to),
     }).query;
-    final body = await _requestJson(
-      'GET',
-      '/api/v1/reports/complaints?$query',
-    ) as List<dynamic>;
+    final path = '/api/v1/reports/complaints?$query';
+    final body = (tenantId == null
+        ? await _requestJson('GET', path)
+        : await _requestCachedJson(
+            path,
+            cacheKey: complaintHistoryCacheKey(tenantId, from, to),
+            forceRefresh: forceRefresh,
+          )) as List<dynamic>;
     return body
         .map((item) => ComplaintReport.fromJson(item as Map<String, dynamic>))
         .toList(growable: false);
@@ -1912,7 +1972,14 @@ class EastAppApi {
     }
   }
 
-  Future<Uint8List> reportImageBytes(String storageKey) async {
+  Future<Uint8List> reportImageBytes(String storageKey) {
+    return _loadMediaBytes(
+      'report:$storageKey',
+      () => _fetchReportImageBytes(storageKey),
+    );
+  }
+
+  Future<Uint8List> _fetchReportImageBytes(String storageKey) async {
     final stopwatch = Stopwatch()..start();
     const method = 'GET';
     final encodedKey = Uri.encodeComponent(storageKey);
@@ -2190,7 +2257,14 @@ class EastAppApi {
     throw error;
   }
 
-  Future<Uint8List> stockSkuThumbnailBytes(String storageKey) async {
+  Future<Uint8List> stockSkuThumbnailBytes(String storageKey) {
+    return _loadMediaBytes(
+      'stock-sku:$storageKey',
+      () => _fetchStockSkuThumbnailBytes(storageKey),
+    );
+  }
+
+  Future<Uint8List> _fetchStockSkuThumbnailBytes(String storageKey) async {
     final stopwatch = Stopwatch()..start();
     const method = 'GET';
     final encodedKey = Uri.encodeComponent(storageKey);
@@ -2259,7 +2333,14 @@ class EastAppApi {
     return Uint8List.fromList(response.bodyBytes);
   }
 
-  Future<Uint8List> stockReceivingPhotoBytes(String storageKey) async {
+  Future<Uint8List> stockReceivingPhotoBytes(String storageKey) {
+    return _loadMediaBytes(
+      'stock-receiving:$storageKey',
+      () => _fetchStockReceivingPhotoBytes(storageKey),
+    );
+  }
+
+  Future<Uint8List> _fetchStockReceivingPhotoBytes(String storageKey) async {
     final stopwatch = Stopwatch()..start();
     const method = 'GET';
     final encodedKey = Uri.encodeComponent(storageKey);
@@ -2461,14 +2542,64 @@ class EastAppApi {
     return stockAuditPageFromJson(body);
   }
 
+  Future<Uint8List> _loadMediaBytes(
+    String cacheKey,
+    Future<Uint8List> Function() loader,
+  ) {
+    const maximumEntries = 64;
+    const maximumBytes = 24 * 1024 * 1024;
+
+    final cached = _mediaBytesCache.remove(cacheKey);
+    if (cached != null) {
+      _mediaBytesCache[cacheKey] = cached;
+      return Future<Uint8List>.value(cached);
+    }
+    final existing = _mediaBytesRequests[cacheKey];
+    if (existing != null) return existing;
+
+    final generation = _mediaBytesCacheGeneration;
+    late final Future<Uint8List> request;
+    request = loader().then((bytes) {
+      if (generation != _mediaBytesCacheGeneration ||
+          bytes.lengthInBytes > maximumBytes) {
+        return bytes;
+      }
+      final replaced = _mediaBytesCache.remove(cacheKey);
+      if (replaced != null) {
+        _mediaBytesCacheSize -= replaced.lengthInBytes;
+      }
+      _mediaBytesCache[cacheKey] = bytes;
+      _mediaBytesCacheSize += bytes.lengthInBytes;
+      while (_mediaBytesCache.length > maximumEntries ||
+          _mediaBytesCacheSize > maximumBytes) {
+        final oldestKey = _mediaBytesCache.keys.first;
+        final removed = _mediaBytesCache.remove(oldestKey);
+        if (removed != null) {
+          _mediaBytesCacheSize -= removed.lengthInBytes;
+        }
+      }
+      return bytes;
+    }).whenComplete(() {
+      if (identical(_mediaBytesRequests[cacheKey], request)) {
+        _mediaBytesRequests.remove(cacheKey);
+      }
+    });
+    _mediaBytesRequests[cacheKey] = request;
+    return request;
+  }
+
   Future<Object?> _requestCachedJson(
     String path, {
     required String cacheKey,
     bool forceRefresh = false,
   }) async {
+    final readEpoch = _featureCacheEpoch;
+    final readRevision = _featureCacheRevisions[cacheKey] ?? 0;
     if (!forceRefresh) {
       final cached = await FeatureDataCache.instance.read(cacheKey);
-      if (cached != null) {
+      if (cached != null &&
+          readEpoch == _featureCacheEpoch &&
+          readRevision == (_featureCacheRevisions[cacheKey] ?? 0)) {
         AppDiagnostics.instance.log('Cache hit · $cacheKey');
         await _observeUserContent(path, cached.data);
         return cached.data;
@@ -2483,9 +2614,19 @@ class EastAppApi {
       '${forceRefresh ? 'Cache refresh' : 'Cache miss'} · $cacheKey',
     );
 
+    final requestEpoch = _featureCacheEpoch;
+    final requestRevision = _featureCacheRevisions[cacheKey] ?? 0;
     final request = (() async {
       final value = await _requestJson('GET', path);
-      await FeatureDataCache.instance.write(cacheKey, value);
+      final stillCurrent = requestEpoch == _featureCacheEpoch &&
+          requestRevision == (_featureCacheRevisions[cacheKey] ?? 0);
+      if (stillCurrent) {
+        await FeatureDataCache.instance.write(cacheKey, value);
+        if (requestEpoch != _featureCacheEpoch ||
+            requestRevision != (_featureCacheRevisions[cacheKey] ?? 0)) {
+          await FeatureDataCache.instance.remove(cacheKey);
+        }
+      }
       return value;
     })();
     _featureReadRequests[cacheKey] = request;

@@ -14,6 +14,8 @@ import '../models/auth_models.dart';
 import '../models/people_models.dart';
 import '../models/points_models.dart';
 import '../models/organisation_models.dart';
+import '../models/report_models.dart';
+import '../models/stock_api_models.dart';
 import '../services/east_app_api.dart';
 import '../theme/app_theme.dart';
 import '../utils/app_diagnostics.dart';
@@ -91,6 +93,13 @@ class _MainShellState extends State<MainShell> {
   double mainSwipeDeltaX = 0;
   EastAppLeaderboard? pointsLeaderboard;
   Future<EastAppLeaderboard>? pointsLeaderboardRequest;
+  StockReviewSummary? homeReviewSummary;
+  ReportDashboard? homeReportDashboard;
+  List<RecentActivity> homeRecentActivities = const [];
+  bool homeDataLoaded = false;
+  String? homeDataDayKey;
+  Future<void>? homeDataRequest;
+  int homeDataGeneration = 0;
   StockPage? requestedStockPage;
   bool requestedStockPageBackToHome = false;
 
@@ -109,6 +118,7 @@ class _MainShellState extends State<MainShell> {
     suppliers = <SupplierProfile>[];
     attendanceRecords = List<AttendanceRecord>.from(sampleAttendanceRecords);
     unawaited(loadPointsLeaderboard());
+    unawaited(loadHomeData());
   }
 
   @override
@@ -118,11 +128,21 @@ class _MainShellState extends State<MainShell> {
         oldWidget.session.user.id != widget.session.user.id) {
       pointsLeaderboard = null;
       pointsLeaderboardRequest = null;
+      _markHomeDataStale();
+      homeReviewSummary = null;
+      homeReportDashboard = null;
+      homeRecentActivities = const [];
       unawaited(loadPointsLeaderboard());
+      unawaited(loadHomeData());
     }
   }
 
-  Future<EastAppLeaderboard?> loadPointsLeaderboard() async {
+  Future<EastAppLeaderboard?> loadPointsLeaderboard({
+    bool forceRefresh = false,
+  }) async {
+    if (!forceRefresh && pointsLeaderboard != null) {
+      return pointsLeaderboard;
+    }
     final existingRequest = pointsLeaderboardRequest;
     if (existingRequest != null) {
       return existingRequest;
@@ -143,6 +163,100 @@ class _MainShellState extends State<MainShell> {
         pointsLeaderboardRequest = null;
       }
     }
+  }
+
+  String _currentDayKey() {
+    final now = DateTime.now();
+    return '${now.year.toString().padLeft(4, '0')}-'
+        '${now.month.toString().padLeft(2, '0')}-'
+        '${now.day.toString().padLeft(2, '0')}';
+  }
+
+  void _markHomeDataStale() {
+    homeDataGeneration += 1;
+    homeDataLoaded = false;
+    homeDataDayKey = null;
+    homeDataRequest = null;
+  }
+
+  void invalidateHomeData() {
+    if (!mounted) return;
+    setState(_markHomeDataStale);
+  }
+
+  Future<void> invalidateReportData() async {
+    invalidateHomeData();
+    await widget.api.invalidateFeatureCache(
+      'tenant:${widget.session.tenant.id}:report:',
+    );
+  }
+
+  Future<void> loadHomeData({bool forceRefresh = false}) {
+    final dayKey = _currentDayKey();
+    if (!forceRefresh && homeDataLoaded && homeDataDayKey == dayKey) {
+      return Future<void>.value();
+    }
+    if (forceRefresh) {
+      _markHomeDataStale();
+    }
+    final existingRequest = homeDataRequest;
+    if (existingRequest != null) return existingRequest;
+
+    final generation = homeDataGeneration;
+    final now = DateTime.now();
+    late final Future<void> request;
+    request = Future.wait<Object?>([
+      widget.api.stockAudit(
+        from: now.subtract(const Duration(days: 29)),
+        to: now,
+        mine: true,
+        page: 0,
+        size: 5,
+      ),
+      widget.role == UserRole.staff
+          ? Future<StockReviewSummary?>.value(null)
+          : widget.api.todayStockReviewSummary(),
+      widget.api.cachedReportDashboard(
+        days: 7,
+        tenantId: widget.session.tenant.id,
+      ),
+    ]).then((results) {
+      if (!mounted || generation != homeDataGeneration) return;
+      final audit = results[0] as EastAppPage<StockAuditEntry>;
+      final summary = results[1] as StockReviewSummary?;
+      final reports = results[2] as ReportDashboard?;
+      setState(() {
+        homeReviewSummary = summary;
+        if (reports != null) homeReportDashboard = reports;
+        homeRecentActivities = audit.content
+            .take(5)
+            .map(
+              (entry) => RecentActivity(
+                title: '${entry.action}: ${entry.itemName}',
+                translatableContent: entry.itemName,
+                time: entry.timestampText,
+                score: 1,
+                status: entry.module,
+              ),
+            )
+            .toList(growable: false);
+        homeDataLoaded = true;
+        homeDataDayKey = dayKey;
+      });
+    }).onError<EastAppApiException>((_, _) {
+      // Global API error handling already presents the request failure.
+    }).whenComplete(() {
+      if (identical(homeDataRequest, request)) {
+        homeDataRequest = null;
+      }
+    });
+    homeDataRequest = request;
+    return request;
+  }
+
+  void handleReportDashboardLoaded(ReportDashboard value) {
+    if (!mounted) return;
+    setState(() => homeReportDashboard = value);
   }
 
   void handlePointsChanged(EastAppLeaderboard value) {
@@ -170,9 +284,9 @@ class _MainShellState extends State<MainShell> {
       pageSlideDirection = -1;
       requestedStockPage = null;
       requestedStockPageBackToHome = false;
-      homeRefreshSignal++;
       selectedIndex = 0;
     });
+    unawaited(loadHomeData());
   }
 
   Future<void> loadStockTags({
@@ -322,19 +436,20 @@ class _MainShellState extends State<MainShell> {
       switch (page) {
         case StockPage.dailyCount:
           await Future.wait([
-            loadStockSkus(reset: stockSkuPage < 0),
-            loadStockCounts(
-              mine: widget.role == UserRole.staff,
-              reset: stockCountPage < 0 ||
-                  stockCountsMine != (widget.role == UserRole.staff),
-            ),
+            if (stockSkuPage < 0) loadStockSkus(reset: true),
+            if (stockCountPage < 0 ||
+                stockCountsMine != (widget.role == UserRole.staff))
+              loadStockCounts(
+                mine: widget.role == UserRole.staff,
+                reset: true,
+              ),
           ]);
           break;
         case StockPage.receiving:
         case StockPage.restockMessage:
           await Future.wait([
-            loadStockSuppliers(reset: stockSupplierPage < 0),
-            loadStockSkus(reset: stockSkuPage < 0),
+            if (stockSupplierPage < 0) loadStockSuppliers(reset: true),
+            if (stockSkuPage < 0) loadStockSkus(reset: true),
           ]);
           break;
         case StockPage.review:
@@ -342,16 +457,16 @@ class _MainShellState extends State<MainShell> {
           break;
         case StockPage.skuSetup:
           await Future.wait([
-            loadStockTags(reset: stockTagPage < 0),
-            loadStockSuppliers(reset: stockSupplierPage < 0),
-            loadStockSkus(reset: stockSkuPage < 0),
+            if (stockTagPage < 0) loadStockTags(reset: true),
+            if (stockSupplierPage < 0) loadStockSuppliers(reset: true),
+            if (stockSkuPage < 0) loadStockSkus(reset: true),
           ]);
           break;
         case StockPage.supplierSetup:
-          await loadStockSuppliers(reset: stockSupplierPage < 0);
+          if (stockSupplierPage < 0) await loadStockSuppliers(reset: true);
           break;
         case StockPage.tagSetup:
-          await loadStockTags(reset: stockTagPage < 0);
+          if (stockTagPage < 0) await loadStockTags(reset: true);
           break;
         case StockPage.assigneeSetup:
           // On-demand: Assignee loads only after Assigned/Unassigned + Load.
@@ -385,11 +500,8 @@ class _MainShellState extends State<MainShell> {
     setState(() {
       pageSlideDirection = index >= selectedIndex ? 1 : -1;
       if (index == 0) {
-        homeRefreshSignal++;
         unawaited(loadPointsLeaderboard());
-      }
-      if (index == 1 && stockSkuPage < 0) {
-        unawaited(loadStockSkus(reset: true));
+        unawaited(loadHomeData());
       }
       if (index == 2 && selectedIndex == 2) {
         stockResetSignal++;
@@ -1012,6 +1124,7 @@ class _MainShellState extends State<MainShell> {
     final tenantId = widget.session.tenant.id;
     await invalidateSetupCache(EastAppApi.stockTagsCachePrefix(tenantId));
     widget.api.invalidateDailyTaskRecords(tenantId);
+    widget.api.invalidateDailyTaskTemplates(tenantId);
   }
 
   Future<void> createStockTagRemote(StockTag tag) async {
@@ -1022,6 +1135,7 @@ class _MainShellState extends State<MainShell> {
           .toList(growable: false),
     );
     await invalidateStockTagCaches();
+    await invalidateReportData();
     if (!mounted) return;
     setState(() {
       stockTags = [saved, ...stockTags];
@@ -1032,6 +1146,7 @@ class _MainShellState extends State<MainShell> {
   Future<void> updateStockTagRemote(StockTag tag) async {
     final saved = await widget.api.updateStockTag(tag);
     await invalidateStockTagCaches();
+    await invalidateReportData();
     if (!mounted) return;
     setState(() {
       stockTagsUpdatedAt = DateTime.now();
@@ -1046,6 +1161,7 @@ class _MainShellState extends State<MainShell> {
       await widget.api.deleteStockTag(tagId);
     }
     await invalidateStockTagCaches();
+    await invalidateReportData();
     if (!mounted) return true;
     setState(() {
       stockTagsUpdatedAt = DateTime.now();
@@ -1115,6 +1231,7 @@ class _MainShellState extends State<MainShell> {
   Future<void> createSkuRemote(StockSku sku) async {
     final saved = await widget.api.createStockSku(sku);
     await invalidateSetupCache(EastAppApi.stockSkusCachePrefix(widget.session.tenant.id));
+    await invalidateReportData();
     if (!mounted) return;
     setState(() {
       stockSkus = [saved, ...stockSkus];
@@ -1125,6 +1242,7 @@ class _MainShellState extends State<MainShell> {
   Future<void> updateSkuRemote(StockSku sku) async {
     final saved = await widget.api.updateStockSku(sku);
     await invalidateSetupCache(EastAppApi.stockSkusCachePrefix(widget.session.tenant.id));
+    await invalidateReportData();
     if (!mounted) return;
     setState(() {
       stockSkusUpdatedAt = DateTime.now();
@@ -1146,6 +1264,7 @@ class _MainShellState extends State<MainShell> {
     await invalidateSetupCache(
       EastAppApi.stockSkusCachePrefix(widget.session.tenant.id),
     );
+    await invalidateReportData();
     if (!mounted) return;
     setState(() {
       stockSkusUpdatedAt = DateTime.now();
@@ -1160,6 +1279,7 @@ class _MainShellState extends State<MainShell> {
     await invalidateSetupCache(
       EastAppApi.stockSkusCachePrefix(widget.session.tenant.id),
     );
+    await invalidateReportData();
     if (!mounted) return;
     setState(() {
       stockSkusUpdatedAt = DateTime.now();
@@ -1177,6 +1297,7 @@ class _MainShellState extends State<MainShell> {
 
   Future<void> reviewStockCountRemote(StockSubmission submission) async {
     final saved = await widget.api.reviewStockCount(submission);
+    await invalidateReportData();
     if (!mounted) return;
     setState(() {
       stockSubmissions = stockSubmissions
@@ -1189,6 +1310,7 @@ class _MainShellState extends State<MainShell> {
     List<StockSubmission> submissions,
   ) async {
     final saved = await widget.api.bulkReviewStockCounts(submissions);
+    await invalidateReportData();
     if (!mounted) return;
     final byId = {for (final item in saved) item.id: item};
     setState(() {
@@ -1205,6 +1327,7 @@ class _MainShellState extends State<MainShell> {
     await invalidateSetupCache(
       EastAppApi.stockSkusCachePrefix(widget.session.tenant.id),
     );
+    await invalidateReportData();
     if (!mounted) return;
     final quantities = <String, double>{};
     for (final item in saved.items) {
@@ -1230,6 +1353,7 @@ class _MainShellState extends State<MainShell> {
     StockReceivingRecord record,
   ) async {
     final saved = await widget.api.reviewStockReceiving(record);
+    await invalidateReportData();
     if (!mounted) return;
     setState(() {
       stockReceivingRecords = stockReceivingRecords
@@ -1347,7 +1471,7 @@ class _MainShellState extends State<MainShell> {
 
   String buildDebugReport(BuildContext context) {
     return AppDiagnostics.instance.buildReport(
-      appVersion: 'east_app_v301',
+      appVersion: 'east_app_v303',
       role: currentRoleName,
       userName: currentUserName,
       userId: currentUserId,
@@ -1765,6 +1889,10 @@ class _MainShellState extends State<MainShell> {
               tenantId: widget.session.tenant.id,
               businessName: widget.session.tenant.businessName,
               tasks: tasks,
+              reviewSummary: homeReviewSummary,
+              reportDashboard: homeReportDashboard,
+              recentActivities: homeRecentActivities,
+              onRefresh: loadHomeData,
               googleRatingRefreshSignal: homeRefreshSignal,
               onViewTasks: widget.role == UserRole.staff
                   ? () => goToTab(1)
@@ -1780,9 +1908,9 @@ class _MainShellState extends State<MainShell> {
               currentUser: widget.session.user,
               role: widget.role,
               stockSkus: stockSkus,
+              onDashboardLoaded: handleReportDashboardLoaded,
               onReportChanged: () {
-                if (!mounted) return;
-                setState(() => homeRefreshSignal++);
+                invalidateHomeData();
               },
             ),
             StockScreen(
@@ -1808,6 +1936,9 @@ class _MainShellState extends State<MainShell> {
                   loadStockSuppliers(reset: true, forceRefresh: true),
                   loadStockSkus(reset: true, forceRefresh: true),
                 ]);
+                widget.api.invalidateDailyTaskRecords(widget.session.tenant.id);
+                widget.api.invalidateDailyTaskTemplates(widget.session.tenant.id);
+                await invalidateReportData();
               },
               stockTasks: stockTasks,
               submissions: stockSubmissions,
@@ -1866,6 +1997,7 @@ class _MainShellState extends State<MainShell> {
               currentTenant: widget.session.tenant,
               pointsLeaderboard: pointsLeaderboard,
               onPointsChanged: handlePointsChanged,
+              onReportDataInvalidated: invalidateHomeData,
               onCurrentUserChanged: widget.onCurrentUserChanged,
               onBusinessContextSelected: switchBusinessContext,
               onBusinessCreated: switchToCreatedBusiness,

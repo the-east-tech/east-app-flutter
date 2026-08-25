@@ -271,7 +271,7 @@ class _DailyTasksScreenState extends State<DailyTasksScreen> {
   }
 
   Future<void> openTemplate([DailyTaskTemplate? template]) async {
-    final saved = await Navigator.of(context).push<bool>(
+    final saved = await Navigator.of(context).push<DailyTaskTemplate>(
       MaterialPageRoute(
         builder: (_) => DailyTaskTemplatePage(
           api: widget.api,
@@ -281,8 +281,19 @@ class _DailyTasksScreenState extends State<DailyTasksScreen> {
         ),
       ),
     );
-    if (!mounted || saved != true) return;
-    await loadTemplates();
+    if (!mounted || saved == null) return;
+    setState(() {
+      final next = template == null
+          ? [saved, ...templates]
+          : templates
+              .map((item) => item.id == saved.id ? saved : item)
+              .toList();
+      next.sort((left, right) {
+        if (left.active != right.active) return left.active ? -1 : 1;
+        return left.title.toLowerCase().compareTo(right.title.toLowerCase());
+      });
+      templates = List.unmodifiable(next);
+    });
     final callback = widget.onChanged;
     if (callback != null) await callback();
   }
@@ -2071,8 +2082,9 @@ class _DailyTaskTemplatePageState extends State<DailyTaskTemplatePage> {
     );
     if (!confirmed || !mounted) return;
     try {
+      late final DailyTaskTemplate saved;
       if (widget.template == null) {
-        await widget.api.createDailyTaskTemplate(
+        saved = await widget.api.createDailyTaskTemplate(
           tenantId: widget.tenantId,
           title: title,
           instruction: instructionController.text,
@@ -2082,7 +2094,7 @@ class _DailyTaskTemplatePageState extends State<DailyTaskTemplatePage> {
           active: active,
         );
       } else {
-        await widget.api.updateDailyTaskTemplate(
+        saved = await widget.api.updateDailyTaskTemplate(
           tenantId: widget.tenantId,
           templateId: widget.template!.id,
           title: title,
@@ -2093,7 +2105,7 @@ class _DailyTaskTemplatePageState extends State<DailyTaskTemplatePage> {
           active: active,
         );
       }
-      if (mounted) Navigator.of(context).pop(true);
+      if (mounted) Navigator.of(context).pop(saved);
     } on EastAppApiException {
       return;
     }

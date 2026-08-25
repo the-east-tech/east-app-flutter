@@ -23,6 +23,7 @@ class ReportScreen extends StatefulWidget {
   final EastAppUser currentUser;
   final UserRole role;
   final List<StockSku> stockSkus;
+  final ValueChanged<ReportDashboard>? onDashboardLoaded;
   final VoidCallback? onReportChanged;
 
   const ReportScreen({
@@ -32,6 +33,7 @@ class ReportScreen extends StatefulWidget {
     required this.currentUser,
     required this.role,
     required this.stockSkus,
+    this.onDashboardLoaded,
     this.onReportChanged,
   });
 
@@ -111,6 +113,7 @@ class _ReportScreenState extends State<ReportScreen>
         lastUpdatedAt = widget.api.featureCacheUpdatedAt(cacheKey) ?? DateTime.now();
         loading = false;
       });
+      widget.onDashboardLoaded?.call(value);
     } on EastAppApiException {
       if (!mounted) return;
       setState(() => loading = false);
@@ -414,6 +417,7 @@ class _ReportScreenState extends State<ReportScreen>
         () => widget.api.wasteReports(
           from: DateTime.now().subtract(const Duration(days: 29)),
           to: DateTime.now(),
+          tenantId: widget.tenantId,
         ),
       );
       if (loaded == null) return;
@@ -481,6 +485,7 @@ class _ReportScreenState extends State<ReportScreen>
         () => widget.api.complaintReports(
           from: DateTime.now().subtract(const Duration(days: 89)),
           to: DateTime.now(),
+          tenantId: widget.tenantId,
         ),
       );
       if (loaded == null) return;
