@@ -275,12 +275,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final pendingReviewCount = reviewSummary?.pendingReview ?? 0;
     final doneReviewCount = reviewSummary?.done ?? 0;
     final totalReviewCount = reviewSummary?.total ?? 0;
-    final photoOverview = reportDashboard?.dailyPhotos;
-    final photoCount = photoOverview?.currentUserPhotoCount ?? 0;
-    final photoMinimum = photoOverview?.minimumRequired ?? 5;
-    final photoProgress = photoMinimum == 0
+    final taskOverview = reportDashboard?.dailyTasks;
+    final taskDone = taskOverview?.done ?? 0;
+    final taskTotal = taskOverview?.total ?? 0;
+    final taskPending = taskOverview?.pending ?? 0;
+    final taskSubmitted = taskOverview?.submitted ?? 0;
+    final taskProgress = taskTotal == 0
         ? 0.0
-        : (photoCount / photoMinimum).clamp(0.0, 1.0);
+        : (taskDone / taskTotal).clamp(0.0, 1.0);
     return ListView(
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 24),
       children: [
@@ -343,7 +345,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     child: Text(
                       isManagement
                           ? text.t('Submissions Reviewed')
-                          : text.t('Daily Photos'),
+                          : text.t('Daily Tasks'),
                       style: const TextStyle(
                         fontSize: AppTextSize.s15,
                         fontWeight: FontWeight.w800,
@@ -353,7 +355,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   Text(
                     isManagement
                         ? '$doneReviewCount/$totalReviewCount'
-                        : '$photoCount/$photoMinimum',
+                        : '$taskDone/$taskTotal',
                     style: const TextStyle(
                       fontSize: AppTextSize.s15,
                       fontWeight: FontWeight.w800,
@@ -367,7 +369,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 child: LinearProgressIndicator(
                   value: isManagement
                       ? (totalReviewCount == 0 ? 0 : doneReviewCount / totalReviewCount)
-                      : photoProgress,
+                      : taskProgress,
                   minHeight: 8,
                   backgroundColor: const Color(0xFFD1D1D6),
                   valueColor: const AlwaysStoppedAnimation<Color>(
@@ -382,10 +384,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     child: _ProgressInfoCard(
                       title: isManagement
                           ? text.t('Pending Review')
-                          : text.t('Photos Taken'),
+                          : text.t('Pending Tasks'),
                       value: isManagement
                           ? '$pendingReviewCount'
-                          : '$photoCount',
+                          : '$taskPending',
                       colour: AppColours.green,
                       background: AppColours.greenSoft,
                     ),
@@ -393,10 +395,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   const SizedBox(width: 10),
                   Expanded(
                     child: _ProgressInfoCard(
-                      title: isManagement ? text.t('Done') : text.t('Pending'),
+                      title: isManagement
+                          ? text.t('Done')
+                          : text.t('Submitted'),
                       value: isManagement
                           ? '$doneReviewCount'
-                          : '${(photoMinimum - photoCount).clamp(0, photoMinimum)}',
+                          : '$taskSubmitted',
                       colour: const Color(0xFFC73500),
                       background: AppColours.orangeSoft,
                     ),
@@ -522,20 +526,26 @@ class _ReportSnapshotCard extends StatelessWidget {
         ? '—'
         : isManagement
             ? 'RM ${(data.sales?.netSalesRm ?? 0).toStringAsFixed(2)}'
-            : '${data.dailyPhotos.currentUserPhotoCount}/${data.dailyPhotos.minimumRequired}';
-    final firstLabel = isManagement ? 'Total Sales Today' : 'Daily Photos';
+            : '${data.dailyTasks.done}/${data.dailyTasks.total}';
+    final firstLabel = isManagement ? 'Total Sales Today' : 'Daily Tasks';
     final secondValue = data == null
         ? '—'
         : isManagement
             ? '${data.inventory?.healthScorePercent.toStringAsFixed(0) ?? '0'}%'
-            : (data.dailyPhotos.currentUserComplete ? 'Complete' : 'Pending');
+            : data.dailyTasks.total == 0
+                ? 'No Tasks'
+                : data.dailyTasks.submitted > 0
+                ? 'Submitted'
+                : data.dailyTasks.pending > 0
+                    ? 'Pending'
+                    : 'Done';
     final secondLabel = isManagement ? 'Stock Health' : 'Submission';
     final thirdValue = data == null
         ? '—'
         : isManagement
-            ? '${data.complaints?.openCount ?? 0}'
+            ? '${data.dailyTasks.submitted}'
             : '${data.pendingApprovals}';
-    final thirdLabel = isManagement ? 'Open Complaints' : 'Review Status';
+    final thirdLabel = isManagement ? 'Tasks to Rate' : 'Review Status';
 
     return WhiteCard(
       padding: EdgeInsets.zero,

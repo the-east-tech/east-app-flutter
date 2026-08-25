@@ -64,6 +64,17 @@ StockTag stockTagFromJson(Map<String, dynamic> json) {
     createdBy: json['createdBy'] as String,
     createdDate: json['createdDate'] as String,
     lastUpdated: json['lastUpdated'] as String,
+    assignedUsers: (json['assignedUsers'] as List<dynamic>? ?? const [])
+        .map((item) {
+          final value = item as Map<String, dynamic>;
+          return StockTagAssignee(
+            userId: value['userId'] as String,
+            fullName: value['fullName'] as String,
+            employeeId: value['employeeId'] as String,
+            role: value['role'] as String,
+          );
+        })
+        .toList(growable: false),
   );
 }
 
@@ -346,4 +357,3 @@ class StockSkuCopyResult {
     );
   }
 }
-

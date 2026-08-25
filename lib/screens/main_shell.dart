@@ -1009,7 +1009,12 @@ class _MainShellState extends State<MainShell> {
   }
 
   Future<void> createStockTagRemote(StockTag tag) async {
-    final saved = await widget.api.createStockTag(tag.tag);
+    final saved = await widget.api.createStockTag(
+      tag.tag,
+      assignedUserIds: tag.assignedUsers
+          .map((user) => user.userId)
+          .toList(growable: false),
+    );
     await invalidateSetupCache(EastAppApi.stockTagsCachePrefix(widget.session.tenant.id));
     if (!mounted) return;
     setState(() {
@@ -1336,7 +1341,7 @@ class _MainShellState extends State<MainShell> {
 
   String buildDebugReport(BuildContext context) {
     return AppDiagnostics.instance.buildReport(
-      appVersion: 'east_app_v293',
+      appVersion: 'east_app_v298',
       role: currentRoleName,
       userName: currentUserName,
       userId: currentUserId,

@@ -153,6 +153,7 @@ class StockTag {
   final String createdBy;
   final String createdDate;
   final String lastUpdated;
+  final List<StockTagAssignee> assignedUsers;
 
   const StockTag({
     required this.id,
@@ -160,11 +161,13 @@ class StockTag {
     required this.createdBy,
     required this.createdDate,
     required this.lastUpdated,
+    this.assignedUsers = const [],
   });
 
   StockTag copyWith({
     String? tag,
     String? lastUpdated,
+    List<StockTagAssignee>? assignedUsers,
   }) {
     return StockTag(
       id: id,
@@ -172,8 +175,23 @@ class StockTag {
       createdBy: createdBy,
       createdDate: createdDate,
       lastUpdated: lastUpdated ?? this.lastUpdated,
+      assignedUsers: assignedUsers ?? this.assignedUsers,
     );
   }
+}
+
+class StockTagAssignee {
+  final String userId;
+  final String fullName;
+  final String employeeId;
+  final String role;
+
+  const StockTagAssignee({
+    required this.userId,
+    required this.fullName,
+    required this.employeeId,
+    required this.role,
+  });
 }
 
 class KnowledgeItem {

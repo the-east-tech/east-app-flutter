@@ -752,8 +752,11 @@ class SegmentedTabs extends StatelessWidget {
                 ),
                 child: Text(
                   text.t(tabs[index]),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: tabs.length > 3 ? AppTextSize.s15 : AppTextSize.s17,
+                    fontSize:
+                        tabs.length > 2 ? AppTextSize.s13 : AppTextSize.s17,
                     fontWeight: FontWeight.w700,
                     color: selected
                         ? AppColours.textMain

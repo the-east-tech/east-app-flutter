@@ -10,6 +10,7 @@ import '../models/knowledge_api_models.dart';
 import '../models/api_models.dart';
 import '../models/advertisement_models.dart';
 import '../models/auth_models.dart';
+import '../models/daily_task_models.dart';
 import '../models/organisation_models.dart';
 import '../models/people_models.dart';
 import '../models/points_models.dart';
@@ -831,6 +832,231 @@ class EastAppApi {
     return DailyPhotoReport.fromJson(body);
   }
 
+  Future<List<DailyTaskTemplate>> dailyTaskTemplates() async {
+    final body = await _requestJson(
+      'GET',
+      '/api/v1/daily-tasks/templates',
+    ) as List<dynamic>;
+    return body
+        .map(
+          (item) => DailyTaskTemplate.fromJson(item as Map<String, dynamic>),
+        )
+        .toList(growable: false);
+  }
+
+  Future<DailyTaskTemplate> createDailyTaskTemplate({
+    required String title,
+    required String instruction,
+    required String tagId,
+    required int requiredPhotoCount,
+    required List<String> checklistItems,
+    required bool active,
+  }) async {
+    final body = await _requestJson(
+      'POST',
+      '/api/v1/daily-tasks/templates',
+      body: {
+        'title': title.trim(),
+        'instruction': instruction.trim(),
+        'tagId': tagId,
+        'requiredPhotoCount': requiredPhotoCount,
+        'checklistItems': checklistItems
+            .map((item) => item.trim())
+            .toList(growable: false),
+        'active': active,
+      },
+    ) as Map<String, dynamic>;
+    return DailyTaskTemplate.fromJson(body);
+  }
+
+  Future<DailyTaskTemplate> updateDailyTaskTemplate({
+    required String templateId,
+    required String title,
+    required String instruction,
+    required String tagId,
+    required int requiredPhotoCount,
+    required List<String> checklistItems,
+    required bool active,
+  }) async {
+    final body = await _requestJson(
+      'PATCH',
+      '/api/v1/daily-tasks/templates/$templateId',
+      body: {
+        'title': title.trim(),
+        'instruction': instruction.trim(),
+        'tagId': tagId,
+        'requiredPhotoCount': requiredPhotoCount,
+        'checklistItems': checklistItems
+            .map((item) => item.trim())
+            .toList(growable: false),
+        'active': active,
+      },
+    ) as Map<String, dynamic>;
+    return DailyTaskTemplate.fromJson(body);
+  }
+
+  Future<DailyTaskList> dailyTaskRecords({
+    required DateTime dateFrom,
+    required DateTime dateTo,
+    String? tagId,
+    DailyTaskStatus? status,
+    bool submittedByMe = false,
+  }) async {
+    final query = Uri(
+      queryParameters: {
+        'dateFrom': formatApiDate(dateFrom),
+        'dateTo': formatApiDate(dateTo),
+        if (tagId != null && tagId.isNotEmpty) 'tagId': tagId,
+        if (status != null) 'status': status.apiValue,
+        'submittedByMe': submittedByMe.toString(),
+      },
+    ).query;
+    final body = await _requestJson(
+      'GET',
+      '/api/v1/daily-tasks/records?$query',
+    ) as Map<String, dynamic>;
+    return DailyTaskList.fromJson(body);
+  }
+
+  Future<DailyTaskRecord> dailyTaskRecord(String recordId) async {
+    final body = await _requestJson(
+      'GET',
+      '/api/v1/daily-tasks/records/$recordId',
+    ) as Map<String, dynamic>;
+    return DailyTaskRecord.fromJson(body);
+  }
+
+  Future<DailyTaskRecord> submitDailyTask({
+    required String recordId,
+    required List<String> completedChecklistItemIds,
+    required List<String> photoPaths,
+  }) async {
+    _beginProcessingRequest();
+    final stopwatch = Stopwatch()..start();
+    const method = 'POST';
+    final path = '/api/v1/daily-tasks/records/$recordId/submit';
+    try {
+      final token = _token;
+      if (token == null || token.isEmpty) {
+        final error = EastAppApiException(
+          statusCode: 401,
+          code: 'MISSING_SESSION',
+          message: 'Login required.',
+          method: method,
+          path: path,
+        );
+        _reportApiError(error);
+        final callback = onSessionInvalidated;
+        if (callback != null) unawaited(callback());
+        throw error;
+      }
+
+      final request = http.MultipartRequest(method, Uri.parse('$baseUrl$path'))
+        ..headers['Accept'] = 'application/json'
+        ..headers['Authorization'] = 'Bearer $token'
+        ..fields['completedChecklistItemIds'] =
+            completedChecklistItemIds.join(',');
+      try {
+        for (final photoPath in photoPaths) {
+          request.files.add(
+            await http.MultipartFile.fromPath('photos', photoPath),
+          );
+        }
+      } on Exception catch (exception) {
+        final error = EastAppApiException(
+          statusCode: null,
+          code: 'DAILY_TASK_PHOTO_READ_FAILED',
+          message: 'Unable to read a selected Daily Task photo: $exception',
+          method: method,
+          path: path,
+        );
+        _reportApiError(error);
+        throw error;
+      }
+
+      late http.Response response;
+      try {
+        final streamed = await _client
+            .send(request)
+            .timeout(const Duration(minutes: 3));
+        response = await http.Response.fromStream(streamed);
+      } on TimeoutException {
+        final error = EastAppApiException(
+          statusCode: null,
+          code: 'REQUEST_TIMEOUT',
+          message: 'The Daily Task submission did not finish within 3 minutes.',
+          method: method,
+          path: path,
+        );
+        _reportApiError(error);
+        throw error;
+      } on http.ClientException catch (clientError) {
+        final error = EastAppApiException(
+          statusCode: null,
+          code: 'NETWORK_ERROR',
+          message: clientError.message,
+          method: method,
+          path: path,
+        );
+        _reportApiError(error);
+        throw error;
+      }
+
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        final error = _apiException(
+          response,
+          method: method,
+          path: path,
+          durationMs: stopwatch.elapsedMilliseconds,
+        );
+        if (error.code != 'DAILY_TASK_ALREADY_SUBMITTED') {
+          _reportApiError(error);
+        }
+        if (error.invalidatesSession) {
+          useToken(null);
+          final callback = onSessionInvalidated;
+          if (callback != null) unawaited(callback());
+        }
+        throw error;
+      }
+
+      try {
+        final body = jsonDecode(utf8.decode(response.bodyBytes));
+        if (body is Map<String, dynamic>) {
+          await _observeUserContent(path, body);
+          return DailyTaskRecord.fromJson(body);
+        }
+      } on FormatException {
+        // Report the standard invalid response error below.
+      }
+      final error = EastAppApiException(
+        statusCode: response.statusCode,
+        code: 'INVALID_API_RESPONSE',
+        message: 'The backend returned an invalid Daily Task response.',
+        method: method,
+        path: path,
+        durationMs: stopwatch.elapsedMilliseconds,
+      );
+      _reportApiError(error);
+      throw error;
+    } finally {
+      _endProcessingRequest();
+    }
+  }
+
+  Future<DailyTaskRecord> rateDailyTask({
+    required String recordId,
+    required int rating,
+    required String comment,
+  }) async {
+    final body = await _requestJson(
+      'POST',
+      '/api/v1/daily-tasks/records/$recordId/rate',
+      body: {'rating': rating, 'comment': comment.trim()},
+    ) as Map<String, dynamic>;
+    return DailyTaskRecord.fromJson(body);
+  }
+
   Future<ComplaintReport> createComplaintReport({
     required DateTime reportDate,
     required String photoStorageKey,
@@ -1230,6 +1456,26 @@ class EastAppApi {
     return stockTagPageFromJson(body as Map<String, dynamic>);
   }
 
+  Future<List<StockTag>> allStockTags({
+    required String tenantId,
+    bool forceRefresh = false,
+  }) async {
+    final result = <StockTag>[];
+    var pageIndex = 0;
+    while (true) {
+      final page = await stockTags(
+        page: pageIndex,
+        size: 100,
+        tenantId: tenantId,
+        forceRefresh: forceRefresh,
+      );
+      result.addAll(page.content);
+      if (page.last || pageIndex + 1 >= page.totalPages) break;
+      pageIndex += 1;
+    }
+    return List.unmodifiable(result);
+  }
+
   Future<EastAppPage<SupplierProfile>> stockSuppliers({
     String search = '',
     int page = 0,
@@ -1376,11 +1622,14 @@ class EastAppApi {
     return stockReceivingPageFromJson(body);
   }
 
-  Future<StockTag> createStockTag(String tag) async {
+  Future<StockTag> createStockTag(
+    String tag, {
+    List<String> assignedUserIds = const [],
+  }) async {
     final body = await _requestJson(
       'POST',
       '/api/v1/stock/tags',
-      body: {'tag': tag},
+      body: {'tag': tag, 'assignedUserIds': assignedUserIds},
     ) as Map<String, dynamic>;
     return stockTagFromJson(body);
   }
@@ -1389,7 +1638,12 @@ class EastAppApi {
     final body = await _requestJson(
       'PATCH',
       '/api/v1/stock/tags/${tag.id}',
-      body: {'tag': tag.tag},
+      body: {
+        'tag': tag.tag,
+        'assignedUserIds': tag.assignedUsers
+            .map((user) => user.userId)
+            .toList(growable: false),
+      },
     ) as Map<String, dynamic>;
     return stockTagFromJson(body);
   }

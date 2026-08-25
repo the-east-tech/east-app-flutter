@@ -625,6 +625,8 @@ class _StockScreenState extends State<StockScreen> {
           updatedAt: widget.tagsLastUpdatedAt,
           onRefresh: widget.onRefreshTags,
           child: _TagSetupPage(
+            api: widget.api,
+            currentTenantId: widget.currentTenantId,
             tags: widget.tags,
             onBack: goHome,
             onCreateTag: widget.onCreateTag,
@@ -8682,6 +8684,8 @@ class _CompactSupplierRow extends StatelessWidget {
 
 
 class _TagSetupPage extends StatefulWidget {
+  final EastAppApi api;
+  final String currentTenantId;
   final List<StockTag> tags;
   final VoidCallback onBack;
   final Future<void> Function(StockTag tag) onCreateTag;
@@ -8689,6 +8693,8 @@ class _TagSetupPage extends StatefulWidget {
   final Future<bool> Function(Set<String> tagIds) onDeleteTags;
 
   const _TagSetupPage({
+    required this.api,
+    required this.currentTenantId,
     required this.tags,
     required this.onBack,
     required this.onCreateTag,
@@ -8719,84 +8725,26 @@ class _TagSetupPageState extends State<_TagSetupPage> {
   }
 
   void addTag() {
-    final text = AppTextScope.of(context);
-    final tagController = TextEditingController();
-
     showStockBottomSheet<void>(
       context,
-      maxHeightFactor: 0.55,
+      maxHeightFactor: 0.9,
       builder: (sheetContext) {
-        return SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 10, 20, 22),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              stockBottomSheetHandle(),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      text.t('Add Tag'),
-                      style: const TextStyle(
-                        fontSize: AppTextSize.s26,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.of(sheetContext).pop(),
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-                ],
+        return _TagEditorSheet(
+          api: widget.api,
+          currentTenantId: widget.currentTenantId,
+          allTags: widget.tags,
+          onSave: (name, assignedUsers) async {
+            await widget.onCreateTag(
+              StockTag(
+                id: 'TAG${DateTime.now().millisecondsSinceEpoch}',
+                tag: name,
+                createdBy: headId,
+                createdDate: 'Today',
+                lastUpdated: 'Today just now',
+                assignedUsers: assignedUsers,
               ),
-              const SizedBox(height: 16),
-              _DialogInput(
-                label: text.t('Tag'),
-                controller: tagController,
-                hint: text.t('Example: Chiller'),
-              ),
-              const SizedBox(height: 18),
-              PrimaryButton(
-                text: text.t('Save'),
-                icon: Icons.save_outlined,
-                onPressed: () async {
-                  final nextTag = tagController.text.trim();
-                  if (nextTag.isEmpty) return;
-                  final alreadyExists = widget.tags.any(
-                    (tag) => tag.tag.toLowerCase() == nextTag.toLowerCase(),
-                  );
-                  if (alreadyExists) {
-                    showErrorSnackBar(context, text.t('Tag already exists'));
-                    return;
-                  }
-                  final confirmed = await confirmDataChange(
-                    context,
-                    action: 'Create Tag?',
-                    details: 'This will create a new Stock tag for the this business.',
-                  );
-                  if (!confirmed || !mounted) return;
-
-                  final saved = await runStockRequest(
-                    context,
-                    () => widget.onCreateTag(
-                      StockTag(
-                        id: 'TAG${DateTime.now().millisecondsSinceEpoch}',
-                        tag: nextTag,
-                        createdBy: headId,
-                        createdDate: 'Today',
-                        lastUpdated: 'Today just now',
-                      ),
-                    ),
-                  );
-                  if (!saved || !mounted || !sheetContext.mounted) return;
-                  Navigator.of(sheetContext).pop();
-                  showSuccessSnackBar(context, text.t('Saved'));
-                },
-              ),
-            ],
-          ),
+            );
+          },
         );
       },
     );
@@ -8839,176 +8787,25 @@ class _TagSetupPageState extends State<_TagSetupPage> {
   }
 
   void showTagDetail(StockTag tag) {
-    final text = AppTextScope.of(context);
-    final tagController = TextEditingController(text: tag.tag);
-    bool isEditing = false;
-
     showStockBottomSheet<void>(
       context,
-      maxHeightFactor: 0.7,
+      maxHeightFactor: 0.9,
       builder: (sheetContext) {
-        return StatefulBuilder(
-          builder: (context, setSheetState) {
-            final currentValue = tagController.text.trim().isEmpty
-                ? tag.tag
-                : tagController.text.trim();
-            return SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(22, 10, 22, 22),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  stockBottomSheetHandle(),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          currentValue,
-                          style: const TextStyle(
-                            fontSize: AppTextSize.s26,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: () => Navigator.of(sheetContext).pop(),
-                        icon: const Icon(Icons.close_rounded),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  _SetupDetailRow(
-                    label: text.t('Tag'),
-                    value: tag.tag,
-                    controller: tagController,
-                    isEditing: isEditing,
-                  ),
-                  _SetupDetailRow(
-                    label: text.t('Created By'),
-                    value: tag.createdBy,
-                  ),
-                  _SetupDetailRow(
-                    label: text.t('Created Date'),
-                    value: tag.createdDate,
-                  ),
-                  _SetupDetailRow(
-                    label: text.t('Last Updated'),
-                    value: tag.lastUpdated,
-                  ),
-                  const SizedBox(height: 18),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () async {
-                            if (!isEditing) {
-                              setSheetState(() => isEditing = true);
-                              return;
-                            }
-                            final nextTag = tagController.text.trim();
-                            if (nextTag.isEmpty) return;
-                            final alreadyExists = widget.tags.any(
-                              (item) =>
-                                  item.id != tag.id &&
-                                  item.tag.toLowerCase() == nextTag.toLowerCase(),
-                            );
-                            if (alreadyExists) {
-                              showErrorSnackBar(
-                                context,
-                                text.t('Tag already exists'),
-                              );
-                              return;
-                            }
-                            final confirmed = await confirmDataChange(
-                              context,
-                              action: 'Update Tag?',
-                              details: 'This will rename the selected tag.',
-                            );
-                            if (!confirmed || !context.mounted) return;
-
-                            final saved = await runStockRequest(
-                              context,
-                              () => widget.onUpdateTag(
-                                tag.copyWith(
-                                  tag: nextTag,
-                                  lastUpdated: 'Today just now',
-                                ),
-                              ),
-                            );
-                            if (!saved || !context.mounted || !sheetContext.mounted) return;
-                            Navigator.of(sheetContext).pop();
-                            showSuccessSnackBar(context, text.t('Saved'));
-                          },
-                          icon: Icon(
-                            isEditing
-                                ? Icons.save_outlined
-                                : Icons.edit_outlined,
-                          ),
-                          label: Text(text.t(isEditing ? 'Save' : 'Edit')),
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: FilledButton.icon(
-                          style: FilledButton.styleFrom(
-                            backgroundColor: isEditing
-                                ? AppColours.textMuted
-                                : AppColours.red,
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          onPressed: () async {
-                            if (isEditing) {
-                              setSheetState(() => isEditing = false);
-                              return;
-                            }
-                            final confirmed = await confirmDataChange(
-                              context,
-                              action: 'Delete Tag?',
-                              details: 'This will permanently delete this unassigned tag.',
-                            );
-                            if (!confirmed || !context.mounted) return;
-
-                            try {
-                              final deleted = await widget.onDeleteTags({tag.id});
-                              if (!context.mounted || !sheetContext.mounted) return;
-                              if (!deleted) {
-                                showErrorSnackBar(
-                                  context,
-                                  text.t('Assigned tags cannot be deleted'),
-                                );
-                                return;
-                              }
-                              Navigator.of(sheetContext).pop();
-                              showSuccessSnackBar(context, text.t('Deleted'));
-                            } on EastAppApiException catch (_) {
-                              // The global API error dialog already presents the failure.
-                            }
-                          },
-                          icon: Icon(
-                            isEditing
-                                ? Icons.close_rounded
-                                : Icons.delete_outline,
-                          ),
-                          label: Text(
-                            text.t(isEditing ? 'Cancel' : 'Delete'),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+        return _TagEditorSheet(
+          api: widget.api,
+          currentTenantId: widget.currentTenantId,
+          allTags: widget.tags,
+          tag: tag,
+          onSave: (name, assignedUsers) async {
+            await widget.onUpdateTag(
+              tag.copyWith(
+                tag: name,
+                lastUpdated: 'Today just now',
+                assignedUsers: assignedUsers,
               ),
             );
           },
+          onDelete: () => widget.onDeleteTags({tag.id}),
         );
       },
     );
@@ -9123,14 +8920,28 @@ class _CompactTagRow extends StatelessWidget {
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: Text(
-                text.content(tag.tag),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: AppTextSize.s17,
-                  fontWeight: FontWeight.w700,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    text.content(tag.tag),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: AppTextSize.s17,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${tag.assignedUsers.length} assigned user${tag.assignedUsers.length == 1 ? '' : 's'}',
+                    style: const TextStyle(
+                      fontSize: AppTextSize.s12,
+                      color: AppColours.textMuted,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
               ),
             ),
             if (selecting)
@@ -9141,6 +8952,331 @@ class _CompactTagRow extends StatelessWidget {
         ),
       ),
       ),
+    );
+  }
+}
+
+class _TagEditorSheet extends StatefulWidget {
+  final EastAppApi api;
+  final String currentTenantId;
+  final List<StockTag> allTags;
+  final StockTag? tag;
+  final Future<void> Function(
+    String name,
+    List<StockTagAssignee> assignedUsers,
+  ) onSave;
+  final Future<bool> Function()? onDelete;
+
+  const _TagEditorSheet({
+    required this.api,
+    required this.currentTenantId,
+    required this.allTags,
+    required this.onSave,
+    this.tag,
+    this.onDelete,
+  });
+
+  @override
+  State<_TagEditorSheet> createState() => _TagEditorSheetState();
+}
+
+class _TagEditorSheetState extends State<_TagEditorSheet> {
+  late final TextEditingController tagController;
+  final userSearchController = TextEditingController();
+  final Set<String> selectedUserIds = <String>{};
+  final Map<String, StockTagAssignee> knownUsers =
+      <String, StockTagAssignee>{};
+  List<EastAppUser> loadedUsers = const [];
+  bool loadingUsers = false;
+
+  @override
+  void initState() {
+    super.initState();
+    tagController = TextEditingController(text: widget.tag?.tag ?? '');
+    for (final user in widget.tag?.assignedUsers ?? const <StockTagAssignee>[]) {
+      selectedUserIds.add(user.userId);
+      knownUsers[user.userId] = user;
+    }
+  }
+
+  @override
+  void dispose() {
+    tagController.dispose();
+    userSearchController.dispose();
+    super.dispose();
+  }
+
+  Future<void> loadUsers() async {
+    if (loadingUsers) return;
+    setState(() => loadingUsers = true);
+    try {
+      final page = await widget.api.listUsers(
+        search: userSearchController.text,
+        active: true,
+        page: 0,
+        size: 100,
+        tenantId: widget.currentTenantId,
+        forceRefresh: true,
+      );
+      if (!mounted) return;
+      for (final user in page.content) {
+        knownUsers[user.id] = StockTagAssignee(
+          userId: user.id,
+          fullName: user.fullName,
+          employeeId: user.employeeId,
+          role: user.role.systemKey,
+        );
+      }
+      setState(() => loadedUsers = page.content);
+    } on EastAppApiException {
+      // The shared API error dialog presents the failure.
+    } finally {
+      if (mounted) setState(() => loadingUsers = false);
+    }
+  }
+
+  Future<void> save() async {
+    final text = AppTextScope.of(context);
+    final name = tagController.text.trim();
+    if (name.isEmpty) {
+      showErrorSnackBar(context, text.t('Tag is required'));
+      return;
+    }
+    final duplicate = widget.allTags.any(
+      (item) =>
+          item.id != widget.tag?.id &&
+          item.tag.toLowerCase() == name.toLowerCase(),
+    );
+    if (duplicate) {
+      showErrorSnackBar(context, text.t('Tag already exists'));
+      return;
+    }
+    final confirmed = await confirmDataChange(
+      context,
+      action: widget.tag == null ? 'Create Tag?' : 'Update Tag?',
+      details:
+          'This saves the tag name and the users responsible for its shared Daily Tasks.',
+    );
+    if (!confirmed || !mounted) return;
+    final users = selectedUserIds
+        .map((id) => knownUsers[id])
+        .whereType<StockTagAssignee>()
+        .toList(growable: false);
+    final saved = await runStockRequest(
+      context,
+      () => widget.onSave(name, users),
+    );
+    if (!saved || !mounted) return;
+    showSuccessSnackBar(context, text.t('Saved'));
+    Navigator.of(context).pop();
+  }
+
+  Future<void> deleteTag() async {
+    final callback = widget.onDelete;
+    if (callback == null) return;
+    final text = AppTextScope.of(context);
+    final confirmed = await confirmDataChange(
+      context,
+      action: 'Delete Tag?',
+      details: 'This permanently deletes this unused tag.',
+    );
+    if (!confirmed || !mounted) return;
+    try {
+      final deleted = await callback();
+      if (!mounted) return;
+      if (!deleted) {
+        showErrorSnackBar(context, text.t('Assigned tags cannot be deleted'));
+        return;
+      }
+      showSuccessSnackBar(context, text.t('Deleted'));
+      Navigator.of(context).pop();
+    } on EastAppApiException {
+      // The shared API error dialog presents the failure.
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
+    final existingUsers = selectedUserIds
+        .map((id) => knownUsers[id])
+        .whereType<StockTagAssignee>()
+        .toList(growable: false);
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 10, 12, 0),
+          child: Column(
+            children: [
+              stockBottomSheetHandle(),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      text.t(widget.tag == null ? 'Add Tag' : 'Edit Tag'),
+                      style: const TextStyle(
+                        fontSize: AppTextSize.s26,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+            children: [
+              _DialogInput(
+                label: text.t('Tag'),
+                controller: tagController,
+                hint: text.t('Example: Kitchen'),
+              ),
+              if (widget.tag != null) ...[
+                const SizedBox(height: 10),
+                Text(
+                  '${text.t('Created By')}: ${widget.tag!.createdBy} · '
+                  '${widget.tag!.createdDate}',
+                  style: const TextStyle(
+                    color: AppColours.textMuted,
+                    fontSize: AppTextSize.s12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      text.t('Assigned Users (Optional)'),
+                      style: const TextStyle(
+                        fontSize: AppTextSize.s17,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  SmallStatusPill(
+                    text: '${selectedUserIds.length} selected',
+                    textColour: AppColours.blue,
+                    backgroundColour: const Color(0xFFEAF3FF),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                text.t(
+                  'Everyone assigned here shares the same Daily Tasks. Any one of them may contribute or submit.',
+                ),
+                style: const TextStyle(
+                  color: AppColours.textMuted,
+                  fontSize: AppTextSize.s13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              if (existingUsers.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: existingUsers
+                      .map(
+                        (user) => InputChip(
+                          label: Text('${user.fullName} · ${user.employeeId}'),
+                          onDeleted: () => setState(
+                            () => selectedUserIds.remove(user.userId),
+                          ),
+                        ),
+                      )
+                      .toList(growable: false),
+                ),
+              ],
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: userSearchController,
+                      textInputAction: TextInputAction.search,
+                      onSubmitted: (_) => loadUsers(),
+                      decoration: _inputDecoration(
+                        text.t('Name or Employee ID'),
+                      ).copyWith(prefixIcon: const Icon(Icons.search_rounded)),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton.icon(
+                    onPressed: loadingUsers ? null : loadUsers,
+                    icon: loadingUsers
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.download_rounded),
+                    label: Text(text.t('Load')),
+                  ),
+                ],
+              ),
+              if (loadedUsers.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                Container(
+                  decoration: BoxDecoration(
+                    border: Border.all(color: AppColours.border),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Column(
+                    children: loadedUsers.map((user) {
+                      final selected = selectedUserIds.contains(user.id);
+                      return CheckboxListTile(
+                        dense: true,
+                        value: selected,
+                        title: Text(
+                          user.fullName,
+                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                        subtitle: Text('${user.employeeId} · ${user.role.name}'),
+                        onChanged: (value) => setState(() {
+                          if (value == true) {
+                            selectedUserIds.add(user.id);
+                          } else {
+                            selectedUserIds.remove(user.id);
+                          }
+                        }),
+                      );
+                    }).toList(growable: false),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 20),
+              PrimaryButton(
+                text: text.t('Save'),
+                icon: Icons.save_outlined,
+                onPressed: save,
+              ),
+              if (widget.onDelete != null) ...[
+                const SizedBox(height: 10),
+                OutlinedButton.icon(
+                  onPressed: deleteTag,
+                  icon: const Icon(Icons.delete_outline),
+                  label: Text(text.t('Delete')),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColours.red,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

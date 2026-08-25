@@ -15,6 +15,7 @@ import '../theme/app_theme.dart';
 import '../utils/app_diagnostics.dart';
 import '../widgets/app_components.dart';
 import '../widgets/app_feedback.dart';
+import 'tasks_screen.dart';
 
 class ReportScreen extends StatefulWidget {
   final EastAppApi api;
@@ -223,6 +224,33 @@ class _ReportScreenState extends State<ReportScreen>
             _AnimatedSection(
               delay: 120,
               child: _ReportCard(
+                title: 'Daily Tasks',
+                subtitle: 'Shared Tag tasks with checklist and camera evidence',
+                icon: Icons.assignment_turned_in_rounded,
+                accent: AppColours.green,
+                metric:
+                    '${data?.dailyTasks.done ?? 0}/${data?.dailyTasks.total ?? 0}',
+                metricLabel:
+                    canReview ? 'Tasks done today' : 'Your Tag tasks done',
+                badges: [
+                  _CardBadge(
+                    '${data?.dailyTasks.pending ?? 0} pending',
+                    Icons.schedule_rounded,
+                  ),
+                  _CardBadge(
+                    '${data?.dailyTasks.submitted ?? 0} submitted',
+                    Icons.rate_review_outlined,
+                  ),
+                ],
+                onTap: showDailyTasks,
+                onAction: canReview ? showCreateDailyTask : null,
+                actionTooltip: 'Open Task Setup',
+              ),
+            ),
+            const SizedBox(height: 12),
+            _AnimatedSection(
+              delay: 180,
+              child: _ReportCard(
                 title: 'Inventory Intelligence',
                 subtitle: isManagement
                     ? 'Calculated stock health, capital exposure and reorder priorities'
@@ -252,7 +280,7 @@ class _ReportScreenState extends State<ReportScreen>
             ),
             const SizedBox(height: 12),
             _AnimatedSection(
-              delay: 180,
+              delay: 240,
               child: _ReportCard(
                 title: 'Waste',
                 subtitle: 'Capture evidence and calculate the real cost of wastage',
@@ -279,27 +307,6 @@ class _ReportScreenState extends State<ReportScreen>
                         _CardBadge('Photo required', Icons.camera_alt_outlined),
                       ],
                 onTap: showWaste,
-              ),
-            ),
-            const SizedBox(height: 12),
-            _AnimatedSection(
-              delay: 240,
-              child: _ReportCard(
-                title: 'Daily Photos',
-                subtitle: 'Every staff submits at least 5 photos; manager approves the batch',
-                icon: Icons.photo_library_rounded,
-                accent: AppColours.green,
-                metric: isManagement
-                    ? '${data?.dailyPhotos.completedStaffCount ?? 0}/${data?.dailyPhotos.requiredStaffCount ?? 0}'
-                    : '${data?.dailyPhotos.currentUserPhotoCount ?? 0}/${data?.dailyPhotos.minimumRequired ?? 5}',
-                metricLabel: isManagement ? 'Staff completed today' : 'Your photos today',
-                badges: [
-                  _CardBadge(
-                    '${(data?.dailyPhotos.completionRatePercent ?? 0).toStringAsFixed(0)}% complete',
-                    Icons.task_alt_rounded,
-                  ),
-                ],
-                onTap: showDailyPhotos,
               ),
             ),
             const SizedBox(height: 12),
@@ -430,30 +437,32 @@ class _ReportScreenState extends State<ReportScreen>
     );
   }
 
-  Future<void> showDailyPhotos() async {
-    DailyPhotoReport report;
-    try {
-      final loaded = await _runReportAction<DailyPhotoReport>(
-        context,
-        () => widget.api.dailyPhotoReport(date: DateTime.now()),
-      );
-      if (loaded == null) return;
-      report = loaded;
-    } on EastAppApiException {
-      return;
-    }
-    if (!mounted) return;
-    await _showReportSheet<void>(
-      context,
-      title: 'Daily Photos',
-      icon: Icons.photo_library_rounded,
-      builder: (_) => _DailyPhotosSheet(
-        api: widget.api,
-        initialReport: report,
-        earliestDate: earliestEditableDate,
-        onChanged: handleChanged,
+  Future<void> showDailyTasks() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => DailyTasksScreen(
+          api: widget.api,
+          tenantId: widget.tenantId,
+          currentUser: widget.currentUser,
+        ),
       ),
     );
+    if (mounted) await handleChanged();
+  }
+
+  Future<void> showCreateDailyTask() async {
+    if (!canReview) return;
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => DailyTasksScreen(
+          api: widget.api,
+          tenantId: widget.tenantId,
+          currentUser: widget.currentUser,
+          initialEntry: DailyTasksEntry.setup,
+        ),
+      ),
+    );
+    if (mounted) await handleChanged();
   }
 
   Future<void> showComplaints() async {
@@ -720,18 +729,22 @@ class _ReportHero extends StatelessWidget {
                       children: [
                         Expanded(
                           child: _HeroMetric(
-                            label: 'Daily Photos',
+                            label: 'Daily Tasks',
                             value:
-                                '${dashboard?.dailyPhotos.currentUserPhotoCount ?? 0}/${dashboard?.dailyPhotos.minimumRequired ?? 5}',
+                                '${dashboard?.dailyTasks.done ?? 0}/${dashboard?.dailyTasks.total ?? 0}',
                           ),
                         ),
                         const SizedBox(width: 10),
                         Expanded(
                           child: _HeroMetric(
                             label: 'Status',
-                            value: dashboard?.dailyPhotos.currentUserComplete == true
-                                ? 'Complete'
-                                : 'Pending',
+                            value: (dashboard?.dailyTasks.total ?? 0) == 0
+                                ? 'No Tasks'
+                                : (dashboard?.dailyTasks.submitted ?? 0) > 0
+                                ? 'Submitted'
+                                : (dashboard?.dailyTasks.pending ?? 0) > 0
+                                    ? 'Pending'
+                                    : 'Done',
                           ),
                         ),
                       ],
