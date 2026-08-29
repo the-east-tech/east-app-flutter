@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 
 import '../localization/app_text_scope.dart';
 import '../models/app_models.dart';
+import '../models/auth_models.dart';
 import '../models/people_models.dart';
 import '../models/report_models.dart';
 import '../services/east_app_api.dart';
@@ -21,6 +22,7 @@ class ReportScreen extends StatefulWidget {
   final EastAppApi api;
   final String tenantId;
   final EastAppUser currentUser;
+  final Set<EastAppPermission> permissions;
   final UserRole role;
   final List<StockSku> stockSkus;
   final ValueChanged<ReportDashboard>? onDashboardLoaded;
@@ -31,6 +33,7 @@ class ReportScreen extends StatefulWidget {
     required this.api,
     required this.tenantId,
     required this.currentUser,
+    required this.permissions,
     required this.role,
     required this.stockSkus,
     this.onDashboardLoaded,
@@ -50,16 +53,21 @@ class _ReportScreenState extends State<ReportScreen>
   DateTime? lastUpdatedAt;
 
   bool get isManagement {
-    final role = widget.currentUser.role.systemKey;
-    return role == 'OWNER' ||
-        role == 'HEAD' ||
-        role == 'MANAGER' ||
-        role == 'SUPERVISOR';
+    return widget.permissions.contains(
+      EastAppPermission.reportIntelligenceView,
+    );
   }
 
   bool get canReview {
-    final role = widget.currentUser.role.systemKey;
-    return role == 'OWNER' || role == 'HEAD' || role == 'MANAGER';
+    return widget.permissions.contains(EastAppPermission.reportReview);
+  }
+
+  bool get canManageDailyTasks {
+    return widget.permissions.contains(EastAppPermission.dailyTaskManage);
+  }
+
+  bool get canViewAllDailyTasks {
+    return widget.permissions.contains(EastAppPermission.dailyTaskViewAll);
   }
 
   DateTime get earliestEditableDate {
@@ -82,7 +90,8 @@ class _ReportScreenState extends State<ReportScreen>
     heroController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 3400),
-    )..repeat(reverse: true);
+    );
+    if (isManagement) heroController.repeat(reverse: true);
     unawaited(loadDashboard());
   }
 
@@ -100,11 +109,15 @@ class _ReportScreenState extends State<ReportScreen>
     final cacheKey = EastAppApi.reportDashboardCacheKey(
       widget.tenantId,
       periodDays,
+      managementView: isManagement,
+      userId: widget.currentUser.id,
     );
     try {
       final value = await widget.api.reportDashboard(
         days: periodDays,
         tenantId: widget.tenantId,
+        managementView: isManagement,
+        userId: widget.currentUser.id,
         forceRefresh: forceRefresh,
       );
       if (!mounted) return;
@@ -155,27 +168,30 @@ class _ReportScreenState extends State<ReportScreen>
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(14, 12, 14, 28),
         children: [
-          _ReportHero(
-            controller: heroController,
-            dashboard: data,
-            loading: loading,
-            periodDays: periodDays,
-            isManagement: isManagement,
-            onPeriodChanged: (value) {
-              if (value == periodDays) return;
-              setState(() {
-                periodDays = value;
-                dashboard = null;
-                lastUpdatedAt = null;
-                loading = true;
-              });
-              unawaited(loadDashboard());
-            },
-            onRefresh: loading ? null : () => loadDashboard(forceRefresh: true),
-            lastUpdatedAt: lastUpdatedAt,
-            onApprovals: canReview ? showApprovals : null,
-          ),
-          const SizedBox(height: 12),
+          if (isManagement) ...[
+            _ReportHero(
+              controller: heroController,
+              dashboard: data,
+              loading: loading,
+              periodDays: periodDays,
+              isManagement: true,
+              onPeriodChanged: (value) {
+                if (value == periodDays) return;
+                setState(() {
+                  periodDays = value;
+                  dashboard = null;
+                  lastUpdatedAt = null;
+                  loading = true;
+                });
+                unawaited(loadDashboard());
+              },
+              onRefresh:
+                  loading ? null : () => loadDashboard(forceRefresh: true),
+              lastUpdatedAt: lastUpdatedAt,
+              onApprovals: canReview ? showApprovals : null,
+            ),
+            const SizedBox(height: 12),
+          ],
           if (loading && data == null)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 90),
@@ -234,7 +250,9 @@ class _ReportScreenState extends State<ReportScreen>
                 metric:
                     '${data?.dailyTasks.done ?? 0}/${data?.dailyTasks.total ?? 0}',
                 metricLabel:
-                    canReview ? 'Tasks done today' : 'Your Tag tasks done',
+                    canViewAllDailyTasks
+                        ? 'Tasks done today'
+                        : 'Your Tag tasks done',
                 badges: [
                   _CardBadge(
                     '${data?.dailyTasks.pending ?? 0} pending',
@@ -246,7 +264,7 @@ class _ReportScreenState extends State<ReportScreen>
                   ),
                 ],
                 onTap: showDailyTasks,
-                onAction: canReview ? showCreateDailyTask : null,
+                onAction: canManageDailyTasks ? showCreateDailyTask : null,
                 actionTooltip: 'Open Task Setup',
               ),
             ),
@@ -449,6 +467,7 @@ class _ReportScreenState extends State<ReportScreen>
           api: widget.api,
           tenantId: widget.tenantId,
           currentUser: widget.currentUser,
+          permissions: widget.permissions,
           onChanged: () async {
             changed = true;
           },
@@ -459,7 +478,7 @@ class _ReportScreenState extends State<ReportScreen>
   }
 
   Future<void> showCreateDailyTask() async {
-    if (!canReview) return;
+    if (!canManageDailyTasks) return;
     var changed = false;
     await Navigator.of(context).push<void>(
       MaterialPageRoute(
@@ -467,6 +486,7 @@ class _ReportScreenState extends State<ReportScreen>
           api: widget.api,
           tenantId: widget.tenantId,
           currentUser: widget.currentUser,
+          permissions: widget.permissions,
           onChanged: () async {
             changed = true;
           },

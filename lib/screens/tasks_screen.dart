@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import '../localization/app_text.dart';
 import '../localization/app_text_scope.dart';
 import '../models/app_models.dart';
+import '../models/auth_models.dart';
 import '../models/daily_task_models.dart';
 import '../models/people_models.dart';
 import '../services/east_app_api.dart';
@@ -37,6 +38,7 @@ class DailyTasksScreen extends StatefulWidget {
   final EastAppApi api;
   final String tenantId;
   final EastAppUser currentUser;
+  final Set<EastAppPermission> permissions;
   final Future<void> Function()? onChanged;
   final DailyTasksEntry initialEntry;
 
@@ -45,6 +47,7 @@ class DailyTasksScreen extends StatefulWidget {
     required this.api,
     required this.tenantId,
     required this.currentUser,
+    required this.permissions,
     this.onChanged,
     this.initialEntry = DailyTasksEntry.tasks,
   });
@@ -63,17 +66,20 @@ class _DailyTasksScreenState extends State<DailyTasksScreen> {
 
   _DailyTaskTabState get selectedTaskTab => taskTabStates[selectedTab];
 
-  bool get isManagement {
-    return const {'OWNER', 'HEAD', 'MANAGER'}
-        .contains(widget.currentUser.role.systemKey);
+  bool get canViewAllTasks {
+    return widget.permissions.contains(EastAppPermission.dailyTaskViewAll);
+  }
+
+  bool get canManageTasks {
+    return widget.permissions.contains(EastAppPermission.dailyTaskManage);
   }
 
   bool get showingSetup => widget.initialEntry == DailyTasksEntry.setup;
 
   bool get showingToday => !showingSetup && selectedTab == 1;
 
-  bool get showingSubmissions =>
-      !showingSetup && !isManagement && selectedTab == 2;
+  bool get showingPersonalHistory =>
+      !showingSetup && !canViewAllTasks && selectedTab == 0;
 
   @override
   void initState() {
@@ -88,7 +94,6 @@ class _DailyTasksScreenState extends State<DailyTasksScreen> {
       _DailyTaskTabState(
         selectedRange: DateTimeRange(start: today, end: today),
       ),
-      _DailyTaskTabState(selectedRange: defaultRange),
     ];
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -114,7 +119,7 @@ class _DailyTasksScreenState extends State<DailyTasksScreen> {
     final dateTo = tab.selectedRange.end;
     final tagId = tab.selectedTagId;
     final status = tab.selectedStatus;
-    final submittedByMe = !isManagement && requestedTab == 2;
+    final submittedByMe = !canViewAllTasks && requestedTab == 0;
     setState(() => tab.loadingRecords = true);
     try {
       final result = await widget.api.dailyTaskRecords(
@@ -301,9 +306,7 @@ class _DailyTasksScreenState extends State<DailyTasksScreen> {
   @override
   Widget build(BuildContext context) {
     final text = AppTextScope.of(context);
-    final tabs = isManagement
-        ? ['Task History', "Today's Task"]
-        : ['Task History', "Today's Task", 'My Submissions'];
+    final tabs = ['Task History', "Today's Task"];
     return Scaffold(
       backgroundColor: AppColours.background,
       appBar: AppBar(
@@ -328,7 +331,7 @@ class _DailyTasksScreenState extends State<DailyTasksScreen> {
                 ),
               ],
             ),
-      floatingActionButton: showingSetup && isManagement
+      floatingActionButton: showingSetup && canManageTasks
           ? FloatingActionButton.extended(
               onPressed: () => openTemplate(),
               icon: const Icon(Icons.add_rounded),
@@ -414,7 +417,7 @@ class _DailyTasksScreenState extends State<DailyTasksScreen> {
                     const SizedBox(height: 10),
                     Text(
                       text.t(
-                        showingSubmissions
+                        showingPersonalHistory
                             ? 'No task submitted by u in this date range.'
                             : 'No Daily Task matches these filters.',
                       ),

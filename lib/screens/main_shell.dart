@@ -27,7 +27,6 @@ import 'attendance_screen.dart';
 import 'home_screen.dart';
 import 'knowledge_screen.dart';
 import 'ranking_screen.dart';
-import 'rewards_screen.dart';
 import 'stock_screen.dart';
 import 'report_screen.dart';
 
@@ -60,7 +59,6 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   int selectedIndex = 0;
   late AppLanguage language;
-  late List<StaffTask> tasks;
   late List<KnowledgeItem> knowledge;
   late List<StockTag> stockTags;
   late List<StockTask> stockTasks;
@@ -107,7 +105,6 @@ class _MainShellState extends State<MainShell> {
   void initState() {
     super.initState();
     language = widget.initialLanguage;
-    tasks = List<StaffTask>.from(sampleTasks);
     knowledge = <KnowledgeItem>[];
     stockTags = <StockTag>[];
     stockTasks = <StockTask>[];
@@ -219,6 +216,10 @@ class _MainShellState extends State<MainShell> {
       widget.api.cachedReportDashboard(
         days: 7,
         tenantId: widget.session.tenant.id,
+        managementView: widget.session.can(
+          EastAppPermission.reportIntelligenceView,
+        ),
+        userId: widget.session.user.id,
       ),
     ]).then((results) {
       if (!mounted || generation != homeDataGeneration) return;
@@ -543,63 +544,6 @@ class _MainShellState extends State<MainShell> {
         },
       ),
     );
-  }
-
-  void submitTask({
-    required StaffTask task,
-    required String remark,
-  }) {
-    setState(() {
-      tasks = tasks.map((item) {
-        if (item.id != task.id) return item;
-
-        return item.copyWith(
-          status: RewardTaskStatus.submitted,
-          submittedText: 'Submitted just now',
-          photoEvidenceName: '${task.id.toLowerCase()}_photo.jpg',
-          staffRemark:
-              remark.trim().isEmpty ? 'No additional remarks.' : remark.trim(),
-        );
-      }).toList();
-    });
-  }
-
-  void approveTask({
-    required StaffTask task,
-    required int score,
-  }) {
-    setState(() {
-      tasks = tasks.map((item) {
-        if (item.id != task.id) return item;
-
-        return item.copyWith(
-          status: RewardTaskStatus.approved,
-          awardedScore: score,
-          approvedText: '+$score points earned',
-          approvedBy: managerId,
-        );
-      }).toList();
-    });
-  }
-
-  void rejectTask({
-    required StaffTask task,
-    required String reason,
-  }) {
-    setState(() {
-      tasks = tasks.map((item) {
-        if (item.id != task.id) return item;
-
-        return item.copyWith(
-          status: RewardTaskStatus.rejected,
-          awardedScore: 0,
-          rejectedText: reason.trim().isEmpty
-              ? 'Rejected by manager. Please resubmit.'
-              : reason.trim(),
-          approvedBy: managerId,
-        );
-      }).toList();
-    });
   }
 
   Future<KnowledgeItem> createSop(KnowledgeItem item) async {
@@ -1471,7 +1415,7 @@ class _MainShellState extends State<MainShell> {
 
   String buildDebugReport(BuildContext context) {
     return AppDiagnostics.instance.buildReport(
-      appVersion: 'east_app_v303',
+      appVersion: 'east_app_v305',
       role: currentRoleName,
       userName: currentUserName,
       userId: currentUserId,
@@ -1618,45 +1562,6 @@ class _MainShellState extends State<MainShell> {
                   ),
                 ],
               ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  void showRewardsSheet() {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (sheetContext) {
-        return AppTextScope(
-          language: language,
-          contentTranslations: widget.api.contentTranslations,
-          child: FractionallySizedBox(
-            heightFactor: 0.92,
-            child: Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(18, 8, 10, 0),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      IconButton(
-                        tooltip: localText.t('Close'),
-                        onPressed: () => Navigator.of(sheetContext).pop(),
-                        icon: const Icon(Icons.close_rounded),
-                      ),
-                    ],
-                  ),
-                ),
-                Expanded(child: RewardsScreen(tasks: tasks)),
-              ],
             ),
           ),
         );
@@ -1885,20 +1790,19 @@ class _MainShellState extends State<MainShell> {
             HomeScreen(
               role: widget.role,
               isOwner: widget.session.user.role.isOwner,
+              canViewReportIntelligence: widget.session.can(
+                EastAppPermission.reportIntelligenceView,
+              ),
               api: widget.api,
               tenantId: widget.session.tenant.id,
               businessName: widget.session.tenant.businessName,
-              tasks: tasks,
               reviewSummary: homeReviewSummary,
               reportDashboard: homeReportDashboard,
               recentActivities: homeRecentActivities,
               onRefresh: loadHomeData,
               googleRatingRefreshSignal: homeRefreshSignal,
-              onViewTasks: widget.role == UserRole.staff
-                  ? () => goToTab(1)
-                  : openStockReviewFromHome,
+              onApprovals: openStockReviewFromHome,
               onReports: () => goToTab(1),
-              onRewards: showRewardsSheet,
               onRanking: showLeaderboardSheet,
               onKnowledge: () => goToTab(knowledgeTabIndex),
             ),
@@ -1906,6 +1810,7 @@ class _MainShellState extends State<MainShell> {
               api: widget.api,
               tenantId: widget.session.tenant.id,
               currentUser: widget.session.user,
+              permissions: widget.session.permissions,
               role: widget.role,
               stockSkus: stockSkus,
               onDashboardLoaded: handleReportDashboardLoaded,

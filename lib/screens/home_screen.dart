@@ -62,18 +62,17 @@ Future<EastAppGoogleRating> _refreshGoogleRating(
 class HomeScreen extends StatefulWidget {
   final UserRole role;
   final bool isOwner;
+  final bool canViewReportIntelligence;
   final EastAppApi api;
   final String tenantId;
   final String businessName;
-  final List<StaffTask> tasks;
   final StockReviewSummary? reviewSummary;
   final ReportDashboard? reportDashboard;
   final List<RecentActivity> recentActivities;
   final Future<void> Function({bool forceRefresh}) onRefresh;
   final int googleRatingRefreshSignal;
-  final VoidCallback onViewTasks;
+  final VoidCallback onApprovals;
   final VoidCallback onReports;
-  final VoidCallback onRewards;
   final VoidCallback onRanking;
   final VoidCallback onKnowledge;
 
@@ -81,18 +80,17 @@ class HomeScreen extends StatefulWidget {
     super.key,
     required this.role,
     required this.isOwner,
+    required this.canViewReportIntelligence,
     required this.api,
     required this.tenantId,
     required this.businessName,
-    required this.tasks,
     required this.reviewSummary,
     required this.reportDashboard,
     required this.recentActivities,
     required this.onRefresh,
     required this.googleRatingRefreshSignal,
-    required this.onViewTasks,
+    required this.onApprovals,
     required this.onReports,
-    required this.onRewards,
     required this.onRanking,
     required this.onKnowledge,
   });
@@ -363,31 +361,30 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             ],
           ),
         ),
-        const SizedBox(height: 10),
-        _ReportSnapshotCard(
-          dashboard: widget.reportDashboard,
-          isManagement: isManagement,
-          onTap: widget.onReports,
-        ),
+        if (widget.canViewReportIntelligence) ...[
+          const SizedBox(height: 10),
+          _ReportSnapshotCard(
+            dashboard: widget.reportDashboard,
+            onTap: widget.onReports,
+          ),
+        ],
         const SizedBox(height: 10),
         _HomeMenuGrid(
           children: [
-            _ActionTile(
-              label: isManagement ? text.t('Approvals') : text.t('Report'),
-              icon: isManagement
-                  ? Icons.fact_check_outlined
-                  : Icons.analytics_outlined,
-              colour: AppColours.blueSoft,
-              onTap: widget.onViewTasks,
-            ),
-            _ActionTile(
-              label: isManagement ? text.t('Knowledge') : text.t('Rewards'),
-              icon: isManagement
-                  ? Icons.menu_book_outlined
-                  : Icons.workspace_premium_outlined,
-              colour: AppColours.green,
-              onTap: isManagement ? widget.onKnowledge : widget.onRewards,
-            ),
+            if (isManagement)
+              _ActionTile(
+                label: text.t('Approvals'),
+                icon: Icons.fact_check_outlined,
+                colour: AppColours.blueSoft,
+                onTap: widget.onApprovals,
+              ),
+            if (isManagement)
+              _ActionTile(
+                label: text.t('Knowledge'),
+                icon: Icons.menu_book_outlined,
+                colour: AppColours.green,
+                onTap: widget.onKnowledge,
+              ),
             _ActionTile(
               label: text.t('Leaderboard'),
               icon: Icons.trending_up_rounded,
@@ -460,15 +457,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 }
 
-
 class _ReportSnapshotCard extends StatelessWidget {
   final ReportDashboard? dashboard;
-  final bool isManagement;
   final VoidCallback onTap;
 
   const _ReportSnapshotCard({
     required this.dashboard,
-    required this.isManagement,
     required this.onTap,
   });
 
@@ -478,28 +472,11 @@ class _ReportSnapshotCard extends StatelessWidget {
     final data = dashboard;
     final firstValue = data == null
         ? '—'
-        : isManagement
-            ? 'RM ${(data.sales?.netSalesRm ?? 0).toStringAsFixed(2)}'
-            : '${data.dailyTasks.done}/${data.dailyTasks.total}';
-    final firstLabel = isManagement ? 'Total Sales Today' : 'Daily Tasks';
+        : 'RM ${(data.sales?.netSalesRm ?? 0).toStringAsFixed(2)}';
     final secondValue = data == null
         ? '—'
-        : isManagement
-            ? '${data.inventory?.healthScorePercent.toStringAsFixed(0) ?? '0'}%'
-            : data.dailyTasks.total == 0
-                ? 'No Tasks'
-                : data.dailyTasks.submitted > 0
-                ? 'Submitted'
-                : data.dailyTasks.pending > 0
-                    ? 'Pending'
-                    : 'Done';
-    final secondLabel = isManagement ? 'Stock Health' : 'Submission';
-    final thirdValue = data == null
-        ? '—'
-        : isManagement
-            ? '${data.dailyTasks.submitted}'
-            : '${data.pendingApprovals}';
-    final thirdLabel = isManagement ? 'Tasks to Rate' : 'Review Status';
+        : '${data.inventory?.healthScorePercent.toStringAsFixed(0) ?? '0'}%';
+    final thirdValue = data == null ? '—' : '${data.dailyTasks.submitted}';
 
     return WhiteCard(
       padding: EdgeInsets.zero,
@@ -546,11 +523,26 @@ class _ReportSnapshotCard extends StatelessWidget {
               const SizedBox(height: 12),
               Row(
                 children: [
-                  Expanded(child: _ReportSnapshotMetric(label: firstLabel, value: firstValue)),
+                  Expanded(
+                    child: _ReportSnapshotMetric(
+                      label: 'Total Sales Today',
+                      value: firstValue,
+                    ),
+                  ),
                   const SizedBox(width: 8),
-                  Expanded(child: _ReportSnapshotMetric(label: secondLabel, value: secondValue)),
+                  Expanded(
+                    child: _ReportSnapshotMetric(
+                      label: 'Stock Health',
+                      value: secondValue,
+                    ),
+                  ),
                   const SizedBox(width: 8),
-                  Expanded(child: _ReportSnapshotMetric(label: thirdLabel, value: thirdValue)),
+                  Expanded(
+                    child: _ReportSnapshotMetric(
+                      label: 'Tasks to Rate',
+                      value: thirdValue,
+                    ),
+                  ),
                 ],
               ),
             ],
@@ -607,6 +599,7 @@ class _ReportSnapshotMetric extends StatelessWidget {
     );
   }
 }
+
 
 class _GoogleRatingCard extends StatefulWidget {
   final EastAppApi api;

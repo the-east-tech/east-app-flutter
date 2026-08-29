@@ -21,88 +21,6 @@ enum KnowledgeVideoLanguage {
   }
 }
 
-enum RewardTaskStatus {
-  pending,
-  inProgress,
-  submitted,
-  approved,
-  rejected,
-}
-
-class StaffTask {
-  final String id;
-  final String title;
-  final String description;
-  final int maxScore;
-  final int? awardedScore;
-  final String category;
-  final RewardTaskStatus status;
-  final bool photoRequired;
-  final String staffName;
-  final String staffId;
-  final String? submittedText;
-  final String? approvedText;
-  final String? rejectedText;
-  final String? photoEvidenceName;
-  final String? staffRemark;
-  final String? approvedBy;
-  final String sopOutcome;
-  final String sopDescription;
-
-  const StaffTask({
-    required this.id,
-    required this.title,
-    required this.description,
-    required this.maxScore,
-    required this.category,
-    required this.status,
-    required this.photoRequired,
-    required this.staffName,
-    required this.staffId,
-    required this.sopOutcome,
-    required this.sopDescription,
-    this.awardedScore,
-    this.submittedText,
-    this.approvedText,
-    this.rejectedText,
-    this.photoEvidenceName,
-    this.staffRemark,
-    this.approvedBy,
-  });
-
-  StaffTask copyWith({
-    RewardTaskStatus? status,
-    int? awardedScore,
-    String? submittedText,
-    String? approvedText,
-    String? rejectedText,
-    String? photoEvidenceName,
-    String? staffRemark,
-    String? approvedBy,
-  }) {
-    return StaffTask(
-      id: id,
-      title: title,
-      description: description,
-      maxScore: maxScore,
-      awardedScore: awardedScore ?? this.awardedScore,
-      category: category,
-      status: status ?? this.status,
-      photoRequired: photoRequired,
-      staffName: staffName,
-      staffId: staffId,
-      submittedText: submittedText ?? this.submittedText,
-      approvedText: approvedText ?? this.approvedText,
-      rejectedText: rejectedText ?? this.rejectedText,
-      photoEvidenceName: photoEvidenceName ?? this.photoEvidenceName,
-      staffRemark: staffRemark ?? this.staffRemark,
-      approvedBy: approvedBy ?? this.approvedBy,
-      sopOutcome: sopOutcome,
-      sopDescription: sopDescription,
-    );
-  }
-}
-
 class RecentActivity {
   final String title;
   final String? translatableContent;
@@ -116,34 +34,6 @@ class RecentActivity {
     required this.time,
     required this.score,
     required this.status,
-  });
-}
-
-class RewardHistory {
-  final String title;
-  final String category;
-  final String approvedBy;
-  final String date;
-  final int score;
-
-  const RewardHistory({
-    required this.title,
-    required this.category,
-    required this.approvedBy,
-    required this.date,
-    required this.score,
-  });
-}
-
-class CategoryPoint {
-  final String category;
-  final int taskCount;
-  final int score;
-
-  const CategoryPoint({
-    required this.category,
-    required this.taskCount,
-    required this.score,
   });
 }
 

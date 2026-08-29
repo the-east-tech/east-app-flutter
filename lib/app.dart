@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'localization/app_language.dart';
@@ -247,7 +249,45 @@ class _TheEastAppState extends State<TheEastApp> {
   void handleCurrentUserChanged(EastAppUser user) {
     final current = session;
     if (current == null) return;
-    setState(() => session = current.copyWith(user: user));
+    final roleChanged = current.user.role.systemKey != user.role.systemKey;
+    setState(() {
+      session = current.copyWith(
+        user: user,
+        permissions: roleChanged
+            ? const <EastAppPermission>{}
+            : current.permissions,
+      );
+    });
+    if (roleChanged) {
+      unawaited(refreshPermissionsAfterRoleChange(current.token, user.id));
+    }
+  }
+
+  Future<void> refreshPermissionsAfterRoleChange(
+    String token,
+    String userId,
+  ) async {
+    try {
+      await api.clearFeatureCaches();
+    } catch (error) {
+      AppDiagnostics.instance.log(
+        'Failed to clear feature caches after role change: $error',
+      );
+    }
+    try {
+      final refreshed = await api.currentSession(token);
+      if (!mounted ||
+          session?.token != token ||
+          session?.user.id != userId) {
+        return;
+      }
+      setState(() => session = refreshed);
+    } on EastAppApiException catch (error) {
+      AppDiagnostics.instance.log(
+        'Permission refresh failed after role change: '
+        '${error.code} ${error.message}',
+      );
+    }
   }
 
   void handleSessionChanged(EastAppSession nextSession) {
@@ -351,6 +391,11 @@ class _TheEastAppState extends State<TheEastApp> {
       );
     }
 
+    final permissionKey = currentSession.permissions
+        .map((permission) => permission.apiValue)
+        .toList(growable: false)
+      ..sort();
+
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 520),
       switchInCurve: Curves.easeOutCubic,
@@ -365,7 +410,10 @@ class _TheEastAppState extends State<TheEastApp> {
         );
       },
       child: MainShell(
-        key: ValueKey('${currentSession.tenant.id}:${currentSession.user.id}'),
+        key: ValueKey(
+          '${currentSession.tenant.id}:${currentSession.user.id}:'
+          '${currentSession.user.role.systemKey}:${permissionKey.join(',')}',
+        ),
         role: currentSession.user.role.appRole,
         session: currentSession,
         api: api,

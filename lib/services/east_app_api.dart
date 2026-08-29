@@ -137,8 +137,14 @@ class EastAppApi {
   Map<String, String> get contentTranslations =>
       UnmodifiableMapView<String, String>(_contentTranslations);
 
-  static String reportDashboardCacheKey(String tenantId, int days) =>
-      'tenant:$tenantId:report:dashboard:v2:$days';
+  static String reportDashboardCacheKey(
+    String tenantId,
+    int days, {
+    required bool managementView,
+    required String userId,
+  }) =>
+      'tenant:$tenantId:report:dashboard:v3:'
+      '${managementView ? 'management' : 'operational:$userId'}:$days';
   static String salesHistoryCacheKey(
     String tenantId,
     DateTime from,
@@ -195,6 +201,7 @@ class EastAppApi {
     _featureCacheRevisions.clear();
     _featureReadRequests.clear();
     _clearMediaBytesCache();
+    _clearDailyTaskMemoryCaches();
     await FeatureDataCache.instance.clearAll();
   }
 
@@ -399,14 +406,9 @@ class EastAppApi {
     final token = body['token'] as String;
     final currentUser = body['currentUser'] as Map<String, dynamic>;
     useToken(token);
-    return EastAppSession(
+    return EastAppSession.fromCurrentUserJson(
       token: token,
-      tenant: EastAppTenant.fromJson(
-        currentUser['tenant'] as Map<String, dynamic>,
-      ),
-      user: EastAppUser.fromJson(
-        currentUser['user'] as Map<String, dynamic>,
-      ),
+      json: currentUser,
     );
   }
 
@@ -417,10 +419,9 @@ class EastAppApi {
       '/api/v1/auth/me',
       notifyOnUnauthorised: false,
     ) as Map<String, dynamic>;
-    return EastAppSession(
+    return EastAppSession.fromCurrentUserJson(
       token: token,
-      tenant: EastAppTenant.fromJson(body['tenant'] as Map<String, dynamic>),
-      user: EastAppUser.fromJson(body['user'] as Map<String, dynamic>),
+      json: body,
     );
   }
 
@@ -445,14 +446,9 @@ class EastAppApi {
     ) as List<dynamic>;
     return body.map((item) {
       final context = item as Map<String, dynamic>;
-      return EastAppSession(
+      return EastAppSession.fromCurrentUserJson(
         token: _token ?? '',
-        tenant: EastAppTenant.fromJson(
-          context['tenant'] as Map<String, dynamic>,
-        ),
-        user: EastAppUser.fromJson(
-          context['user'] as Map<String, dynamic>,
-        ),
+        json: context,
       );
     }).toList(growable: false);
   }
@@ -467,11 +463,9 @@ class EastAppApi {
     invalidateAvailableContextsCache();
     invalidateTenantsCache();
     _clearContentTranslation();
-    _clearDailyTaskMemoryCaches();
-    return EastAppSession(
+    return EastAppSession.fromCurrentUserJson(
       token: _token ?? '',
-      tenant: EastAppTenant.fromJson(body['tenant'] as Map<String, dynamic>),
-      user: EastAppUser.fromJson(body['user'] as Map<String, dynamic>),
+      json: body,
     );
   }
 
@@ -696,6 +690,8 @@ class EastAppApi {
   Future<ReportDashboard> reportDashboard({
     int days = 7,
     String? tenantId,
+    required bool managementView,
+    required String userId,
     bool forceRefresh = false,
   }) async {
     final query = Uri(queryParameters: {'days': '$days'}).query;
@@ -704,7 +700,12 @@ class EastAppApi {
         ? await _requestJson('GET', path)
         : await _requestCachedJson(
             path,
-            cacheKey: reportDashboardCacheKey(tenantId, days),
+            cacheKey: reportDashboardCacheKey(
+              tenantId,
+              days,
+              managementView: managementView,
+              userId: userId,
+            ),
             forceRefresh: forceRefresh,
           );
     return ReportDashboard.fromJson(body as Map<String, dynamic>);
@@ -713,8 +714,15 @@ class EastAppApi {
   Future<ReportDashboard?> cachedReportDashboard({
     int days = 7,
     required String tenantId,
+    required bool managementView,
+    required String userId,
   }) async {
-    final cacheKey = reportDashboardCacheKey(tenantId, days);
+    final cacheKey = reportDashboardCacheKey(
+      tenantId,
+      days,
+      managementView: managementView,
+      userId: userId,
+    );
     final cached = await FeatureDataCache.instance.read(cacheKey);
     final data = cached?.data;
     if (data == null) {

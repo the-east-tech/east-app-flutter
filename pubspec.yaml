@@ -1,7 +1,7 @@
 name: east_app
 description: EastApp prototype
 publish_to: 'none'
-version: 1.0.0+303
+version: 1.0.0+305
 
 environment:
   sdk: '>=3.10.0 <4.0.0'
