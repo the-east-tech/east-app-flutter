@@ -643,6 +643,15 @@ const Map<String, String> _myanmar = {
   'Confirm Submit All': 'အားလုံး တင်ပြမည်ကို အတည်ပြုပါ',
   'Contact': 'ဆက်သွယ်ရန်',
   'Contact Person': 'ဆက်သွယ်ရမည့်သူ',
+  'Contacts': 'အဆက်အသွယ်များ',
+  'Choose from contacts': 'အဆက်အသွယ်များမှ ရွေးရန်',
+  'Search contacts': 'အဆက်အသွယ်များ ရှာရန်',
+  'No contacts with phone numbers': 'ဖုန်းနံပါတ်ပါသော အဆက်အသွယ် မရှိပါ',
+  'Full Contacts access is required. Allow it in Settings.':
+      'အဆက်အသွယ်အားလုံး အသုံးပြုခွင့် လိုအပ်သည်။ Settings တွင် ခွင့်ပြုပါ။',
+  "This contact's country code is not supported.":
+      'ဤအဆက်အသွယ်၏ နိုင်ငံကုဒ်ကို မပံ့ပိုးပါ။',
+  'Could not load contacts.': 'အဆက်အသွယ်များကို မဖွင့်နိုင်ပါ။',
   'Copy Message': 'စာကို ကူးယူရန်',
   'Count': 'ရေတွက်ရန်',
   'Count stock / receive goods / prepare restock': 'ကုန်ပစ္စည်းရေတွက်ခြင်း၊ လက်ခံခြင်းနှင့် ပြန်ဖြည့်ရန်ပြင်ဆင်ခြင်း',
@@ -1314,7 +1323,7 @@ const Map<String, String> _myanmar = {
   'When the phone number already belongs to an application login, the same profile and password are reused and only a new employee ID is created for this business.':
       'ဖုန်းနံပါတ်သည် အက်ပ် login တစ်ခုနှင့် ချိတ်ထားပြီးသားဖြစ်ပါက အချက်အလက်နှင့် စကားဝှက်ကို ပြန်သုံးပြီး ဤလုပ်ငန်းအတွက် ဝန်ထမ်း ID အသစ်သာ ဖန်တီးမည်။',
   'Full Name': 'အမည်အပြည့်အစုံ',
-  'Example: Lee Kim Khong': 'ဥပမာ - Lee Kim Khong',
+  'Example: Nicky Chang': 'ဥပမာ - Nicky Chang',
   'Born Date': 'မွေးသက္ကရာဇ်',
   'Loading roles for this business...': 'ဤလုပ်ငန်း၏ ရာထူးများကို ရယူနေသည်...',
   'Start Date': 'စတင်ရက်',
@@ -1876,6 +1885,14 @@ const Map<String, String> _chinese = {
   'Confirm Submit All': '确认全部提交',
   'Contact': '联系人',
   'Contact Person': '联系人',
+  'Contacts': '通讯录',
+  'Choose from contacts': '从通讯录选择',
+  'Search contacts': '搜索联系人',
+  'No contacts with phone numbers': '没有带电话号码的联系人',
+  'Full Contacts access is required. Allow it in Settings.':
+      '需要完整的通讯录权限。请在“设置”中允许。',
+  "This contact's country code is not supported.": '不支持此联系人的国家区号。',
+  'Could not load contacts.': '无法载入通讯录。',
   'Copy Message': '复制消息',
   'Count': '盘点',
   'Count stock / receive goods / prepare restock': '盘点库存／收货／准备补货',
@@ -2533,7 +2550,7 @@ const Map<String, String> _chinese = {
   'When the phone number already belongs to an application login, the same profile and password are reused and only a new employee ID is created for this business.':
       '如果电话号码已属于应用登录账户，将重复使用同一资料和密码，并仅为此业务创建新的员工编号。',
   'Full Name': '全名',
-  'Example: Lee Kim Khong': '例如：Lee Kim Khong',
+  'Example: Nicky Chang': '例如：Nicky Chang',
   'Born Date': '出生日期',
   'Loading roles for this business...': '正在加载此业务的角色...',
   'Start Date': '开始日期',

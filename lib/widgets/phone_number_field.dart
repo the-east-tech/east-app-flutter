@@ -67,6 +67,35 @@ bool isValidE164(String value) {
   return RegExp(r'^\+[1-9][0-9]{7,14}$').hasMatch(value);
 }
 
+class PhoneFieldValue {
+  final PhoneCountry country;
+  final String localDigits;
+
+  const PhoneFieldValue({required this.country, required this.localDigits});
+}
+
+PhoneFieldValue? phoneFieldValueFromContact(
+  String value, {
+  required PhoneCountry fallbackCountry,
+}) {
+  var compact = value.trim().replaceAll(RegExp(r'[^0-9+]'), '');
+  if (compact.startsWith('00')) compact = '+${compact.substring(2)}';
+
+  var country = fallbackCountry;
+  if (compact.startsWith('+')) {
+    final sorted = [...phoneCountries]
+      ..sort((a, b) => b.dialCode.length.compareTo(a.dialCode.length));
+    final matched = sorted.where((item) => compact.startsWith(item.dialCode));
+    if (matched.isEmpty) return null;
+    country = matched.first;
+    compact = compact.substring(country.dialCode.length);
+  }
+
+  final digits = compact.replaceAll(RegExp(r'\D'), '');
+  if (digits.isEmpty) return null;
+  return PhoneFieldValue(country: country, localDigits: digits);
+}
+
 class PhoneNumberField extends StatelessWidget {
   final String label;
   final TextEditingController controller;
@@ -78,6 +107,8 @@ class PhoneNumberField extends StatelessWidget {
   final ValueChanged<String>? onChanged;
   final ValueChanged<String>? onSubmitted;
   final bool enabled;
+  final VoidCallback? onContactPressed;
+  final bool contactLoading;
 
   const PhoneNumberField({
     super.key,
@@ -91,6 +122,8 @@ class PhoneNumberField extends StatelessWidget {
     this.onChanged,
     this.onSubmitted,
     this.enabled = true,
+    this.onContactPressed,
+    this.contactLoading = false,
   });
 
   @override
@@ -164,6 +197,23 @@ class PhoneNumberField extends StatelessWidget {
                     horizontal: 14,
                     vertical: 13,
                   ),
+                ).copyWith(
+                  suffixIcon: onContactPressed == null
+                      ? null
+                      : contactLoading
+                          ? const Padding(
+                              padding: EdgeInsets.all(14),
+                              child: SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              ),
+                            )
+                          : IconButton(
+                              tooltip: text.t('Choose from contacts'),
+                              onPressed: enabled ? onContactPressed : null,
+                              icon: const Icon(Icons.contacts_outlined),
+                            ),
                 ),
               ),
             ),

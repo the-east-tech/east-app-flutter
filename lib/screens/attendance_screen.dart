@@ -18,6 +18,7 @@ import '../services/east_app_api.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_components.dart';
 import '../widgets/app_feedback.dart';
+import '../widgets/device_contact_picker.dart';
 import '../widgets/phone_number_field.dart';
 import 'people_audit_screen.dart';
 import 'points_screen.dart';
@@ -2793,6 +2794,7 @@ class _UserFormSheetState extends State<_UserFormSheet> {
   bool showErrors = false;
   bool saving = false;
   bool rolesLoading = false;
+  bool contactsLoading = false;
   String? rolesError;
   bool obscurePassword = true;
 
@@ -2935,6 +2937,50 @@ class _UserFormSheetState extends State<_UserFormSheet> {
     );
     if (picked == null || !mounted) return;
     setState(() => onPicked(picked));
+  }
+
+  Future<void> pickPhoneFromContacts() async {
+    FocusScope.of(context).unfocus();
+    await AppFeedback.select();
+    if (!mounted) return;
+    setState(() => contactsLoading = true);
+    final text = AppTextScope.of(context);
+    try {
+      final phones = await loadDeviceContactPhones();
+      if (!mounted) return;
+      if (phones.isEmpty) {
+        showErrorSnackBar(context, text.t('No contacts with phone numbers'));
+        return;
+      }
+      final selected = await showDeviceContactPhonePicker(context, phones);
+      if (selected == null || !mounted) return;
+      final value = phoneFieldValueFromContact(
+        selected.number,
+        fallbackCountry: phoneCountry,
+      );
+      if (value == null) {
+        showErrorSnackBar(
+          context,
+          text.t("This contact's country code is not supported."),
+        );
+        return;
+      }
+      setState(() {
+        phoneCountry = value.country;
+        phoneController.text = value.localDigits;
+      });
+    } on DeviceContactsPermissionException {
+      if (!mounted) return;
+      showErrorSnackBar(
+        context,
+        text.t('Full Contacts access is required. Allow it in Settings.'),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      showErrorSnackBar(context, text.t('Could not load contacts.'));
+    } finally {
+      if (mounted) setState(() => contactsLoading = false);
+    }
   }
 
   Future<void> submit() async {
@@ -3167,6 +3213,8 @@ class _UserFormSheetState extends State<_UserFormSheet> {
               onChanged: (_) {
                 if (showErrors) setState(() {});
               },
+              onContactPressed: isEditing ? null : pickPhoneFromContacts,
+              contactLoading: contactsLoading,
             ),
             const SizedBox(height: 12),
             if (rolesLoading)

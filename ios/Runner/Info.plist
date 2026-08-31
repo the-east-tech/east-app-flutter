@@ -77,6 +77,8 @@
 	</array>
 	<key>NSCameraUsageDescription</key>
 	<string>EastApp uses the camera for attendance face presence detection.</string>
+	<key>NSContactsUsageDescription</key>
+	<string>EastApp uses your contacts to fill a new user's phone number.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>EastApp does not record audio for attendance verification.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
