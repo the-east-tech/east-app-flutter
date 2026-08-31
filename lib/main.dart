@@ -4,12 +4,14 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'app.dart';
+import 'services/push_notification_service.dart';
 import 'utils/app_diagnostics.dart';
 
 void main() {
   runZonedGuarded<void>(
     () {
       WidgetsFlutterBinding.ensureInitialized();
+      PushNotificationService.registerBackgroundHandler();
 
       FlutterError.onError = (FlutterErrorDetails details) {
         AppDiagnostics.instance.recordFlutterError(details);

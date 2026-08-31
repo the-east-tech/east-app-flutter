@@ -7,6 +7,8 @@ class AppHeader extends StatelessWidget {
   final String businessName;
   final VoidCallback? onIdentityTap;
   final int totalPoints;
+  final int notificationCount;
+  final VoidCallback onNotifications;
   final VoidCallback onSettings;
   final VoidCallback onHelp;
   final VoidCallback onLogout;
@@ -16,6 +18,8 @@ class AppHeader extends StatelessWidget {
     required this.businessName,
     required this.onIdentityTap,
     required this.totalPoints,
+    required this.notificationCount,
+    required this.onNotifications,
     required this.onSettings,
     required this.onHelp,
     required this.onLogout,
@@ -101,6 +105,12 @@ class AppHeader extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 6),
+                _NotificationButton(
+                  count: notificationCount,
+                  tooltip: text.t('Notifications'),
+                  onPressed: onNotifications,
+                ),
+                const SizedBox(width: 4),
                 Tooltip(
                   message: text.t('Settings'),
                   child: Container(
@@ -153,6 +163,69 @@ class AppHeader extends StatelessWidget {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NotificationButton extends StatelessWidget {
+  final int count;
+  final String tooltip;
+  final VoidCallback onPressed;
+
+  const _NotificationButton({
+    required this.count,
+    required this.tooltip,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: SizedBox(
+        width: 36,
+        height: 34,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Positioned.fill(
+              child: IconButton(
+                padding: EdgeInsets.zero,
+                onPressed: onPressed,
+                icon: const Icon(
+                  Icons.notifications_none_rounded,
+                  color: Colors.white,
+                  size: 22,
+                ),
+              ),
+            ),
+            if (count > 0)
+              Positioned(
+                right: 0,
+                top: 0,
+                child: Container(
+                  constraints: const BoxConstraints(minWidth: 17, minHeight: 17),
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFF3B30),
+                    borderRadius: BorderRadius.circular(99),
+                    border: Border.all(color: Colors.white, width: 1.5),
+                  ),
+                  child: Text(
+                    count > 99 ? '99+' : '$count',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w800,
+                      height: 1,
+                    ),
+                  ),
+                ),
+              ),
+          ],
         ),
       ),
     );

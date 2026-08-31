@@ -21,22 +21,6 @@ enum KnowledgeVideoLanguage {
   }
 }
 
-class RecentActivity {
-  final String title;
-  final String? translatableContent;
-  final String time;
-  final int score;
-  final String status;
-
-  const RecentActivity({
-    required this.title,
-    this.translatableContent,
-    required this.time,
-    required this.score,
-    required this.status,
-  });
-}
-
 class StockTag {
   final String id;
   final String tag;

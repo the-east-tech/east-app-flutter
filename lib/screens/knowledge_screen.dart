@@ -1,16 +1,21 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:uuid/uuid.dart';
 import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 
 import '../localization/app_text_scope.dart';
 import '../models/app_models.dart';
+import '../models/auth_models.dart';
 import '../services/east_app_api.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_components.dart';
+import 'knowledge_audit_screen.dart';
 
 class KnowledgeScreen extends StatefulWidget {
   final UserRole role;
+  final EastAppApi api;
+  final Set<EastAppPermission> permissions;
   final List<KnowledgeItem> knowledgeItems;
   final List<StockTag> tags;
   final Future<KnowledgeItem> Function(KnowledgeItem item) onCreateSop;
@@ -20,6 +25,8 @@ class KnowledgeScreen extends StatefulWidget {
   const KnowledgeScreen({
     super.key,
     required this.role,
+    required this.api,
+    required this.permissions,
     required this.knowledgeItems,
     required this.tags,
     required this.onCreateSop,
@@ -35,6 +42,7 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
   final homeSearchController = TextEditingController();
   final listSearchController = TextEditingController();
   bool showSopList = false;
+  bool showAudit = false;
   KnowledgeItem? selectedSop;
   bool selectedSopOpenedFromManagement = false;
   String? homeSelectedTagId;
@@ -43,6 +51,8 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
   final Set<String> selectedSopGroupIds = <String>{};
 
   bool get canManageSops => widget.role != UserRole.staff;
+  bool get canViewAudit =>
+      widget.permissions.contains(EastAppPermission.knowledgeAuditView);
 
   String tagNameFor(String tagId) {
     for (final tag in widget.tags) {
@@ -269,6 +279,16 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
     });
   }
 
+  void openAudit() {
+    FocusScope.of(context).unfocus();
+    setState(() => showAudit = true);
+  }
+
+  void closeAudit() {
+    FocusScope.of(context).unfocus();
+    setState(() => showAudit = false);
+  }
+
   void openSopDetail(
     KnowledgeItem item, {
     required bool openedFromManagement,
@@ -310,6 +330,10 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
       closeSopList();
       return false;
     }
+    if (showAudit) {
+      closeAudit();
+      return false;
+    }
     return true;
   }
 
@@ -339,6 +363,13 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
               badgeText: '$totalSops',
               onTap: openSopList,
             ),
+            if (canViewAudit)
+              _KnowledgeMenuCard(
+                title: text.t('Audit'),
+                subtitle: text.t('Playback effort'),
+                icon: Icons.insights_rounded,
+                onTap: openAudit,
+              ),
           ],
         ),
         const SizedBox(height: 16),
@@ -559,9 +590,15 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
         : sopGroupFor(
             selected.linkGroupId.isEmpty ? selected.id : selected.linkGroupId,
           );
-    final viewKey = selected != null ? 2 : showSopList ? 1 : 0;
+    final viewKey = selected != null
+        ? 3
+        : showAudit
+            ? 2
+            : showSopList
+                ? 1
+                : 0;
     return PopScope(
-      canPop: selected == null && !showSopList,
+      canPop: selected == null && !showSopList && !showAudit,
       onPopInvokedWithResult: (didPop, result) {
         if (!didPop) unawaited(handleBackNavigation());
       },
@@ -571,6 +608,7 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
           key: ValueKey<int>(viewKey),
           child: selected != null
               ? _SopDetailPage(
+                  api: widget.api,
                   item: selected,
                   versions: selectedGroup?.versions ?? [selected],
                   tagNameFor: tagNameFor,
@@ -580,9 +618,11 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
                           ? openEditSop
                           : null,
                 )
-              : showSopList
-                  ? buildSopList(context)
-                  : buildKnowledgeHome(context),
+              : showAudit
+                  ? KnowledgeAuditScreen(api: widget.api, onBack: closeAudit)
+                  : showSopList
+                      ? buildSopList(context)
+                      : buildKnowledgeHome(context),
         ),
       ),
     );
@@ -590,6 +630,7 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
 }
 
 class _SopDetailPage extends StatefulWidget {
+  final EastAppApi api;
   final KnowledgeItem item;
   final List<KnowledgeItem> versions;
   final String Function(String tagId) tagNameFor;
@@ -597,6 +638,7 @@ class _SopDetailPage extends StatefulWidget {
   final ValueChanged<KnowledgeItem>? onEdit;
 
   const _SopDetailPage({
+    required this.api,
     required this.item,
     required this.versions,
     required this.tagNameFor,
@@ -608,9 +650,15 @@ class _SopDetailPage extends StatefulWidget {
   State<_SopDetailPage> createState() => _SopDetailPageState();
 }
 
-class _SopDetailPageState extends State<_SopDetailPage> {
+class _SopDetailPageState extends State<_SopDetailPage>
+    with WidgetsBindingObserver {
   late KnowledgeItem selectedItem;
   late YoutubePlayerController controller;
+  late _PlaybackTrackingSession trackingSession;
+  StreamSubscription<YoutubePlayerValue>? playerSubscription;
+  Timer? trackingTimer;
+  bool playerIsPlaying = false;
+  bool appIsForeground = true;
 
   YoutubePlayerController buildController(KnowledgeItem item) {
     return YoutubePlayerController.fromVideoId(
@@ -628,6 +676,13 @@ class _SopDetailPageState extends State<_SopDetailPage> {
     super.initState();
     selectedItem = widget.item;
     controller = buildController(selectedItem);
+    trackingSession = _PlaybackTrackingSession(selectedItem.id);
+    WidgetsBinding.instance.addObserver(this);
+    playerSubscription = controller.stream.listen(handlePlayerValue);
+    trackingTimer = Timer.periodic(
+      const Duration(seconds: 1),
+      (_) => capturePlayingSecond(),
+    );
   }
 
   @override
@@ -640,6 +695,11 @@ class _SopDetailPageState extends State<_SopDetailPage> {
         break;
       }
     }
+    if (selectedItem.id != nextItem.id) {
+      unawaited(flushSession(trackingSession, force: true));
+      trackingSession = _PlaybackTrackingSession(nextItem.id);
+      playerIsPlaying = false;
+    }
     if (selectedItem.youtubeVideoId != nextItem.youtubeVideoId) {
       unawaited(
         controller.cueVideoById(videoId: nextItem.youtubeVideoId),
@@ -650,6 +710,9 @@ class _SopDetailPageState extends State<_SopDetailPage> {
 
   void selectVersion(KnowledgeItem item) {
     if (item.id == selectedItem.id) return;
+    unawaited(flushSession(trackingSession, force: true));
+    trackingSession = _PlaybackTrackingSession(item.id);
+    playerIsPlaying = false;
     setState(() {
       selectedItem = item;
     });
@@ -658,8 +721,80 @@ class _SopDetailPageState extends State<_SopDetailPage> {
     );
   }
 
+  void handlePlayerValue(YoutubePlayerValue value) {
+    final wasPlaying = playerIsPlaying;
+    playerIsPlaying = value.playerState == PlayerState.playing;
+    if (!wasPlaying && playerIsPlaying) {
+      unawaited(flushSession(trackingSession));
+    } else if (wasPlaying && !playerIsPlaying) {
+      unawaited(flushSession(trackingSession, force: true));
+    }
+  }
+
+  void capturePlayingSecond() {
+    if (!playerIsPlaying || !appIsForeground) return;
+    trackingSession.playedSeconds += 1;
+    if (trackingSession.playedSeconds - trackingSession.lastSentSeconds >= 10) {
+      unawaited(flushSession(trackingSession));
+    }
+  }
+
+  Future<void> flushSession(
+    _PlaybackTrackingSession session, {
+    bool force = false,
+  }) async {
+    if (session.flushInFlight) {
+      session.flushAgain = session.flushAgain || force;
+      return;
+    }
+    if (!force &&
+        session.nextRetryAt != null &&
+        DateTime.now().isBefore(session.nextRetryAt!)) {
+      return;
+    }
+    final seconds = session.playedSeconds;
+    if (session.acknowledged && seconds <= session.lastSentSeconds) return;
+
+    session.flushInFlight = true;
+    try {
+      await widget.api.recordSopWatchTime(
+        sopId: session.sopId,
+        sessionId: session.id,
+        playedSeconds: seconds,
+      );
+      session.acknowledged = true;
+      if (seconds > session.lastSentSeconds) {
+        session.lastSentSeconds = seconds;
+      }
+      session.nextRetryAt = null;
+    } on EastAppApiException catch (_) {
+      session.nextRetryAt = DateTime.now().add(const Duration(seconds: 10));
+    } finally {
+      session.flushInFlight = false;
+      final shouldFlushAgain = session.flushAgain ||
+          session.playedSeconds - session.lastSentSeconds >= 10;
+      session.flushAgain = false;
+      if (shouldFlushAgain && session.nextRetryAt == null) {
+        unawaited(flushSession(session));
+      }
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final wasForeground = appIsForeground;
+    appIsForeground = state == AppLifecycleState.resumed;
+    if (wasForeground && !appIsForeground) {
+      unawaited(flushSession(trackingSession, force: true));
+    }
+  }
+
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    trackingTimer?.cancel();
+    unawaited(playerSubscription?.cancel() ?? Future<void>.value());
+    unawaited(flushSession(trackingSession, force: true));
     controller.close();
     super.dispose();
   }
@@ -816,6 +951,19 @@ class _SopDetailPageState extends State<_SopDetailPage> {
       ],
     );
   }
+}
+
+class _PlaybackTrackingSession {
+  final String id = const Uuid().v4();
+  final String sopId;
+  int playedSeconds = 0;
+  int lastSentSeconds = 0;
+  bool acknowledged = false;
+  bool flushInFlight = false;
+  bool flushAgain = false;
+  DateTime? nextRetryAt;
+
+  _PlaybackTrackingSession(this.sopId);
 }
 
 class _KnowledgeSectionTitle extends StatelessWidget {

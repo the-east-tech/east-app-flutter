@@ -14,9 +14,11 @@ import '../models/auth_models.dart';
 import '../models/people_models.dart';
 import '../models/points_models.dart';
 import '../models/organisation_models.dart';
+import '../models/notification_models.dart';
 import '../models/report_models.dart';
 import '../models/stock_api_models.dart';
 import '../services/east_app_api.dart';
+import '../services/push_notification_service.dart';
 import '../theme/app_theme.dart';
 import '../utils/app_diagnostics.dart';
 import '../widgets/app_components.dart';
@@ -26,6 +28,7 @@ import '../widgets/app_settings_sheet.dart';
 import 'attendance_screen.dart';
 import 'home_screen.dart';
 import 'knowledge_screen.dart';
+import 'notification_screen.dart';
 import 'ranking_screen.dart';
 import 'stock_screen.dart';
 import 'report_screen.dart';
@@ -56,7 +59,7 @@ class MainShell extends StatefulWidget {
   State<MainShell> createState() => _MainShellState();
 }
 
-class _MainShellState extends State<MainShell> {
+class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   int selectedIndex = 0;
   late AppLanguage language;
   late List<KnowledgeItem> knowledge;
@@ -93,17 +96,21 @@ class _MainShellState extends State<MainShell> {
   Future<EastAppLeaderboard>? pointsLeaderboardRequest;
   StockReviewSummary? homeReviewSummary;
   ReportDashboard? homeReportDashboard;
-  List<RecentActivity> homeRecentActivities = const [];
+  List<EastAppActivityEvent> homeRecentActivities = const [];
   bool homeDataLoaded = false;
   String? homeDataDayKey;
   Future<void>? homeDataRequest;
   int homeDataGeneration = 0;
   StockPage? requestedStockPage;
   bool requestedStockPageBackToHome = false;
+  final PushNotificationService pushNotifications = PushNotificationService();
+  Future<void>? notificationCountRequest;
+  int notificationUnreadCount = 0;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     language = widget.initialLanguage;
     knowledge = <KnowledgeItem>[];
     stockTags = <StockTag>[];
@@ -116,6 +123,22 @@ class _MainShellState extends State<MainShell> {
     attendanceRecords = List<AttendanceRecord>.from(sampleAttendanceRecords);
     unawaited(loadPointsLeaderboard());
     unawaited(loadHomeData());
+    unawaited(configureNotifications());
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    unawaited(pushNotifications.dispose());
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(configureNotifications());
+      unawaited(loadHomeData(forceRefresh: true));
+    }
   }
 
   @override
@@ -131,7 +154,95 @@ class _MainShellState extends State<MainShell> {
       homeRecentActivities = const [];
       unawaited(loadPointsLeaderboard());
       unawaited(loadHomeData());
+      notificationUnreadCount = 0;
+      notificationCountRequest = null;
+      unawaited(configureNotifications());
     }
+  }
+
+  Future<void> configureNotifications() async {
+    await Future.wait<void>([
+      refreshNotificationCount(),
+      pushNotifications.configure(
+        api: widget.api,
+        onReceived: handleNotificationReceived,
+        onOpened: handleNotificationOpened,
+      ),
+    ]);
+  }
+
+  Future<void> refreshNotificationCount() {
+    final existing = notificationCountRequest;
+    if (existing != null) return existing;
+    final tenantId = widget.session.tenant.id;
+    late final Future<void> request;
+    request = widget.api.notificationUnreadCount().then((value) {
+      if (!mounted ||
+          widget.session.tenant.id != tenantId ||
+          notificationUnreadCount == value) {
+        return;
+      }
+      setState(() => notificationUnreadCount = value);
+    }).onError<EastAppApiException>((_, _) {
+      // Badge refresh is silent; the inbox can still be opened and refreshed.
+    }).whenComplete(() {
+      if (identical(notificationCountRequest, request)) {
+        notificationCountRequest = null;
+      }
+    });
+    notificationCountRequest = request;
+    return request;
+  }
+
+  void handleNotificationReceived(String? notificationId) {
+    unawaited(refreshNotificationCount());
+    _markHomeDataStale();
+    unawaited(loadHomeData(forceRefresh: true));
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
+      // iOS presents the native foreground banner and sound configured by FCM.
+      return;
+    }
+    unawaited(AppFeedback.success());
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('New business activity'),
+        action: SnackBarAction(
+          label: 'View',
+          onPressed: () => openNotifications(notificationId: notificationId),
+        ),
+      ),
+    );
+  }
+
+  void handleNotificationOpened(String? notificationId) {
+    if (!mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) openNotifications(notificationId: notificationId);
+    });
+  }
+
+  Future<void> openNotifications({String? notificationId}) async {
+    AppFeedback.select();
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => AppTextScope(
+          language: language,
+          contentTranslations: widget.api.contentTranslations,
+          child: NotificationScreen(
+            api: widget.api,
+            initialNotificationId: notificationId,
+            onChanged: () {
+              unawaited(refreshNotificationCount());
+              _markHomeDataStale();
+            },
+          ),
+        ),
+      ),
+    );
+    if (!mounted) return;
+    await refreshNotificationCount();
+    await loadHomeData(forceRefresh: true);
   }
 
   Future<EastAppLeaderboard?> loadPointsLeaderboard({
@@ -200,13 +311,9 @@ class _MainShellState extends State<MainShell> {
     if (existingRequest != null) return existingRequest;
 
     final generation = homeDataGeneration;
-    final now = DateTime.now();
     late final Future<void> request;
     request = Future.wait<Object?>([
-      widget.api.stockAudit(
-        from: now.subtract(const Duration(days: 29)),
-        to: now,
-        mine: true,
+      widget.api.recentActivity(
         page: 0,
         size: 5,
       ),
@@ -223,24 +330,13 @@ class _MainShellState extends State<MainShell> {
       ),
     ]).then((results) {
       if (!mounted || generation != homeDataGeneration) return;
-      final audit = results[0] as EastAppPage<StockAuditEntry>;
+      final activity = results[0] as EastAppPage<EastAppActivityEvent>;
       final summary = results[1] as StockReviewSummary?;
       final reports = results[2] as ReportDashboard?;
       setState(() {
         homeReviewSummary = summary;
         if (reports != null) homeReportDashboard = reports;
-        homeRecentActivities = audit.content
-            .take(5)
-            .map(
-              (entry) => RecentActivity(
-                title: '${entry.action}: ${entry.itemName}',
-                translatableContent: entry.itemName,
-                time: entry.timestampText,
-                score: 1,
-                status: entry.module,
-              ),
-            )
-            .toList(growable: false);
+        homeRecentActivities = activity.content.take(5).toList(growable: false);
         homeDataLoaded = true;
         homeDataDayKey = dayKey;
       });
@@ -1757,7 +1853,12 @@ class _MainShellState extends State<MainShell> {
 
   void logoutToLogin() {
     AppFeedback.tap();
-    unawaited(widget.onLogout());
+    unawaited(logoutAndUnregisterPush());
+  }
+
+  Future<void> logoutAndUnregisterPush() async {
+    await pushNotifications.unregister();
+    await widget.onLogout();
   }
 
   @override
@@ -1790,6 +1891,8 @@ class _MainShellState extends State<MainShell> {
             HomeScreen(
               role: widget.role,
               isOwner: widget.session.user.role.isOwner,
+              currentRoleSystemKey: widget.session.user.role.systemKey,
+              currentRoleName: widget.session.user.role.name,
               canViewReportIntelligence: widget.session.can(
                 EastAppPermission.reportIntelligenceView,
               ),
@@ -1913,6 +2016,8 @@ class _MainShellState extends State<MainShell> {
             ),
             KnowledgeScreen(
               role: widget.role,
+              api: widget.api,
+              permissions: widget.session.permissions,
               knowledgeItems: knowledge,
               tags: stockTags,
               onCreateSop: createSop,
@@ -1943,6 +2048,8 @@ class _MainShellState extends State<MainShell> {
                       : null,
                   totalPoints:
                       pointsLeaderboard?.currentUserTotalPoints ?? 0,
+                  notificationCount: notificationUnreadCount,
+                  onNotifications: () => openNotifications(),
                   onSettings: showSettingsSheet,
                   onHelp: showHelpSheet,
                   onLogout: logoutToLogin,

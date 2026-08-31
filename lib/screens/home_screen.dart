@@ -7,11 +7,14 @@ import '../localization/app_text_scope.dart';
 import '../models/advertisement_models.dart';
 import '../models/app_models.dart';
 import '../models/google_place_models.dart';
+import '../models/notification_models.dart';
 import '../models/report_models.dart';
 import '../models/stock_api_models.dart';
 import '../services/east_app_api.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_components.dart';
+import 'career_path_screen.dart';
+import 'notification_screen.dart';
 
 
 const Duration _googleRatingCacheDuration = Duration(hours: 1);
@@ -62,13 +65,15 @@ Future<EastAppGoogleRating> _refreshGoogleRating(
 class HomeScreen extends StatefulWidget {
   final UserRole role;
   final bool isOwner;
+  final String currentRoleSystemKey;
+  final String currentRoleName;
   final bool canViewReportIntelligence;
   final EastAppApi api;
   final String tenantId;
   final String businessName;
   final StockReviewSummary? reviewSummary;
   final ReportDashboard? reportDashboard;
-  final List<RecentActivity> recentActivities;
+  final List<EastAppActivityEvent> recentActivities;
   final Future<void> Function({bool forceRefresh}) onRefresh;
   final int googleRatingRefreshSignal;
   final VoidCallback onApprovals;
@@ -80,6 +85,8 @@ class HomeScreen extends StatefulWidget {
     super.key,
     required this.role,
     required this.isOwner,
+    required this.currentRoleSystemKey,
+    required this.currentRoleName,
     required this.canViewReportIntelligence,
     required this.api,
     required this.tenantId,
@@ -402,7 +409,18 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               label: text.t('Career Path'),
               icon: Icons.track_changes_rounded,
               colour: AppColours.orange,
-              onTap: () => showTemporaryDisabledMessage(context),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => AppTextScope(
+                    language: text.language,
+                    contentTranslations: text.contentTranslations,
+                    child: CareerPathScreen(
+                      currentRoleSystemKey: widget.currentRoleSystemKey,
+                      currentRoleName: widget.currentRoleName,
+                    ),
+                  ),
+                ),
+              ),
             ),
           ],
         ),
@@ -445,9 +463,19 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 ),
               ),
               const Divider(height: 1),
-              ...widget.recentActivities.map(
-                (item) => _RecentActivityRow(activity: item),
-              ),
+              if (widget.recentActivities.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text(
+                    text.t('No recent activity yet.'),
+                    textAlign: TextAlign.center,
+                    style: AppTextStyles.formHint,
+                  ),
+                )
+              else
+                ...widget.recentActivities.map(
+                  (item) => _RecentActivityRow(activity: item),
+                ),
             ],
           ),
         ),
@@ -972,7 +1000,7 @@ class _ActionTile extends StatelessWidget {
 }
 
 class _RecentActivityRow extends StatelessWidget {
-  final RecentActivity activity;
+  final EastAppActivityEvent activity;
 
   const _RecentActivityRow({
     required this.activity,
@@ -981,78 +1009,67 @@ class _RecentActivityRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = AppTextScope.of(context);
-    final content = activity.translatableContent;
-    final contentSuffix = content == null ? null : ': $content';
-    final title = contentSuffix == null || !activity.title.endsWith(contentSuffix)
-        ? text.content(text.t(activity.title))
-        : '${text.t(activity.title.substring(0, activity.title.length - contentSuffix.length))}: ${text.content(content!)}';
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-      decoration: const BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: AppColours.border),
+    return InkWell(
+      onTap: () => showActivityEventDetails(context, activity),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: const BoxDecoration(
+          border: Border(
+            bottom: BorderSide(color: AppColours.border),
+          ),
         ),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: AppTextSize.s16,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  activity.time,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: AppTextSize.s12,
-                    color: AppColours.textMuted,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: activityModuleColour(activity.module)
+                    .withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                activityModuleIcon(activity.module),
+                color: activityModuleColour(activity.module),
+                size: 20,
+              ),
             ),
-          ),
-          const SizedBox(width: 8),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                '+${activity.score}',
-                style: const TextStyle(
-                  fontSize: AppTextSize.s16,
-                  fontWeight: FontWeight.w800,
-                  color: AppColours.blue,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: AppColours.greenSoft,
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Text(
-                  text.t(activity.status),
-                  style: TextStyle(
-                    fontSize: AppTextSize.s12,
-                    color: AppColours.green,
-                    fontWeight: FontWeight.w800,
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    text.content(activity.summary),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: AppTextSize.s15,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
-                ),
+                  const SizedBox(height: 3),
+                  Text(
+                    '${text.t(activity.module)} · ${formatActivityDateTime(context, activity.occurredAt)}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: AppTextSize.s12,
+                      color: AppColours.textMuted,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
-        ],
+            ),
+            const SizedBox(width: 6),
+            const Icon(
+              Icons.chevron_right_rounded,
+              size: 20,
+              color: AppColours.textMuted,
+            ),
+          ],
+        ),
       ),
     );
   }

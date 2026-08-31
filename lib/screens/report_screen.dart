@@ -62,6 +62,10 @@ class _ReportScreenState extends State<ReportScreen>
     return widget.permissions.contains(EastAppPermission.reportReview);
   }
 
+  bool get canAccessSales {
+    return widget.permissions.contains(EastAppPermission.salesReportAccess);
+  }
+
   bool get canManageDailyTasks {
     return widget.permissions.contains(EastAppPermission.dailyTaskManage);
   }
@@ -205,41 +209,34 @@ class _ReportScreenState extends State<ReportScreen>
               ),
               const SizedBox(height: 12),
             ],
-            _AnimatedSection(
-              delay: 60,
-              child: _ReportCard(
-                title: 'Sales',
-                subtitle: isManagement
-                    ? 'Daily revenue, productivity and void-control intelligence'
-                    : 'Record every void bill with compulsory photo evidence',
-                icon: Icons.point_of_sale_rounded,
-                accent: AppColours.blue,
-                metric: isManagement
-                    ? 'RM ${_money(data?.sales?.netSalesRm ?? 0)}'
-                    : 'Evidence',
-                metricLabel: isManagement ? '$periodDays-day total sales' : 'Void-control reporting',
-                badges: isManagement
-                    ? [
-                        _CardBadge(
-                          '${(data?.workforce?.averageStaffPerDay ?? 0).toStringAsFixed(1)} avg staff/day',
-                          Icons.groups_2_outlined,
-                        ),
-                        _CardBadge(
-                          '${(data?.sales?.voidRatePercent ?? 0).toStringAsFixed(1)}% void exposure',
-                          Icons.receipt_long_outlined,
-                        ),
-                      ]
-                    : const [
-                        _CardBadge('Photo required', Icons.camera_alt_outlined),
-                      ],
-                onTap: isManagement
-                    ? showSalesHistory
-                    : () => showVoidBill(),
-                onAction: isManagement ? () => showSales() : null,
-                actionTooltip: 'Create today’s Sales Report',
+            if (canAccessSales) ...[
+              _AnimatedSection(
+                delay: 60,
+                child: _ReportCard(
+                  title: 'Sales',
+                  subtitle:
+                      'Daily revenue, productivity and void-control intelligence',
+                  icon: Icons.point_of_sale_rounded,
+                  accent: AppColours.blue,
+                  metric: 'RM ${_money(data?.sales?.netSalesRm ?? 0)}',
+                  metricLabel: '$periodDays-day total sales',
+                  badges: [
+                    _CardBadge(
+                      '${(data?.workforce?.averageStaffPerDay ?? 0).toStringAsFixed(1)} avg staff/day',
+                      Icons.groups_2_outlined,
+                    ),
+                    _CardBadge(
+                      '${(data?.sales?.voidRatePercent ?? 0).toStringAsFixed(1)}% void exposure',
+                      Icons.receipt_long_outlined,
+                    ),
+                  ],
+                  onTap: showSalesHistory,
+                  onAction: showSales,
+                  actionTooltip: 'Create today’s Sales Report',
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
+              const SizedBox(height: 12),
+            ],
             _AnimatedSection(
               delay: 120,
               child: _ReportCard(
@@ -399,19 +396,6 @@ class _ReportScreenState extends State<ReportScreen>
         initialReport: report!,
         earliestDate: earliestEditableDate,
         onChanged: handleChanged,
-      ),
-    );
-  }
-
-  Future<void> showVoidBill({DateTime? reportDate}) async {
-    await _showReportSheet<void>(
-      context,
-      title: 'Void Bill Evidence',
-      icon: Icons.receipt_long_rounded,
-      builder: (_) => _VoidBillForm(
-        api: widget.api,
-        reportDate: reportDate ?? DateTime.now(),
-        onSaved: handleChanged,
       ),
     );
   }
@@ -2566,158 +2550,6 @@ class _SalesSheetState extends State<_SalesSheet> {
             ),
           ),
         ],
-      ],
-    );
-  }
-}
-
-class _VoidBillForm extends StatefulWidget {
-  final EastAppApi api;
-  final DateTime reportDate;
-  final Future<void> Function() onSaved;
-
-  const _VoidBillForm({
-    required this.api,
-    required this.reportDate,
-    required this.onSaved,
-  });
-
-  @override
-  State<_VoidBillForm> createState() => _VoidBillFormState();
-}
-
-class _VoidBillFormState extends State<_VoidBillForm> {
-  final billController = TextEditingController();
-  final reasonController = TextEditingController();
-  final amountController = TextEditingController();
-  String? photoPath;
-  String? validation;
-
-  @override
-  void dispose() {
-    billController.dispose();
-    reasonController.dispose();
-    amountController.dispose();
-    super.dispose();
-  }
-
-  Future<void> capture() async {
-    final path = await Navigator.of(context).push<String>(
-      MaterialPageRoute(
-        builder: (_) => const _ReportCameraPage(title: 'Void Bill Photo'),
-      ),
-    );
-    if (!mounted || path == null) return;
-    setState(() {
-      photoPath = path;
-      validation = null;
-    });
-  }
-
-  Future<void> submit() async {
-    final amount = double.tryParse(amountController.text.trim());
-    if (photoPath == null) {
-      setState(() => validation = 'Take a clear photo of the void bill.');
-      return;
-    }
-    if (billController.text.trim().isEmpty) {
-      setState(() => validation = 'Bill number is compulsory.');
-      return;
-    }
-    if (reasonController.text.trim().isEmpty) {
-      setState(() => validation = 'Void reason is compulsory.');
-      return;
-    }
-    if (amount == null || amount <= 0) {
-      setState(() => validation = 'Enter a valid void amount.');
-      return;
-    }
-    final text = AppTextScope.of(context);
-    final confirmed = await confirmDataChange(
-      context,
-      action: text.t('Record this void bill?'),
-      details: text.t(
-        'Bill ${billController.text.trim()} · RM ${_money(amount)}. Photo evidence will be permanently linked.',
-      ),
-    );
-    if (!confirmed || !mounted) return;
-    try {
-      await _runReportAction<void>(context, () async {
-        final storageKey = await widget.api.uploadReportImage(photoPath!);
-        await widget.api.addSalesVoidBill(
-          reportDate: widget.reportDate,
-          billNumber: billController.text,
-          reason: reasonController.text,
-          amountRm: amount,
-          photoStorageKey: storageKey,
-        );
-        await widget.onSaved();
-      });
-      if (!mounted) return;
-      showSuccessSnackBar(context, text.t('Void bill created'));
-      Navigator.of(context).pop();
-    } on EastAppApiException {
-      return;
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final text = AppTextScope.of(context);
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(14, 14, 14, 30),
-      children: [
-        _ReportDateSelector(date: widget.reportDate),
-        const SizedBox(height: 10),
-        _EvidenceCapture(
-          photoPath: photoPath,
-          title: 'Void Bill Photo',
-          subtitle: 'Capture the full bill including number and amount.',
-          onCapture: capture,
-        ),
-        const SizedBox(height: 14),
-        WhiteCard(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            children: [
-              TextField(
-                controller: billController,
-                decoration: AppInputStyle.decoration(text.t('e.g. V-001283')).copyWith(
-                  labelText: text.t('Bill Number'),
-                  prefixIcon: const Icon(Icons.confirmation_number_outlined),
-                ),
-              ),
-              const SizedBox(height: 10),
-              _AmountField(
-                controller: amountController,
-                label: 'Void Amount',
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: reasonController,
-                minLines: 3,
-                maxLines: 5,
-                decoration: AppInputStyle.decoration(text.t('Explain why the bill was voided')).copyWith(
-                  labelText: text.t('Reason'),
-                  alignLabelWithHint: true,
-                ),
-              ),
-              if (validation != null) ...[
-                const SizedBox(height: 10),
-                _ValidationText(validation!),
-              ],
-              const SizedBox(height: 14),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: submit,
-                  icon: const Icon(Icons.verified_user_outlined),
-                  label: Text(text.t('Record Void Bill')),
-                ),
-              ),
-            ],
-          ),
-        ),
       ],
     );
   }

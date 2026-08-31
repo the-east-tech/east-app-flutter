@@ -4,7 +4,9 @@ import 'people_models.dart';
 enum EastAppPermission {
   reportIntelligenceView('REPORT_INTELLIGENCE_VIEW'),
   reportOperationsAccess('REPORT_OPERATIONS_ACCESS'),
+  salesReportAccess('SALES_REPORT_ACCESS'),
   reportReview('REPORT_REVIEW'),
+  knowledgeAuditView('KNOWLEDGE_AUDIT_VIEW'),
   dailyTaskView('DAILY_TASK_VIEW'),
   dailyTaskContribute('DAILY_TASK_CONTRIBUTE'),
   dailyTaskViewAll('DAILY_TASK_VIEW_ALL'),

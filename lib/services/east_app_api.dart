@@ -7,11 +7,13 @@ import 'package:http/http.dart' as http;
 import '../models/attendance_models.dart';
 import '../models/google_place_models.dart';
 import '../models/knowledge_api_models.dart';
+import '../models/knowledge_audit_models.dart';
 import '../models/api_models.dart';
 import '../models/advertisement_models.dart';
 import '../models/auth_models.dart';
 import '../models/daily_task_models.dart';
 import '../models/organisation_models.dart';
+import '../models/notification_models.dart';
 import '../models/people_models.dart';
 import '../models/points_models.dart';
 import '../models/report_models.dart';
@@ -1600,6 +1602,132 @@ class EastAppApi {
     );
   }
 
+  Future<void> recordSopWatchTime({
+    required String sopId,
+    required String sessionId,
+    required int playedSeconds,
+  }) async {
+    await _requestJson(
+      'POST',
+      '/api/v1/knowledge/sops/${Uri.encodeComponent(sopId)}/watch-time',
+      body: {
+        'sessionId': sessionId,
+        'playedSeconds': playedSeconds,
+      },
+      expectBody: false,
+      reportError: false,
+      observeContent: false,
+      blockUi: false,
+    );
+  }
+
+  Future<EmployeeSopAudit> knowledgeAuditForUser(String userId) async {
+    final body = await _requestJson(
+      'GET',
+      '/api/v1/knowledge/audit/users/${Uri.encodeComponent(userId)}',
+    ) as Map<String, dynamic>;
+    return EmployeeSopAudit.fromJson(body);
+  }
+
+  Future<SopImpactAudit> knowledgeSopImpactAudit() async {
+    final body = await _requestJson(
+      'GET',
+      '/api/v1/knowledge/audit/sops',
+    ) as Map<String, dynamic>;
+    return SopImpactAudit.fromJson(body);
+  }
+
+  Future<EastAppPage<EastAppActivityEvent>> recentActivity({
+    int page = 0,
+    int size = 5,
+  }) async {
+    final query = Uri(queryParameters: {
+      'page': '$page',
+      'size': '$size',
+    }).query;
+    final body = await _requestJson(
+      'GET',
+      '/api/v1/activity/recent?$query',
+    ) as Map<String, dynamic>;
+    return activityEventPageFromJson(body);
+  }
+
+  Future<EastAppPage<EastAppNotification>> notifications({
+    int page = 0,
+    int size = 50,
+  }) async {
+    final query = Uri(queryParameters: {
+      'page': '$page',
+      'size': '$size',
+    }).query;
+    final body = await _requestJson(
+      'GET',
+      '/api/v1/notifications?$query',
+    ) as Map<String, dynamic>;
+    return notificationPageFromJson(body);
+  }
+
+  Future<int> notificationUnreadCount() async {
+    final body = await _requestJson(
+      'GET',
+      '/api/v1/notifications/unread-count',
+      reportError: false,
+    ) as Map<String, dynamic>;
+    return (body['unreadCount'] as num).toInt();
+  }
+
+  Future<EastAppNotification> notificationDetail(String notificationId) async {
+    final body = await _requestJson(
+      'GET',
+      '/api/v1/notifications/${Uri.encodeComponent(notificationId)}',
+    ) as Map<String, dynamic>;
+    return EastAppNotification.fromJson(body);
+  }
+
+  Future<EastAppNotification> markNotificationRead(String notificationId) async {
+    final body = await _requestJson(
+      'PATCH',
+      '/api/v1/notifications/${Uri.encodeComponent(notificationId)}/read',
+    ) as Map<String, dynamic>;
+    return EastAppNotification.fromJson(body);
+  }
+
+  Future<void> dismissNotification(String notificationId) async {
+    await _requestJson(
+      'DELETE',
+      '/api/v1/notifications/${Uri.encodeComponent(notificationId)}',
+      expectBody: false,
+    );
+  }
+
+  Future<void> registerPushDevice({
+    required String token,
+    required String platform,
+  }) async {
+    await _requestJson(
+      'POST',
+      '/api/v1/notifications/devices',
+      body: {
+        'token': token,
+        'platform': platform,
+      },
+      expectBody: false,
+      reportError: false,
+      blockUi: false,
+    );
+  }
+
+  Future<void> unregisterPushDevice(String token) async {
+    await _requestJson(
+      'POST',
+      '/api/v1/notifications/devices/unregister',
+      body: {'token': token},
+      expectBody: false,
+      reportError: false,
+      blockUi: false,
+    );
+  }
+
   Future<EastAppStockSnapshot> stockSnapshot() async {
     final body = await _requestJson(
       'GET',
@@ -2656,10 +2784,11 @@ class EastAppApi {
     bool notifyOnUnauthorised = true,
     bool reportError = true,
     bool observeContent = true,
+    bool blockUi = true,
     Duration? timeout,
   }) async {
     final isTranslationRequest = path.startsWith('/api/v1/translations');
-    final shouldBlock = !isTranslationRequest &&
+    final shouldBlock = blockUi && !isTranslationRequest &&
         (method != 'GET' ||
             path.startsWith('/api/v1/reports') &&
                 !path.startsWith('/api/v1/reports/media/'));

@@ -1,7 +1,7 @@
 name: east_app
 description: EastApp prototype
 publish_to: 'none'
-version: 1.0.0+305
+version: 1.0.0+309
 
 environment:
   sdk: '>=3.10.0 <4.0.0'
@@ -19,7 +19,10 @@ dependencies:
   http: ^1.6.0
   image_picker: ^1.2.3
   flutter_secure_storage: ^11.0.0
+  firebase_core: ^4.14.0
+  firebase_messaging: ^16.6.0
   youtube_player_iframe: ^6.0.2
+  uuid: ^4.6.0
 
 dev_dependencies:
   flutter_test:
