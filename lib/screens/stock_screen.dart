@@ -10355,7 +10355,6 @@ class _StockCameraPageState extends State<_StockCameraPage> {
     setState(() => capturing = true);
     try {
       final photo = await value.takePicture();
-      AppDiagnostics.instance.log('Stock photo captured · title=${widget.title}, file=${photo.name}');
       if (!mounted) return;
       Navigator.of(context).pop(photo.path);
     } catch (error, stackTrace) {

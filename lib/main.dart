@@ -23,7 +23,6 @@ void main() {
         return false;
       };
 
-      AppDiagnostics.instance.log('App started in ${kReleaseMode ? 'release' : kProfileMode ? 'profile' : 'debug'} mode');
       runApp(const TheEastApp());
     },
     (Object error, StackTrace stack) {

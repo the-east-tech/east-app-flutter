@@ -60,7 +60,7 @@ class PushNotificationService {
   Future<void> _configure() async {
     final options = currentPlatformOptions;
     if (options == null) {
-      AppDiagnostics.instance.log(
+      AppDiagnostics.instance.logWarning(
         'Native push is not configured; the in-app notification inbox remains active.',
       );
       return;
@@ -99,7 +99,11 @@ class PushNotificationService {
         if (initial != null) _onOpened?.call(_notificationId(initial));
       }
     } catch (error) {
-      AppDiagnostics.instance.log('Native push setup is unavailable: $error');
+      AppDiagnostics.instance.logWarning(
+        error.toString().contains('APNs token')
+            ? 'iOS push notifications are unavailable because APNs did not provide a device token. The in-app notification inbox remains active.'
+            : 'Native push setup is unavailable: $error',
+      );
     }
   }
 
@@ -136,8 +140,16 @@ class PushNotificationService {
     try {
       await api.registerPushDevice(token: token, platform: platform);
     } on EastAppApiException catch (error) {
-      AppDiagnostics.instance.log(
-        'Push token registration failed: ${error.code} ${error.message}',
+      AppDiagnostics.instance.recordApiError(
+        method: error.method ?? 'POST',
+        path: error.path ?? '/api/v1/notifications/devices',
+        statusCode: error.statusCode,
+        code: error.code,
+        message: error.message,
+        fieldErrors: error.fieldErrors,
+        durationMs: error.durationMs,
+        responseExcerpt: error.responseExcerpt,
+        requestParameters: {'token': token, 'platform': platform},
       );
     }
   }
@@ -149,8 +161,16 @@ class PushNotificationService {
     try {
       await api.unregisterPushDevice(token);
     } on EastAppApiException catch (error) {
-      AppDiagnostics.instance.log(
-        'Push token unregister failed: ${error.code} ${error.message}',
+      AppDiagnostics.instance.recordApiError(
+        method: error.method ?? 'POST',
+        path: error.path ?? '/api/v1/notifications/devices/unregister',
+        statusCode: error.statusCode,
+        code: error.code,
+        message: error.message,
+        fieldErrors: error.fieldErrors,
+        durationMs: error.durationMs,
+        responseExcerpt: error.responseExcerpt,
+        requestParameters: {'token': token},
       );
     }
   }

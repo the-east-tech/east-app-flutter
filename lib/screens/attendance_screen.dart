@@ -16,6 +16,7 @@ import '../models/points_models.dart';
 import '../models/organisation_models.dart';
 import '../services/east_app_api.dart';
 import '../theme/app_theme.dart';
+import '../utils/app_build_info.dart';
 import '../widgets/app_components.dart';
 import '../widgets/app_feedback.dart';
 import '../widgets/device_contact_picker.dart';
@@ -530,7 +531,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                 ? 'ANDROID'
                 : Platform.operatingSystem.toUpperCase(),
         deviceOsVersion: Platform.operatingSystemVersion.replaceAll('\n', ' '),
-        appVersion: 'east_app_v305',
+        appVersion: AppBuildInfo.releaseLabel,
       );
 
       final refreshed = await widget.api.attendanceToday();

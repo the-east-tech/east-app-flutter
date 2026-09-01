@@ -130,7 +130,9 @@ class EastAppApi {
     http.Client? client,
     String? baseUrl,
   })  : _client = client ?? http.Client(),
-        baseUrl = baseUrl ?? ApiConfiguration.baseUrl;
+        baseUrl = baseUrl ?? ApiConfiguration.baseUrl {
+    AppDiagnostics.instance.registerPrivateEndpoint(this.baseUrl);
+  }
 
   String? get token => _token;
 
@@ -728,15 +730,15 @@ class EastAppApi {
     final cached = await FeatureDataCache.instance.read(cacheKey);
     final data = cached?.data;
     if (data == null) {
-      AppDiagnostics.instance.log('Cache-only miss · $cacheKey');
       return null;
     }
     if (data is! Map<String, dynamic>) {
       await FeatureDataCache.instance.remove(cacheKey);
-      AppDiagnostics.instance.log('Cache-only invalid · $cacheKey');
+      AppDiagnostics.instance.logWarning(
+        'Invalid cached report data was removed · $cacheKey',
+      );
       return null;
     }
-    AppDiagnostics.instance.log('Cache-only hit · $cacheKey');
     return ReportDashboard.fromJson(data);
   }
 
@@ -1176,11 +1178,11 @@ class EastAppApi {
         );
         _reportApiError(error);
         throw error;
-      } on http.ClientException catch (clientError) {
+      } on http.ClientException {
         final error = EastAppApiException(
           statusCode: null,
           code: 'NETWORK_ERROR',
-          message: clientError.message,
+          message: 'Unable to connect to the application server.',
           method: method,
           path: path,
         );
@@ -2069,11 +2071,11 @@ class EastAppApi {
         );
         _reportApiError(error);
         throw error;
-      } on http.ClientException catch (clientError) {
+      } on http.ClientException {
         final error = EastAppApiException(
           statusCode: null,
           code: 'NETWORK_ERROR',
-          message: clientError.message,
+          message: 'Unable to connect to the application server.',
           method: method,
           path: path,
         );
@@ -2165,11 +2167,11 @@ class EastAppApi {
       );
       _reportApiError(error);
       throw error;
-    } on http.ClientException catch (clientError) {
+    } on http.ClientException {
       final error = EastAppApiException(
         statusCode: null,
         code: 'NETWORK_ERROR',
-        message: clientError.message,
+        message: 'Unable to connect to the application server.',
         method: method,
         path: path,
       );
@@ -2248,11 +2250,11 @@ class EastAppApi {
       );
       _reportApiError(error);
       throw error;
-    } on http.ClientException catch (clientError) {
+    } on http.ClientException {
       final error = EastAppApiException(
         statusCode: null,
         code: 'NETWORK_ERROR',
-        message: clientError.message,
+        message: 'Unable to connect to the application server.',
         method: method,
         path: path,
       );
@@ -2356,11 +2358,11 @@ class EastAppApi {
       );
       _reportApiError(error);
       throw error;
-    } on http.ClientException catch (clientError) {
+    } on http.ClientException {
       final error = EastAppApiException(
         statusCode: null,
         code: 'NETWORK_ERROR',
-        message: clientError.message,
+        message: 'Unable to connect to the application server.',
         method: method,
         path: path,
       );
@@ -2451,11 +2453,11 @@ class EastAppApi {
       );
       _reportApiError(error);
       throw error;
-    } on http.ClientException catch (clientError) {
+    } on http.ClientException {
       final error = EastAppApiException(
         statusCode: null,
         code: 'NETWORK_ERROR',
-        message: clientError.message,
+        message: 'Unable to connect to the application server.',
         method: method,
         path: path,
       );
@@ -2527,11 +2529,11 @@ class EastAppApi {
       );
       _reportApiError(error);
       throw error;
-    } on http.ClientException catch (clientError) {
+    } on http.ClientException {
       final error = EastAppApiException(
         statusCode: null,
         code: 'NETWORK_ERROR',
-        message: clientError.message,
+        message: 'Unable to connect to the application server.',
         method: method,
         path: path,
       );
@@ -2748,19 +2750,14 @@ class EastAppApi {
       if (cached != null &&
           readEpoch == _featureCacheEpoch &&
           readRevision == (_featureCacheRevisions[cacheKey] ?? 0)) {
-        AppDiagnostics.instance.log('Cache hit · $cacheKey');
         await _observeUserContent(path, cached.data);
         return cached.data;
       }
     }
     final existing = _featureReadRequests[cacheKey];
     if (existing != null) {
-      AppDiagnostics.instance.log('Cache request joined · $cacheKey');
       return existing;
     }
-    AppDiagnostics.instance.log(
-      '${forceRefresh ? 'Cache refresh' : 'Cache miss'} · $cacheKey',
-    );
 
     final requestEpoch = _featureCacheEpoch;
     final requestRevision = _featureCacheRevisions[cacheKey] ?? 0;
@@ -2853,7 +2850,9 @@ class EastAppApi {
           path: path,
           durationMs: stopwatch.elapsedMilliseconds,
         );
-        if (reportError) _reportApiError(error);
+        if (reportError) {
+          _reportApiError(error, requestParameters: body);
+        }
         final callback = onSessionInvalidated;
         if (notifyOnUnauthorised && callback != null) unawaited(callback());
         throw error;
@@ -2907,18 +2906,22 @@ class EastAppApi {
         path: path,
         durationMs: stopwatch.elapsedMilliseconds,
       );
-      if (reportError) _reportApiError(error);
+      if (reportError) {
+        _reportApiError(error, requestParameters: body);
+      }
       throw error;
-    } on http.ClientException catch (clientError) {
+    } on http.ClientException {
       final error = EastAppApiException(
         statusCode: null,
         code: 'NETWORK_ERROR',
-        message: clientError.message,
+        message: 'Unable to connect to the application server.',
         method: method,
         path: path,
         durationMs: stopwatch.elapsedMilliseconds,
       );
-      if (reportError) _reportApiError(error);
+      if (reportError) {
+        _reportApiError(error, requestParameters: body);
+      }
       throw error;
     }
 
@@ -2930,7 +2933,9 @@ class EastAppApi {
         path: path,
         durationMs: durationMs,
       );
-      if (reportError) _reportApiError(error);
+      if (reportError) {
+        _reportApiError(error, requestParameters: body);
+      }
       if (authenticated && notifyOnUnauthorised && error.invalidatesSession) {
         useToken(null);
         final callback = onSessionInvalidated;
@@ -2939,11 +2944,6 @@ class EastAppApi {
       throw error;
     }
 
-    if (method != 'GET') {
-      AppDiagnostics.instance.log(
-        'API success · $method $path · ${durationMs}ms',
-      );
-    }
     if (!expectBody || response.body.trim().isEmpty) return null;
     try {
       return jsonDecode(utf8.decode(response.bodyBytes));
@@ -2957,7 +2957,9 @@ class EastAppApi {
         durationMs: durationMs,
         responseExcerpt: _responseExcerpt(response),
       );
-      if (reportError) _reportApiError(error);
+      if (reportError) {
+        _reportApiError(error, requestParameters: body);
+      }
       throw error;
     }
   }
@@ -3180,7 +3182,10 @@ class EastAppApi {
         : '${value.substring(0, maxLength - 3)}...';
   }
 
-  void _reportApiError(EastAppApiException error) {
+  void _reportApiError(
+    EastAppApiException error, {
+    Object? requestParameters,
+  }) {
     AppDiagnostics.instance.recordApiError(
       method: error.method,
       path: error.path,
@@ -3190,6 +3195,7 @@ class EastAppApi {
       fieldErrors: error.fieldErrors,
       durationMs: error.durationMs,
       responseExcerpt: error.responseExcerpt,
+      requestParameters: requestParameters,
     );
     onApiError?.call(error);
   }

@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../localization/app_language.dart';
@@ -177,18 +176,6 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                   ),
                 ),
-                if (kDebugMode) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    widget.api.baseUrl,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: AppTextSize.s10,
-                      color: AppColours.textMuted,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
               ],
             ),
           ),

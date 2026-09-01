@@ -1,11 +1,13 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../theme/app_theme.dart';
-import '../services/east_app_api.dart';
 import '../localization/app_text_scope.dart';
+import '../services/east_app_api.dart';
+import '../theme/app_theme.dart';
+import '../utils/app_diagnostics.dart';
 import 'app_feedback.dart';
-
 
 Future<void> showApiErrorDialog(
   BuildContext context,
@@ -14,7 +16,9 @@ Future<void> showApiErrorDialog(
   await AppFeedback.error();
   if (!context.mounted) return;
 
-  final details = error.technicalDetails;
+  final details = AppDiagnostics.instance.sanitiseForSupport(
+    error.technicalDetails,
+  );
   await showDialog<void>(
     context: context,
     builder: (dialogContext) {
@@ -875,59 +879,170 @@ class AppProcessingOverlay extends StatelessWidget {
       child: Stack(
         fit: StackFit.expand,
         children: [
-        AbsorbPointer(
-          absorbing: isProcessing,
-          child: child,
-        ),
-        if (isProcessing) ...[
-          const ModalBarrier(
-            dismissible: false,
-            color: Color(0x99000000),
+          AbsorbPointer(
+            absorbing: isProcessing,
+            child: child,
           ),
-          Center(
-            child: Semantics(
-              liveRegion: true,
-              label: text.t('Processing. Please wait.'),
-              child: Container(
-                constraints: const BoxConstraints(maxWidth: 300),
-                margin: const EdgeInsets.symmetric(horizontal: 28),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 22,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Color(0x33000000),
-                      blurRadius: 24,
-                      offset: Offset(0, 12),
+          if (isProcessing) ...[
+            const ModalBarrier(
+              dismissible: false,
+              color: Color(0xA30A1020),
+            ),
+            Center(
+              child: Semantics(
+                liveRegion: true,
+                label: text.t('Processing. Please wait.'),
+                child: TweenAnimationBuilder<double>(
+                  duration: const Duration(milliseconds: 220),
+                  curve: Curves.easeOutCubic,
+                  tween: Tween<double>(begin: 0, end: 1),
+                  builder: (context, value, card) => Opacity(
+                    opacity: value,
+                    child: Transform.scale(
+                      scale: 0.94 + (value * 0.06),
+                      child: card,
                     ),
-                  ],
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const CircularProgressIndicator(),
-                    const SizedBox(height: 16),
-                    Text(
-                      text.t('Processing... Please Wait!'),
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontSize: AppTextSize.s16,
-                        fontWeight: FontWeight.w800,
-                        color: AppColours.textMain,
+                  ),
+                  child: Container(
+                    constraints: const BoxConstraints(maxWidth: 280),
+                    margin: const EdgeInsets.symmetric(horizontal: 28),
+                    padding: const EdgeInsets.fromLTRB(24, 24, 24, 22),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFDFEFF),
+                      borderRadius: BorderRadius.circular(26),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.90),
                       ),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x401557F2),
+                          blurRadius: 38,
+                          spreadRadius: -10,
+                          offset: Offset(0, 18),
+                        ),
+                        BoxShadow(
+                          color: Color(0x24000000),
+                          blurRadius: 24,
+                          offset: Offset(0, 10),
+                        ),
+                      ],
                     ),
-                  ],
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const _ProcessingAnimation(),
+                        const SizedBox(height: 18),
+                        Text(
+                          text.t('Processing... Please Wait!'),
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: AppTextSize.s17,
+                            fontWeight: FontWeight.w800,
+                            color: AppColours.textMain,
+                            letterSpacing: -0.15,
+                            decoration: TextDecoration.none,
+                            decorationColor: Colors.transparent,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ),
-          ),
+          ],
         ],
-      ],
       ),
+    );
+  }
+}
+
+class _ProcessingAnimation extends StatefulWidget {
+  const _ProcessingAnimation();
+
+  @override
+  State<_ProcessingAnimation> createState() => _ProcessingAnimationState();
+}
+
+class _ProcessingAnimationState extends State<_ProcessingAnimation>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController controller;
+
+  @override
+  void initState() {
+    super.initState();
+    controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (context, child) {
+        final pulse = (math.sin(controller.value * math.pi * 2) + 1) / 2;
+        return SizedBox.square(
+          dimension: 76,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Transform.rotate(
+                angle: controller.value * math.pi * 2,
+                child: Container(
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: SweepGradient(
+                      colors: [
+                        Color(0xFF1557F2),
+                        Color(0xFF4AA3FF),
+                        Color(0xFF8B5CF6),
+                        Color(0x331557F2),
+                        Color(0xFF1557F2),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              Container(
+                width: 68,
+                height: 68,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFFDFEFF),
+                  shape: BoxShape.circle,
+                ),
+              ),
+              Transform.scale(
+                scale: 0.92 + (pulse * 0.08),
+                child: Container(
+                  width: 54,
+                  height: 54,
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [Color(0xFFE8F1FF), Color(0xFFF2EBFF)],
+                    ),
+                  ),
+                  child: const Icon(
+                    Icons.auto_awesome_rounded,
+                    color: AppColours.blue,
+                    size: 25,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

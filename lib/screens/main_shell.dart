@@ -20,6 +20,7 @@ import '../models/stock_api_models.dart';
 import '../services/east_app_api.dart';
 import '../services/push_notification_service.dart';
 import '../theme/app_theme.dart';
+import '../utils/app_build_info.dart';
 import '../utils/app_diagnostics.dart';
 import '../widgets/app_components.dart';
 import '../widgets/app_feedback.dart';
@@ -1511,7 +1512,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
 
   String buildDebugReport(BuildContext context) {
     return AppDiagnostics.instance.buildReport(
-      appVersion: 'east_app_v305',
+      appVersion: AppBuildInfo.displayVersion,
       role: currentRoleName,
       userName: currentUserName,
       userId: currentUserId,
@@ -1520,7 +1521,6 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
       mode: currentModeName,
       tenantName: widget.session.tenant.businessName,
       tenantId: widget.session.tenant.id,
-      backendBaseUrl: widget.api.baseUrl,
     );
   }
 
@@ -1540,7 +1540,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
 
   void showHelpSheet() {
     AppFeedback.tap();
-    final report = buildDebugReport(context);
+    var report = buildDebugReport(context);
 
     showModalBottomSheet<void>(
       context: context,
@@ -1551,112 +1551,134 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (sheetContext) {
-        return AppTextScope(
-          language: language,
-          contentTranslations: widget.api.contentTranslations,
-          child: FractionallySizedBox(
-            heightFactor: 0.86,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 38,
-                        height: 38,
-                        decoration: BoxDecoration(
-                          color: AppColours.blue.withValues(alpha: 0.10),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(
-                          Icons.bug_report_outlined,
-                          color: AppColours.blue,
-                          size: 22,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          localText.t('Help'),
-                          style: const TextStyle(
-                            color: AppColours.textMain,
-                            fontSize: AppTextSize.s22,
-                            fontWeight: FontWeight.w800,
+        return StatefulBuilder(
+          builder: (sheetContext, setSheetState) => AppTextScope(
+            language: language,
+            contentTranslations: widget.api.contentTranslations,
+            child: FractionallySizedBox(
+              heightFactor: 0.86,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          width: 38,
+                          height: 38,
+                          decoration: BoxDecoration(
+                            color: AppColours.blue.withValues(alpha: 0.10),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(
+                            Icons.bug_report_outlined,
+                            color: AppColours.blue,
+                            size: 22,
                           ),
                         ),
-                      ),
-                      IconButton(
-                        tooltip: localText.t('Close'),
-                        onPressed: () => Navigator.of(sheetContext).pop(),
-                        icon: const Icon(Icons.close_rounded),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  PrimaryButton(
-                    text: localText.t('Copy Debug Report'),
-                    icon: Icons.content_copy_rounded,
-                    onPressed: () => copyDebugReport(sheetContext, report),
-                  ),
-                  const SizedBox(height: 12),
-                  WhiteCard(
-                    padding: const EdgeInsets.all(12),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Icon(Icons.info_outline_rounded, color: AppColours.textMuted, size: 18),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            localText.t(
-                              'Ask the tester to paste this report into WhatsApp when something fails inside the app.',
-                            ),
+                            localText.t('Help'),
                             style: const TextStyle(
-                              color: AppColours.textMuted,
-                              fontSize: AppTextSize.s13,
-                              fontWeight: FontWeight.w500,
-                              height: 1.3,
+                              color: AppColours.textMain,
+                              fontSize: AppTextSize.s22,
+                              fontWeight: FontWeight.w800,
                             ),
                           ),
+                        ),
+                        IconButton(
+                          tooltip: localText.t('Refresh'),
+                          onPressed: () {
+                            AppFeedback.tap();
+                            setSheetState(
+                              () => report = buildDebugReport(context),
+                            );
+                          },
+                          icon: const Icon(Icons.refresh_rounded),
+                        ),
+                        IconButton(
+                          tooltip: localText.t('Close'),
+                          onPressed: () => Navigator.of(sheetContext).pop(),
+                          icon: const Icon(Icons.close_rounded),
                         ),
                       ],
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    localText.t('Report preview'),
-                    style: const TextStyle(
-                      color: AppColours.textMain,
-                      fontSize: AppTextSize.s16,
-                      fontWeight: FontWeight.w800,
+                    const SizedBox(height: 12),
+                    PrimaryButton(
+                      text: localText.t('Copy Debug Report'),
+                      icon: Icons.content_copy_rounded,
+                      onPressed: () async {
+                        final latestReport = buildDebugReport(context);
+                        setSheetState(() => report = latestReport);
+                        await copyDebugReport(sheetContext, latestReport);
+                      },
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  Expanded(
-                    child: Container(
-                      width: double.infinity,
+                    const SizedBox(height: 12),
+                    WhiteCard(
                       padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: AppColours.mutedBox,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: AppColours.border),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(
+                            Icons.info_outline_rounded,
+                            color: AppColours.textMuted,
+                            size: 18,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              localText.t(
+                                'Ask the tester to paste this report into WhatsApp when something fails inside the app.',
+                              ),
+                              style: const TextStyle(
+                                color: AppColours.textMuted,
+                                fontSize: AppTextSize.s13,
+                                fontWeight: FontWeight.w500,
+                                height: 1.3,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                      child: SingleChildScrollView(
-                        child: SelectableText(
-                          report,
-                          style: const TextStyle(
-                            color: AppColours.textMain,
-                            fontSize: AppTextSize.s12,
-                            height: 1.35,
-                            fontFamily: 'monospace',
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      localText.t('Report preview'),
+                      style: const TextStyle(
+                        color: AppColours.textMain,
+                        fontSize: AppTextSize.s16,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Expanded(
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF0B1220),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: const Color(0xFF1F2A3D),
+                          ),
+                        ),
+                        child: SingleChildScrollView(
+                          child: SelectableText(
+                            report,
+                            style: const TextStyle(
+                              color: Color(0xFFDCE7F8),
+                              fontSize: AppTextSize.s12,
+                              height: 1.35,
+                              fontFamily: 'monospace',
+                            ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),

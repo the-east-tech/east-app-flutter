@@ -51,7 +51,7 @@ class _TheEastAppState extends State<TheEastApp> {
       checkingSetup = false;
       restoringSession = false;
       startupError = configurationError;
-      AppDiagnostics.instance.log(configurationError);
+      AppDiagnostics.instance.logWarning(configurationError);
       return;
     }
 
@@ -103,7 +103,7 @@ class _TheEastAppState extends State<TheEastApp> {
         try {
           await sessionStore.clearToken();
         } catch (error) {
-          AppDiagnostics.instance.log(
+          AppDiagnostics.instance.logWarning(
             'Failed to clear stale session before initial setup: $error',
           );
         }
@@ -127,9 +127,6 @@ class _TheEastAppState extends State<TheEastApp> {
       });
       await restoreSession();
     } on EastAppApiException catch (error) {
-      AppDiagnostics.instance.log(
-        'Initial setup status failed: ${error.code} ${error.message}',
-      );
       if (!mounted) return;
       setState(() {
         checkingSetup = false;
@@ -159,7 +156,7 @@ class _TheEastAppState extends State<TheEastApp> {
     try {
       token = await sessionStore.readToken();
     } catch (error) {
-      AppDiagnostics.instance.log(
+      AppDiagnostics.instance.logWarning(
         'Failed to read secure session token: $error',
       );
       if (!mounted) return;
@@ -193,9 +190,6 @@ class _TheEastAppState extends State<TheEastApp> {
         return;
       }
 
-      AppDiagnostics.instance.log(
-        'Session restore failed: ${error.code} ${error.message}',
-      );
       if (!mounted) return;
       setState(() {
         startupError = error.message;
@@ -208,14 +202,16 @@ class _TheEastAppState extends State<TheEastApp> {
     try {
       await sessionStore.clearToken();
     } catch (error) {
-      AppDiagnostics.instance.log(
+      AppDiagnostics.instance.logWarning(
         'Failed to clear invalid local session token: $error',
       );
     }
     try {
       await api.clearFeatureCaches();
     } catch (error) {
-      AppDiagnostics.instance.log('Failed to clear cached business data: $error');
+      AppDiagnostics.instance.logWarning(
+        'Failed to clear cached business data: $error',
+      );
     }
     if (!mounted) return;
     setState(() {
@@ -230,7 +226,7 @@ class _TheEastAppState extends State<TheEastApp> {
       await sessionStore.writeToken(signedInSession.token);
     } catch (error) {
       api.useToken(null);
-      AppDiagnostics.instance.log(
+      AppDiagnostics.instance.logWarning(
         'Failed to store secure session token: $error',
       );
       throw const EastAppApiException(
@@ -270,7 +266,7 @@ class _TheEastAppState extends State<TheEastApp> {
     try {
       await api.clearFeatureCaches();
     } catch (error) {
-      AppDiagnostics.instance.log(
+      AppDiagnostics.instance.logWarning(
         'Failed to clear feature caches after role change: $error',
       );
     }
@@ -282,11 +278,8 @@ class _TheEastAppState extends State<TheEastApp> {
         return;
       }
       setState(() => session = refreshed);
-    } on EastAppApiException catch (error) {
-      AppDiagnostics.instance.log(
-        'Permission refresh failed after role change: '
-        '${error.code} ${error.message}',
-      );
+    } on EastAppApiException {
+      // The API layer already captured the failed request for Debug.
     }
   }
 
@@ -306,22 +299,22 @@ class _TheEastAppState extends State<TheEastApp> {
   Future<void> handleLogout() async {
     try {
       await api.logout();
-    } on EastAppApiException catch (error) {
-      AppDiagnostics.instance.log(
-        'Server logout failed; clearing local session: ${error.code} ${error.message}',
-      );
+    } on EastAppApiException {
+      // The API error is captured; local logout still continues safely.
     } finally {
       try {
         await sessionStore.clearToken();
       } catch (error) {
-        AppDiagnostics.instance.log(
+        AppDiagnostics.instance.logWarning(
           'Failed to clear local session token during logout: $error',
         );
       }
       try {
         await api.clearFeatureCaches();
       } catch (error) {
-        AppDiagnostics.instance.log('Failed to clear cached business data: $error');
+        AppDiagnostics.instance.logWarning(
+          'Failed to clear cached business data: $error',
+        );
       }
       api.useToken(null);
     }
@@ -361,7 +354,7 @@ class _TheEastAppState extends State<TheEastApp> {
           try {
             await sessionStore.clearToken();
           } catch (error) {
-            AppDiagnostics.instance.log(
+            AppDiagnostics.instance.logWarning(
               'Failed to clear local session token: $error',
             );
           }
