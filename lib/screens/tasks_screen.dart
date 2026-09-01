@@ -28,7 +28,6 @@ class _TaskTabState {
   TaskOverview overview = TaskOverview.empty;
   bool loadingRecords = false;
   bool hasLoadedRecords = false;
-  bool automaticLoadStarted = false;
   int requestVersion = 0;
 
   _TaskTabState({required this.selectedRange});
@@ -57,6 +56,8 @@ class TasksScreen extends StatefulWidget {
 }
 
 class _TasksScreenState extends State<TasksScreen> {
+  static const int _activeTaskFutureDays = 10;
+
   late final List<_TaskTabState> taskTabStates;
   List<StockTag> tags = const [];
   List<TaskTemplate> templates = const [];
@@ -76,7 +77,7 @@ class _TasksScreenState extends State<TasksScreen> {
 
   bool get showingSetup => widget.initialEntry == TasksEntry.setup;
 
-  bool get showingToday => !showingSetup && selectedTab == 1;
+  bool get showingActiveTasks => !showingSetup && selectedTab == 1;
 
   bool get showingPersonalHistory =>
       !showingSetup && !canViewAllTasks && selectedTab == 0;
@@ -92,7 +93,7 @@ class _TasksScreenState extends State<TasksScreen> {
     taskTabStates = [
       _TaskTabState(selectedRange: defaultRange),
       _TaskTabState(
-        selectedRange: DateTimeRange(start: today, end: today),
+        selectedRange: _activeTaskRange(today),
       ),
     ];
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -223,24 +224,28 @@ class _TasksScreenState extends State<TasksScreen> {
     tab.hasLoadedRecords = false;
   }
 
+  DateTimeRange _activeTaskRange(DateTime today) {
+    return DateTimeRange(
+      start: today,
+      end: today.add(const Duration(days: _activeTaskFutureDays)),
+    );
+  }
+
   Future<void> changeTab(int index) async {
     if (selectedTab == index) return;
     final today = _dateOnly(DateTime.now());
+    final activeTaskRange = _activeTaskRange(today);
     final tab = taskTabStates[index];
     var shouldAutomaticallyLoad = false;
     setState(() {
       selectedTab = index;
       if (index == 1) {
-        if (tab.selectedRange.start != today ||
-            tab.selectedRange.end != today) {
-          tab.selectedRange = DateTimeRange(start: today, end: today);
-          tab.automaticLoadStarted = false;
+        if (tab.selectedRange.start != activeTaskRange.start ||
+            tab.selectedRange.end != activeTaskRange.end) {
+          tab.selectedRange = activeTaskRange;
           clearLoadedRecords(tab);
         }
-        if (!tab.automaticLoadStarted) {
-          tab.automaticLoadStarted = true;
-          shouldAutomaticallyLoad = true;
-        }
+        shouldAutomaticallyLoad = true;
       }
     });
     if (shouldAutomaticallyLoad) await loadRecords(tabIndex: index);
@@ -265,7 +270,6 @@ class _TasksScreenState extends State<TasksScreen> {
         for (final taskTab in taskTabStates) {
           clearLoadedRecords(taskTab);
         }
-        taskTabStates[1].automaticLoadStarted = openedTab == 1;
       });
       if (shouldReload) {
         await loadRecords(tabIndex: openedTab, forceRefresh: true);
@@ -306,7 +310,7 @@ class _TasksScreenState extends State<TasksScreen> {
   @override
   Widget build(BuildContext context) {
     final text = AppTextScope.of(context);
-    final tabs = ['Task History', 'Current Tasks'];
+    final tabs = ['Task History', 'Active Task'];
     return Scaffold(
       backgroundColor: AppColours.background,
       appBar: AppBar(
@@ -353,7 +357,7 @@ class _TasksScreenState extends State<TasksScreen> {
         children: [
           _TaskFilterCard(
             selectedRange: tab.selectedRange,
-            todayOnly: showingToday,
+            activeTasks: showingActiveTasks,
             selectedStatus: tab.selectedStatus,
             selectedTagId: tab.selectedTagId,
             tags: tags,
@@ -577,7 +581,7 @@ class _TasksScreenState extends State<TasksScreen> {
 
 class _TaskFilterCard extends StatefulWidget {
   final DateTimeRange selectedRange;
-  final bool todayOnly;
+  final bool activeTasks;
   final TaskStatus? selectedStatus;
   final String? selectedTagId;
   final List<StockTag> tags;
@@ -589,7 +593,7 @@ class _TaskFilterCard extends StatefulWidget {
 
   const _TaskFilterCard({
     required this.selectedRange,
-    required this.todayOnly,
+    required this.activeTasks,
     required this.selectedStatus,
     required this.selectedTagId,
     required this.tags,
@@ -620,15 +624,18 @@ class _TaskFilterCardState extends State<_TaskFilterCard> {
             ),
           ),
           const SizedBox(height: 10),
-          if (widget.todayOnly)
+          if (widget.activeTasks)
             InputDecorator(
               decoration: const InputDecoration(
-                labelText: 'Current Tasks',
-                prefixIcon: Icon(Icons.today_rounded),
+                labelText: 'Active Task',
+                prefixIcon: Icon(Icons.event_available_rounded),
                 border: OutlineInputBorder(),
                 isDense: true,
               ),
-              child: Text(_formatDate(widget.selectedRange.start)),
+              child: Text(
+                '${_formatDate(widget.selectedRange.start)} — '
+                '${_formatDate(widget.selectedRange.end)}',
+              ),
             )
           else
             OutlinedButton.icon(
@@ -964,6 +971,9 @@ class _TaskDetailPageState extends State<_TaskDetailPage> {
 
   bool get acceptingInput =>
       record.status == TaskStatus.pending && record.canContribute;
+
+  bool get scheduledToday =>
+      _dateOnly(record.taskDate) == _dateOnly(DateTime.now());
 
   bool get submissionReady => acceptingInput &&
       selectedChecklistItemIds.length == record.checklistItems.length &&
@@ -1468,7 +1478,9 @@ class _TaskDetailPageState extends State<_TaskDetailPage> {
                   text.t(
                     record.canContribute
                         ? 'Complete every checklist item and the minimum photo count to submit.'
-                        : 'Only users assigned to this Tag may contribute or submit.',
+                        : !scheduledToday
+                            ? 'This Task can only be completed on its scheduled date.'
+                            : 'Only users assigned to this Tag may contribute or submit.',
                   ),
                   textAlign: TextAlign.center,
                   style: const TextStyle(
