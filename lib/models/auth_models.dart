@@ -7,11 +7,11 @@ enum EastAppPermission {
   salesReportAccess('SALES_REPORT_ACCESS'),
   reportReview('REPORT_REVIEW'),
   knowledgeAuditView('KNOWLEDGE_AUDIT_VIEW'),
-  dailyTaskView('DAILY_TASK_VIEW'),
-  dailyTaskContribute('DAILY_TASK_CONTRIBUTE'),
-  dailyTaskViewAll('DAILY_TASK_VIEW_ALL'),
-  dailyTaskManage('DAILY_TASK_MANAGE'),
-  dailyTaskRate('DAILY_TASK_RATE');
+  taskView('TASK_VIEW'),
+  taskContribute('TASK_CONTRIBUTE'),
+  taskViewAll('TASK_VIEW_ALL'),
+  taskManage('TASK_MANAGE'),
+  taskRate('TASK_RATE');
 
   final String apiValue;
 

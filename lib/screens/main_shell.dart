@@ -1163,8 +1163,8 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   Future<void> invalidateStockTagCaches() async {
     final tenantId = widget.session.tenant.id;
     await invalidateSetupCache(EastAppApi.stockTagsCachePrefix(tenantId));
-    widget.api.invalidateDailyTaskRecords(tenantId);
-    widget.api.invalidateDailyTaskTemplates(tenantId);
+    widget.api.invalidateTaskRecords(tenantId);
+    widget.api.invalidateTaskTemplates(tenantId);
   }
 
   Future<void> createStockTagRemote(StockTag tag) async {
@@ -1944,8 +1944,8 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
                   loadStockSuppliers(reset: true, forceRefresh: true),
                   loadStockSkus(reset: true, forceRefresh: true),
                 ]);
-                widget.api.invalidateDailyTaskRecords(widget.session.tenant.id);
-                widget.api.invalidateDailyTaskTemplates(widget.session.tenant.id);
+                widget.api.invalidateTaskRecords(widget.session.tenant.id);
+                widget.api.invalidateTaskTemplates(widget.session.tenant.id);
                 await invalidateReportData();
               },
               stockTasks: stockTasks,

@@ -746,8 +746,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       widget.api.invalidateFeatureCache(EastAppApi.stockTagsCachePrefix(tenantId)),
       widget.api.invalidateFeatureCache('tenant:$tenantId:report:'),
     ]);
-    widget.api.invalidateDailyTaskRecords(tenantId);
-    widget.api.invalidateDailyTaskTemplates(tenantId);
+    widget.api.invalidateTaskRecords(tenantId);
+    widget.api.invalidateTaskTemplates(tenantId);
     widget.onReportDataInvalidated();
   }
 

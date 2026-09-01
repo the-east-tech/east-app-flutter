@@ -66,12 +66,12 @@ class _ReportScreenState extends State<ReportScreen>
     return widget.permissions.contains(EastAppPermission.salesReportAccess);
   }
 
-  bool get canManageDailyTasks {
-    return widget.permissions.contains(EastAppPermission.dailyTaskManage);
+  bool get canManageTasks {
+    return widget.permissions.contains(EastAppPermission.taskManage);
   }
 
-  bool get canViewAllDailyTasks {
-    return widget.permissions.contains(EastAppPermission.dailyTaskViewAll);
+  bool get canViewAllTasks {
+    return widget.permissions.contains(EastAppPermission.taskViewAll);
   }
 
   DateTime get earliestEditableDate {
@@ -240,28 +240,28 @@ class _ReportScreenState extends State<ReportScreen>
             _AnimatedSection(
               delay: 120,
               child: _ReportCard(
-                title: 'Daily Tasks',
+                title: 'Task',
                 subtitle: 'Shared Tag tasks with checklist and camera evidence',
                 icon: Icons.assignment_turned_in_rounded,
                 accent: AppColours.green,
                 metric:
-                    '${data?.dailyTasks.done ?? 0}/${data?.dailyTasks.total ?? 0}',
+                    '${data?.tasks.done ?? 0}/${data?.tasks.total ?? 0}',
                 metricLabel:
-                    canViewAllDailyTasks
+                    canViewAllTasks
                         ? 'Tasks done today'
                         : 'Your Tag tasks done',
                 badges: [
                   _CardBadge(
-                    '${data?.dailyTasks.pending ?? 0} pending',
+                    '${data?.tasks.pending ?? 0} pending',
                     Icons.schedule_rounded,
                   ),
                   _CardBadge(
-                    '${data?.dailyTasks.submitted ?? 0} submitted',
+                    '${data?.tasks.submitted ?? 0} submitted',
                     Icons.rate_review_outlined,
                   ),
                 ],
-                onTap: showDailyTasks,
-                onAction: canManageDailyTasks ? showCreateDailyTask : null,
+                onTap: showTasks,
+                onAction: canManageTasks ? showCreateTask : null,
                 actionTooltip: 'Open Task Setup',
               ),
             ),
@@ -443,11 +443,11 @@ class _ReportScreenState extends State<ReportScreen>
     );
   }
 
-  Future<void> showDailyTasks() async {
+  Future<void> showTasks() async {
     var changed = false;
     await Navigator.of(context).push<void>(
       MaterialPageRoute(
-        builder: (_) => DailyTasksScreen(
+        builder: (_) => TasksScreen(
           api: widget.api,
           tenantId: widget.tenantId,
           currentUser: widget.currentUser,
@@ -461,12 +461,12 @@ class _ReportScreenState extends State<ReportScreen>
     if (mounted && changed) await handleChanged();
   }
 
-  Future<void> showCreateDailyTask() async {
-    if (!canManageDailyTasks) return;
+  Future<void> showCreateTask() async {
+    if (!canManageTasks) return;
     var changed = false;
     await Navigator.of(context).push<void>(
       MaterialPageRoute(
-        builder: (_) => DailyTasksScreen(
+        builder: (_) => TasksScreen(
           api: widget.api,
           tenantId: widget.tenantId,
           currentUser: widget.currentUser,
@@ -474,7 +474,7 @@ class _ReportScreenState extends State<ReportScreen>
           onChanged: () async {
             changed = true;
           },
-          initialEntry: DailyTasksEntry.setup,
+          initialEntry: TasksEntry.setup,
         ),
       ),
     );
@@ -746,20 +746,20 @@ class _ReportHero extends StatelessWidget {
                       children: [
                         Expanded(
                           child: _HeroMetric(
-                            label: 'Daily Tasks',
+                            label: 'Task',
                             value:
-                                '${dashboard?.dailyTasks.done ?? 0}/${dashboard?.dailyTasks.total ?? 0}',
+                                '${dashboard?.tasks.done ?? 0}/${dashboard?.tasks.total ?? 0}',
                           ),
                         ),
                         const SizedBox(width: 10),
                         Expanded(
                           child: _HeroMetric(
                             label: 'Status',
-                            value: (dashboard?.dailyTasks.total ?? 0) == 0
+                            value: (dashboard?.tasks.total ?? 0) == 0
                                 ? 'No Tasks'
-                                : (dashboard?.dailyTasks.submitted ?? 0) > 0
+                                : (dashboard?.tasks.submitted ?? 0) > 0
                                 ? 'Submitted'
-                                : (dashboard?.dailyTasks.pending ?? 0) > 0
+                                : (dashboard?.tasks.pending ?? 0) > 0
                                     ? 'Pending'
                                     : 'Done',
                           ),

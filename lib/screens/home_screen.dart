@@ -230,7 +230,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final pendingReviewCount = widget.reviewSummary?.pendingReview ?? 0;
     final doneReviewCount = widget.reviewSummary?.done ?? 0;
     final totalReviewCount = widget.reviewSummary?.total ?? 0;
-    final taskOverview = widget.reportDashboard?.dailyTasks;
+    final taskOverview = widget.reportDashboard?.tasks;
     final taskDone = taskOverview?.done ?? 0;
     final taskTotal = taskOverview?.total ?? 0;
     final taskPending = taskOverview?.pending ?? 0;
@@ -303,7 +303,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     child: Text(
                       isManagement
                           ? text.t('Submissions Reviewed')
-                          : text.t('Daily Tasks'),
+                          : text.t('Task'),
                       style: const TextStyle(
                         fontSize: AppTextSize.s15,
                         fontWeight: FontWeight.w800,
@@ -504,7 +504,7 @@ class _ReportSnapshotCard extends StatelessWidget {
     final secondValue = data == null
         ? '—'
         : '${data.inventory?.healthScorePercent.toStringAsFixed(0) ?? '0'}%';
-    final thirdValue = data == null ? '—' : '${data.dailyTasks.submitted}';
+    final thirdValue = data == null ? '—' : '${data.tasks.submitted}';
 
     return WhiteCard(
       padding: EdgeInsets.zero,

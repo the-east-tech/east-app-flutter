@@ -9,72 +9,72 @@ import '../localization/app_text.dart';
 import '../localization/app_text_scope.dart';
 import '../models/app_models.dart';
 import '../models/auth_models.dart';
-import '../models/daily_task_models.dart';
+import '../models/task_models.dart';
 import '../models/people_models.dart';
 import '../services/east_app_api.dart';
 import '../theme/app_theme.dart';
 import '../utils/app_diagnostics.dart';
 import '../widgets/app_components.dart';
 
-enum DailyTasksEntry { tasks, setup }
+enum TasksEntry { tasks, setup }
 
 enum _SelectedPhotoAction { remove, retake }
 
-class _DailyTaskTabState {
+class _TaskTabState {
   DateTimeRange selectedRange;
-  DailyTaskStatus? selectedStatus;
+  TaskStatus? selectedStatus;
   String? selectedTagId;
-  List<DailyTaskRecord> records = const [];
-  DailyTaskOverview overview = DailyTaskOverview.empty;
+  List<TaskRecord> records = const [];
+  TaskOverview overview = TaskOverview.empty;
   bool loadingRecords = false;
   bool hasLoadedRecords = false;
   bool automaticLoadStarted = false;
   int requestVersion = 0;
 
-  _DailyTaskTabState({required this.selectedRange});
+  _TaskTabState({required this.selectedRange});
 }
 
-class DailyTasksScreen extends StatefulWidget {
+class TasksScreen extends StatefulWidget {
   final EastAppApi api;
   final String tenantId;
   final EastAppUser currentUser;
   final Set<EastAppPermission> permissions;
   final Future<void> Function()? onChanged;
-  final DailyTasksEntry initialEntry;
+  final TasksEntry initialEntry;
 
-  const DailyTasksScreen({
+  const TasksScreen({
     super.key,
     required this.api,
     required this.tenantId,
     required this.currentUser,
     required this.permissions,
     this.onChanged,
-    this.initialEntry = DailyTasksEntry.tasks,
+    this.initialEntry = TasksEntry.tasks,
   });
 
   @override
-  State<DailyTasksScreen> createState() => _DailyTasksScreenState();
+  State<TasksScreen> createState() => _TasksScreenState();
 }
 
-class _DailyTasksScreenState extends State<DailyTasksScreen> {
-  late final List<_DailyTaskTabState> taskTabStates;
+class _TasksScreenState extends State<TasksScreen> {
+  late final List<_TaskTabState> taskTabStates;
   List<StockTag> tags = const [];
-  List<DailyTaskTemplate> templates = const [];
+  List<TaskTemplate> templates = const [];
   bool loadingTemplates = false;
   bool loadingTags = false;
   int selectedTab = 0;
 
-  _DailyTaskTabState get selectedTaskTab => taskTabStates[selectedTab];
+  _TaskTabState get selectedTaskTab => taskTabStates[selectedTab];
 
   bool get canViewAllTasks {
-    return widget.permissions.contains(EastAppPermission.dailyTaskViewAll);
+    return widget.permissions.contains(EastAppPermission.taskViewAll);
   }
 
   bool get canManageTasks {
-    return widget.permissions.contains(EastAppPermission.dailyTaskManage);
+    return widget.permissions.contains(EastAppPermission.taskManage);
   }
 
-  bool get showingSetup => widget.initialEntry == DailyTasksEntry.setup;
+  bool get showingSetup => widget.initialEntry == TasksEntry.setup;
 
   bool get showingToday => !showingSetup && selectedTab == 1;
 
@@ -90,8 +90,8 @@ class _DailyTasksScreenState extends State<DailyTasksScreen> {
       end: today,
     );
     taskTabStates = [
-      _DailyTaskTabState(selectedRange: defaultRange),
-      _DailyTaskTabState(
+      _TaskTabState(selectedRange: defaultRange),
+      _TaskTabState(
         selectedRange: DateTimeRange(start: today, end: today),
       ),
     ];
@@ -122,7 +122,7 @@ class _DailyTasksScreenState extends State<DailyTasksScreen> {
     final submittedByMe = !canViewAllTasks && requestedTab == 0;
     setState(() => tab.loadingRecords = true);
     try {
-      final result = await widget.api.dailyTaskRecords(
+      final result = await widget.api.taskRecords(
         tenantId: widget.tenantId,
         dateFrom: dateFrom,
         dateTo: dateTo,
@@ -149,7 +149,7 @@ class _DailyTasksScreenState extends State<DailyTasksScreen> {
     if (loadingTemplates) return;
     setState(() => loadingTemplates = true);
     try {
-      final result = await widget.api.dailyTaskTemplates(
+      final result = await widget.api.taskTemplates(
         tenantId: widget.tenantId,
         forceRefresh: forceRefresh,
       );
@@ -198,7 +198,7 @@ class _DailyTasksScreenState extends State<DailyTasksScreen> {
       initialDateRange: tab.selectedRange,
       firstDate: DateTime(today.year - 2, 1, 1),
       lastDate: today,
-      helpText: text.t('Select Daily Task dates'),
+      helpText: text.t('Select Task dates'),
       saveText: text.t('Use Range'),
     );
     if (value == null || !mounted) return;
@@ -215,10 +215,10 @@ class _DailyTasksScreenState extends State<DailyTasksScreen> {
     });
   }
 
-  void clearLoadedRecords(_DailyTaskTabState tab) {
+  void clearLoadedRecords(_TaskTabState tab) {
     tab.requestVersion += 1;
     tab.records = const [];
-    tab.overview = DailyTaskOverview.empty;
+    tab.overview = TaskOverview.empty;
     tab.loadingRecords = false;
     tab.hasLoadedRecords = false;
   }
@@ -246,12 +246,12 @@ class _DailyTasksScreenState extends State<DailyTasksScreen> {
     if (shouldAutomaticallyLoad) await loadRecords(tabIndex: index);
   }
 
-  Future<void> openRecord(DailyTaskRecord record) async {
+  Future<void> openRecord(TaskRecord record) async {
     final openedTab = selectedTab;
     final tab = taskTabStates[openedTab];
     final changed = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
-        builder: (_) => _DailyTaskDetailPage(
+        builder: (_) => _TaskDetailPage(
           api: widget.api,
           initialRecord: record,
         ),
@@ -260,7 +260,7 @@ class _DailyTasksScreenState extends State<DailyTasksScreen> {
     if (!mounted) return;
     if (changed == true) {
       final shouldReload = tab.hasLoadedRecords;
-      widget.api.invalidateDailyTaskRecords(widget.tenantId);
+      widget.api.invalidateTaskRecords(widget.tenantId);
       setState(() {
         for (final taskTab in taskTabStates) {
           clearLoadedRecords(taskTab);
@@ -275,10 +275,10 @@ class _DailyTasksScreenState extends State<DailyTasksScreen> {
     if (changed == true && callback != null) await callback();
   }
 
-  Future<void> openTemplate([DailyTaskTemplate? template]) async {
-    final saved = await Navigator.of(context).push<DailyTaskTemplate>(
+  Future<void> openTemplate([TaskTemplate? template]) async {
+    final saved = await Navigator.of(context).push<TaskTemplate>(
       MaterialPageRoute(
-        builder: (_) => DailyTaskTemplatePage(
+        builder: (_) => TaskTemplatePage(
           api: widget.api,
           tenantId: widget.tenantId,
           initialTags: tags,
@@ -306,11 +306,11 @@ class _DailyTasksScreenState extends State<DailyTasksScreen> {
   @override
   Widget build(BuildContext context) {
     final text = AppTextScope.of(context);
-    final tabs = ['Task History', "Today's Task"];
+    final tabs = ['Task History', 'Current Tasks'];
     return Scaffold(
       backgroundColor: AppColours.background,
       appBar: AppBar(
-        title: Text(text.t(showingSetup ? 'Task Setup' : 'Daily Tasks')),
+        title: Text(text.t(showingSetup ? 'Task Setup' : 'Task')),
         backgroundColor: AppColours.background,
         surfaceTintColor: Colors.transparent,
       ),
@@ -351,7 +351,7 @@ class _DailyTasksScreenState extends State<DailyTasksScreen> {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(14, 4, 14, 28),
         children: [
-          _DailyTaskFilterCard(
+          _TaskFilterCard(
             selectedRange: tab.selectedRange,
             todayOnly: showingToday,
             selectedStatus: tab.selectedStatus,
@@ -371,7 +371,7 @@ class _DailyTasksScreenState extends State<DailyTasksScreen> {
           ),
           if (tab.hasLoadedRecords) ...[
             const SizedBox(height: 12),
-            _DailyTaskOverviewCard(overview: tab.overview),
+            _TaskOverviewCard(overview: tab.overview),
           ],
           const SizedBox(height: 12),
           if (tab.loadingRecords)
@@ -419,7 +419,7 @@ class _DailyTasksScreenState extends State<DailyTasksScreen> {
                       text.t(
                         showingPersonalHistory
                             ? 'No task submitted by u in this date range.'
-                            : 'No Daily Task matches these filters.',
+                            : 'No Task matches these filters.',
                       ),
                       textAlign: TextAlign.center,
                       style: const TextStyle(
@@ -433,7 +433,7 @@ class _DailyTasksScreenState extends State<DailyTasksScreen> {
             )
           else
             for (final record in tab.records)
-              _DailyTaskRecordCard(
+              _TaskRecordCard(
                 record: record,
                 onTap: () => openRecord(record),
               ),
@@ -457,7 +457,7 @@ class _DailyTasksScreenState extends State<DailyTasksScreen> {
                 Expanded(
                   child: Text(
                     text.t(
-                      'Each template creates one shared task per day for its Stock Tag. Template edits apply from the next task record.',
+                      'Each active Task appears only on its scheduled date and is shared by users assigned to its Stock Tag.',
                     ),
                     style: const TextStyle(
                       color: AppColours.textMuted,
@@ -487,7 +487,7 @@ class _DailyTasksScreenState extends State<DailyTasksScreen> {
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      text.t('No Daily Task template yet.'),
+                      text.t('No Task created yet.'),
                       style: const TextStyle(
                         color: AppColours.textMuted,
                         fontWeight: FontWeight.w700,
@@ -546,6 +546,15 @@ class _DailyTasksScreenState extends State<DailyTasksScreen> {
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
+                              const SizedBox(height: 3),
+                              Text(
+                                _formatTemplateSchedule(template),
+                                style: const TextStyle(
+                                  color: AppColours.blue,
+                                  fontSize: AppTextSize.s12,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
                             ],
                           ),
                         ),
@@ -566,19 +575,19 @@ class _DailyTasksScreenState extends State<DailyTasksScreen> {
   }
 }
 
-class _DailyTaskFilterCard extends StatefulWidget {
+class _TaskFilterCard extends StatefulWidget {
   final DateTimeRange selectedRange;
   final bool todayOnly;
-  final DailyTaskStatus? selectedStatus;
+  final TaskStatus? selectedStatus;
   final String? selectedTagId;
   final List<StockTag> tags;
   final bool loadingTags;
   final VoidCallback onDateRange;
-  final ValueChanged<DailyTaskStatus?> onStatus;
+  final ValueChanged<TaskStatus?> onStatus;
   final ValueChanged<String?> onTag;
   final Future<void> Function() onLoad;
 
-  const _DailyTaskFilterCard({
+  const _TaskFilterCard({
     required this.selectedRange,
     required this.todayOnly,
     required this.selectedStatus,
@@ -592,10 +601,10 @@ class _DailyTaskFilterCard extends StatefulWidget {
   });
 
   @override
-  State<_DailyTaskFilterCard> createState() => _DailyTaskFilterCardState();
+  State<_TaskFilterCard> createState() => _TaskFilterCardState();
 }
 
-class _DailyTaskFilterCardState extends State<_DailyTaskFilterCard> {
+class _TaskFilterCardState extends State<_TaskFilterCard> {
   @override
   Widget build(BuildContext context) {
     final text = AppTextScope.of(context);
@@ -614,7 +623,7 @@ class _DailyTaskFilterCardState extends State<_DailyTaskFilterCard> {
           if (widget.todayOnly)
             InputDecorator(
               decoration: const InputDecoration(
-                labelText: "Today's Task",
+                labelText: 'Current Tasks',
                 prefixIcon: Icon(Icons.today_rounded),
                 border: OutlineInputBorder(),
                 isDense: true,
@@ -639,7 +648,7 @@ class _DailyTaskFilterCardState extends State<_DailyTaskFilterCard> {
               ),
             ),
           const SizedBox(height: 10),
-          DropdownButtonFormField<DailyTaskStatus?>(
+          DropdownButtonFormField<TaskStatus?>(
             value: widget.selectedStatus,
             decoration: const InputDecoration(
               labelText: 'Status',
@@ -647,12 +656,12 @@ class _DailyTaskFilterCardState extends State<_DailyTaskFilterCard> {
               isDense: true,
             ),
             items: [
-              const DropdownMenuItem<DailyTaskStatus?>(
+              const DropdownMenuItem<TaskStatus?>(
                 value: null,
                 child: Text('All Statuses'),
               ),
-              ...DailyTaskStatus.values.map(
-                (status) => DropdownMenuItem<DailyTaskStatus?>(
+              ...TaskStatus.values.map(
+                (status) => DropdownMenuItem<TaskStatus?>(
                   value: status,
                   child: Text(_statusLabel(status)),
                 ),
@@ -710,10 +719,10 @@ class _DailyTaskFilterCardState extends State<_DailyTaskFilterCard> {
   }
 }
 
-class _DailyTaskOverviewCard extends StatelessWidget {
-  final DailyTaskOverview overview;
+class _TaskOverviewCard extends StatelessWidget {
+  final TaskOverview overview;
 
-  const _DailyTaskOverviewCard({required this.overview});
+  const _TaskOverviewCard({required this.overview});
 
   @override
   Widget build(BuildContext context) {
@@ -797,11 +806,11 @@ class _OverviewValue extends StatelessWidget {
   }
 }
 
-class _DailyTaskRecordCard extends StatelessWidget {
-  final DailyTaskRecord record;
+class _TaskRecordCard extends StatelessWidget {
+  final TaskRecord record;
   final VoidCallback onTap;
 
-  const _DailyTaskRecordCard({required this.record, required this.onTap});
+  const _TaskRecordCard({required this.record, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -834,7 +843,7 @@ class _DailyTaskRecordCard extends StatelessWidget {
               ),
               const SizedBox(height: 5),
               Text(
-                '${record.tagName} · ${_formatDate(record.taskDate)}',
+                '${record.tagName} · ${record.scheduleType.label} · ${_formatDate(record.taskDate)}',
                 style: const TextStyle(
                   color: AppColours.textMuted,
                   fontSize: AppTextSize.s13,
@@ -866,7 +875,7 @@ class _DailyTaskRecordCard extends StatelessWidget {
                   ),
                 ],
               ),
-              if (record.status == DailyTaskStatus.submitted &&
+              if (record.status == TaskStatus.submitted &&
                   record.submittedAt != null) ...[
                 const SizedBox(height: 9),
                 Text(
@@ -879,7 +888,7 @@ class _DailyTaskRecordCard extends StatelessWidget {
                   ),
                 ),
               ],
-              if (record.status == DailyTaskStatus.done &&
+              if (record.status == TaskStatus.done &&
                   record.rating != null) ...[
                 const SizedBox(height: 9),
                 _StarDisplay(rating: record.rating!),
@@ -933,28 +942,28 @@ class _RequirementChip extends StatelessWidget {
   }
 }
 
-class _DailyTaskDetailPage extends StatefulWidget {
+class _TaskDetailPage extends StatefulWidget {
   final EastAppApi api;
-  final DailyTaskRecord initialRecord;
+  final TaskRecord initialRecord;
 
-  const _DailyTaskDetailPage({
+  const _TaskDetailPage({
     required this.api,
     required this.initialRecord,
   });
 
   @override
-  State<_DailyTaskDetailPage> createState() => _DailyTaskDetailPageState();
+  State<_TaskDetailPage> createState() => _TaskDetailPageState();
 }
 
-class _DailyTaskDetailPageState extends State<_DailyTaskDetailPage> {
-  late DailyTaskRecord record;
+class _TaskDetailPageState extends State<_TaskDetailPage> {
+  late TaskRecord record;
   late Set<String> selectedChecklistItemIds;
   final List<String> selectedPhotoPaths = [];
   bool changed = false;
   bool loading = false;
 
   bool get acceptingInput =>
-      record.status == DailyTaskStatus.pending && record.canContribute;
+      record.status == TaskStatus.pending && record.canContribute;
 
   bool get submissionReady => acceptingInput &&
       selectedChecklistItemIds.length == record.checklistItems.length &&
@@ -983,20 +992,20 @@ class _DailyTaskDetailPageState extends State<_DailyTaskDetailPage> {
   Future<void> refresh() async {
     if (mounted) setState(() => loading = true);
     try {
-      final result = await widget.api.dailyTaskRecord(record.id);
+      final result = await widget.api.taskRecord(record.id);
       if (!mounted) return;
       final serverRecordChanged = result.status != record.status ||
           result.photoCount != record.photoCount ||
           result.submittedAt != record.submittedAt ||
           result.ratedAt != record.ratedAt;
-      final pathsToDelete = result.status == DailyTaskStatus.pending
+      final pathsToDelete = result.status == TaskStatus.pending
           ? const <String>[]
           : List<String>.from(selectedPhotoPaths);
       setState(() {
         record = result;
         changed = changed || serverRecordChanged;
         loading = false;
-        if (result.status != DailyTaskStatus.pending) {
+        if (result.status != TaskStatus.pending) {
           selectedChecklistItemIds.clear();
           selectedPhotoPaths.clear();
         }
@@ -1009,7 +1018,7 @@ class _DailyTaskDetailPageState extends State<_DailyTaskDetailPage> {
     }
   }
 
-  void applyServerUpdate(DailyTaskRecord value) {
+  void applyServerUpdate(TaskRecord value) {
     if (!mounted) return;
     final pathsToDelete = List<String>.from(selectedPhotoPaths);
     setState(() {
@@ -1023,7 +1032,7 @@ class _DailyTaskDetailPageState extends State<_DailyTaskDetailPage> {
     }
   }
 
-  void toggleCheck(DailyTaskChecklistItem item, bool completed) {
+  void toggleCheck(TaskChecklistItem item, bool completed) {
     setState(() {
       if (completed) {
         selectedChecklistItemIds.add(item.id);
@@ -1036,7 +1045,7 @@ class _DailyTaskDetailPageState extends State<_DailyTaskDetailPage> {
   Future<void> capturePhoto() async {
     if (!acceptingInput || selectedPhotoPaths.length >= 40) return;
     final path = await Navigator.of(context).push<String>(
-      MaterialPageRoute(builder: (_) => const _DailyTaskCameraPage()),
+      MaterialPageRoute(builder: (_) => const _TaskCameraPage()),
     );
     if (path == null || !mounted) return;
     setState(() => selectedPhotoPaths.add(path));
@@ -1101,7 +1110,7 @@ class _DailyTaskDetailPageState extends State<_DailyTaskDetailPage> {
       return;
     }
     final replacementPath = await Navigator.of(context).push<String>(
-      MaterialPageRoute(builder: (_) => const _DailyTaskCameraPage()),
+      MaterialPageRoute(builder: (_) => const _TaskCameraPage()),
     );
     if (replacementPath == null || !mounted) return;
     final currentIndex = selectedPhotoPaths.indexOf(currentPath);
@@ -1169,7 +1178,7 @@ class _DailyTaskDetailPageState extends State<_DailyTaskDetailPage> {
   Future<void> submit() async {
     final confirmed = await _confirmAction(
       context,
-      title: 'Submit Daily Task?',
+      title: 'Submit Task?',
       message:
           'The final checklist and selected photos will be stored and locked permanently.',
       action: 'Submit',
@@ -1177,7 +1186,7 @@ class _DailyTaskDetailPageState extends State<_DailyTaskDetailPage> {
     if (!confirmed || !mounted) return;
     try {
       applyServerUpdate(
-        await widget.api.submitDailyTask(
+        await widget.api.submitTask(
           recordId: record.id,
           completedChecklistItemIds:
               selectedChecklistItemIds.toList(growable: false),
@@ -1185,7 +1194,7 @@ class _DailyTaskDetailPageState extends State<_DailyTaskDetailPage> {
         ),
       );
     } on EastAppApiException catch (error) {
-      if (error.code == 'DAILY_TASK_ALREADY_SUBMITTED' && mounted) {
+      if (error.code == 'TASK_ALREADY_SUBMITTED' && mounted) {
         await showAlreadySubmitted(error);
       }
       return;
@@ -1195,12 +1204,12 @@ class _DailyTaskDetailPageState extends State<_DailyTaskDetailPage> {
   Future<void> rate() async {
     final value = await showDialog<_RatingResult>(
       context: context,
-      builder: (_) => const _DailyTaskRatingDialog(),
+      builder: (_) => const _TaskRatingDialog(),
     );
     if (value == null || !mounted) return;
     try {
       applyServerUpdate(
-        await widget.api.rateDailyTask(
+        await widget.api.rateTask(
           recordId: record.id,
           rating: value.rating,
           comment: value.comment,
@@ -1230,7 +1239,7 @@ class _DailyTaskDetailPageState extends State<_DailyTaskDetailPage> {
             onPressed: close,
             icon: const Icon(Icons.arrow_back_rounded),
           ),
-          title: Text(text.t('Daily Task')),
+          title: Text(text.t('Task')),
           actions: [
             IconButton(
               onPressed: loading ? null : refresh,
@@ -1268,7 +1277,7 @@ class _DailyTaskDetailPageState extends State<_DailyTaskDetailPage> {
                     ),
                     const SizedBox(height: 7),
                     Text(
-                      '${record.tagName} · ${_formatDate(record.taskDate)}',
+                      '${record.tagName} · ${record.scheduleType.label} · ${_formatDate(record.taskDate)}',
                       style: const TextStyle(
                         color: AppColours.blue,
                         fontWeight: FontWeight.w800,
@@ -1324,7 +1333,7 @@ class _DailyTaskDetailPageState extends State<_DailyTaskDetailPage> {
                       CheckboxListTile(
                         contentPadding: EdgeInsets.zero,
                         controlAffinity: ListTileControlAffinity.leading,
-                        value: record.status == DailyTaskStatus.pending
+                        value: record.status == TaskStatus.pending
                             ? selectedChecklistItemIds.contains(item.id)
                             : item.completed,
                         onChanged: acceptingInput
@@ -1334,7 +1343,7 @@ class _DailyTaskDetailPageState extends State<_DailyTaskDetailPage> {
                           item.description,
                           style: const TextStyle(fontWeight: FontWeight.w700),
                         ),
-                        subtitle: record.status == DailyTaskStatus.pending ||
+                        subtitle: record.status == TaskStatus.pending ||
                                 item.completedAt == null
                             ? null
                             : Text(
@@ -1354,8 +1363,8 @@ class _DailyTaskDetailPageState extends State<_DailyTaskDetailPage> {
                       children: [
                         Expanded(
                           child: Text(
-                            '${text.t(record.status == DailyTaskStatus.pending ? 'Selected Photos' : 'Submitted Photos')} '
-                            '${record.status == DailyTaskStatus.pending ? selectedPhotoPaths.length : record.photoCount}'
+                            '${text.t(record.status == TaskStatus.pending ? 'Selected Photos' : 'Submitted Photos')} '
+                            '${record.status == TaskStatus.pending ? selectedPhotoPaths.length : record.photoCount}'
                             '/${record.requiredPhotoCount}',
                             style: const TextStyle(
                               fontSize: AppTextSize.s18,
@@ -1374,7 +1383,7 @@ class _DailyTaskDetailPageState extends State<_DailyTaskDetailPage> {
                     const SizedBox(height: 6),
                     Text(
                       text.t(
-                        record.status == DailyTaskStatus.pending
+                        record.status == TaskStatus.pending
                             ? 'Photos remain only on this screen and upload only when u tap Submit Task. Tap a selected photo to view, remove or retake it.'
                             : 'Submitted photos are permanently locked.',
                       ),
@@ -1384,7 +1393,7 @@ class _DailyTaskDetailPageState extends State<_DailyTaskDetailPage> {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    if (record.status == DailyTaskStatus.pending &&
+                    if (record.status == TaskStatus.pending &&
                         selectedPhotoPaths.isNotEmpty) ...[
                       const SizedBox(height: 12),
                       GridView.builder(
@@ -1400,7 +1409,7 @@ class _DailyTaskDetailPageState extends State<_DailyTaskDetailPage> {
                         itemCount: selectedPhotoPaths.length,
                         itemBuilder: (_, index) {
                           final path = selectedPhotoPaths[index];
-                          return _SelectedDailyTaskPhotoTile(
+                          return _SelectedTaskPhotoTile(
                             key: ValueKey(path),
                             path: path,
                             onTap: () => openSelectedPhoto(index),
@@ -1422,7 +1431,7 @@ class _DailyTaskDetailPageState extends State<_DailyTaskDetailPage> {
                         itemCount: record.photos.length,
                         itemBuilder: (_, index) {
                           final photo = record.photos[index];
-                          return _DailyTaskPhotoTile(
+                          return _TaskPhotoTile(
                             key: ValueKey(photo.id),
                             api: widget.api,
                             photo: photo,
@@ -1434,11 +1443,11 @@ class _DailyTaskDetailPageState extends State<_DailyTaskDetailPage> {
                   ],
                 ),
               ),
-              if (record.status != DailyTaskStatus.pending) ...[
+              if (record.status != TaskStatus.pending) ...[
                 const SizedBox(height: 12),
                 _SubmissionCard(record: record),
               ],
-              if (record.status == DailyTaskStatus.done) ...[
+              if (record.status == TaskStatus.done) ...[
                 const SizedBox(height: 12),
                 _RatingCard(record: record),
               ],
@@ -1453,7 +1462,7 @@ class _DailyTaskDetailPageState extends State<_DailyTaskDetailPage> {
                   icon: Icons.send_rounded,
                   onPressed: submit,
                 ),
-              ] else if (record.status == DailyTaskStatus.pending) ...[
+              ] else if (record.status == TaskStatus.pending) ...[
                 const SizedBox(height: 12),
                 Text(
                   text.t(
@@ -1485,7 +1494,7 @@ class _DailyTaskDetailPageState extends State<_DailyTaskDetailPage> {
 }
 
 class _SubmissionCard extends StatelessWidget {
-  final DailyTaskRecord record;
+  final TaskRecord record;
 
   const _SubmissionCard({required this.record});
 
@@ -1524,7 +1533,7 @@ class _SubmissionCard extends StatelessWidget {
 }
 
 class _RatingCard extends StatelessWidget {
-  final DailyTaskRecord record;
+  final TaskRecord record;
 
   const _RatingCard({required this.record});
 
@@ -1557,7 +1566,7 @@ class _RatingCard extends StatelessWidget {
 }
 
 class _ActivityCard extends StatelessWidget {
-  final List<DailyTaskAuditEntry> entries;
+  final List<TaskAuditEntry> entries;
 
   const _ActivityCard({required this.entries});
 
@@ -1594,11 +1603,11 @@ class _ActivityCard extends StatelessWidget {
   }
 }
 
-class _SelectedDailyTaskPhotoTile extends StatelessWidget {
+class _SelectedTaskPhotoTile extends StatelessWidget {
   final String path;
   final VoidCallback onTap;
 
-  const _SelectedDailyTaskPhotoTile({
+  const _SelectedTaskPhotoTile({
     super.key,
     required this.path,
     required this.onTap,
@@ -1660,12 +1669,12 @@ class _SelectedDailyTaskPhotoTile extends StatelessWidget {
   }
 }
 
-class _DailyTaskPhotoTile extends StatefulWidget {
+class _TaskPhotoTile extends StatefulWidget {
   final EastAppApi api;
-  final DailyTaskPhoto photo;
+  final TaskPhoto photo;
   final Future<void> Function(Uint8List bytes) onTap;
 
-  const _DailyTaskPhotoTile({
+  const _TaskPhotoTile({
     super.key,
     required this.api,
     required this.photo,
@@ -1673,10 +1682,10 @@ class _DailyTaskPhotoTile extends StatefulWidget {
   });
 
   @override
-  State<_DailyTaskPhotoTile> createState() => _DailyTaskPhotoTileState();
+  State<_TaskPhotoTile> createState() => _TaskPhotoTileState();
 }
 
-class _DailyTaskPhotoTileState extends State<_DailyTaskPhotoTile> {
+class _TaskPhotoTileState extends State<_TaskPhotoTile> {
   late Future<Uint8List> request;
 
   @override
@@ -1748,14 +1757,14 @@ class _DailyTaskPhotoTileState extends State<_DailyTaskPhotoTile> {
   }
 }
 
-class _DailyTaskCameraPage extends StatefulWidget {
-  const _DailyTaskCameraPage();
+class _TaskCameraPage extends StatefulWidget {
+  const _TaskCameraPage();
 
   @override
-  State<_DailyTaskCameraPage> createState() => _DailyTaskCameraPageState();
+  State<_TaskCameraPage> createState() => _TaskCameraPageState();
 }
 
-class _DailyTaskCameraPageState extends State<_DailyTaskCameraPage> {
+class _TaskCameraPageState extends State<_TaskCameraPage> {
   CameraController? controller;
   XFile? capturedPhoto;
   String? errorMessage;
@@ -1947,13 +1956,13 @@ class _DailyTaskCameraPageState extends State<_DailyTaskCameraPage> {
   }
 }
 
-class DailyTaskTemplatePage extends StatefulWidget {
+class TaskTemplatePage extends StatefulWidget {
   final EastAppApi api;
   final String tenantId;
   final List<StockTag> initialTags;
-  final DailyTaskTemplate? template;
+  final TaskTemplate? template;
 
-  const DailyTaskTemplatePage({
+  const TaskTemplatePage({
     required this.api,
     required this.tenantId,
     required this.initialTags,
@@ -1961,11 +1970,11 @@ class DailyTaskTemplatePage extends StatefulWidget {
   });
 
   @override
-  State<DailyTaskTemplatePage> createState() =>
-      _DailyTaskTemplatePageState();
+  State<TaskTemplatePage> createState() =>
+      _TaskTemplatePageState();
 }
 
-class _DailyTaskTemplatePageState extends State<DailyTaskTemplatePage> {
+class _TaskTemplatePageState extends State<TaskTemplatePage> {
   late final TextEditingController titleController;
   late final TextEditingController instructionController;
   final List<TextEditingController> checklistControllers = [];
@@ -1973,6 +1982,9 @@ class _DailyTaskTemplatePageState extends State<DailyTaskTemplatePage> {
   String? tagId;
   int requiredPhotoCount = 1;
   int checklistCount = 1;
+  TaskScheduleType scheduleType = TaskScheduleType.daily;
+  late DateTime firstTaskDate;
+  DateTime? endDate;
   bool active = true;
   bool loadingTags = false;
 
@@ -1999,6 +2011,11 @@ class _DailyTaskTemplatePageState extends State<DailyTaskTemplatePage> {
     tagId = template?.tagId;
     requiredPhotoCount = template?.requiredPhotoCount ?? 1;
     checklistCount = template?.checklistItems.length ?? 1;
+    scheduleType = template?.scheduleType ?? TaskScheduleType.daily;
+    firstTaskDate = _dateOnly(template?.firstTaskDate ?? DateTime.now());
+    endDate = template?.endDate == null
+        ? null
+        : _dateOnly(template!.endDate!);
     active = template?.active ?? true;
     for (var index = 0; index < 5; index++) {
       checklistControllers.add(
@@ -2058,6 +2075,37 @@ class _DailyTaskTemplatePageState extends State<DailyTaskTemplatePage> {
     }
   }
 
+  Future<void> selectFirstTaskDate() async {
+    final now = DateTime.now();
+    final selected = await showDatePicker(
+      context: context,
+      initialDate: firstTaskDate,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(now.year + 10, 12, 31),
+      helpText: scheduleType == TaskScheduleType.adHoc
+          ? 'Select Task Date'
+          : 'Select First Task Date',
+    );
+    if (selected == null || !mounted) return;
+    setState(() {
+      firstTaskDate = _dateOnly(selected);
+      if (endDate?.isBefore(firstTaskDate) == true) endDate = null;
+    });
+  }
+
+  Future<void> selectEndDate() async {
+    final now = DateTime.now();
+    final selected = await showDatePicker(
+      context: context,
+      initialDate: endDate ?? firstTaskDate,
+      firstDate: firstTaskDate,
+      lastDate: DateTime(now.year + 10, 12, 31),
+      helpText: 'Select End Date',
+    );
+    if (selected == null || !mounted) return;
+    setState(() => endDate = _dateOnly(selected));
+  }
+
   Future<void> save() async {
     final title = titleController.text.trim();
     final selectedTagId = tagId;
@@ -2065,6 +2113,14 @@ class _DailyTaskTemplatePageState extends State<DailyTaskTemplatePage> {
         .take(checklistCount)
         .map((controller) => controller.text.trim())
         .toList(growable: false);
+    if (endDate?.isBefore(firstTaskDate) == true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('End date cannot be before the first task date.'),
+        ),
+      );
+      return;
+    }
     if (title.isEmpty || selectedTagId == null || checks.any((item) => item.isEmpty)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -2076,34 +2132,40 @@ class _DailyTaskTemplatePageState extends State<DailyTaskTemplatePage> {
     final confirmed = await _confirmAction(
       context,
       title: widget.template == null
-          ? 'Create Daily Task?'
-          : 'Update Daily Task?',
+          ? 'Create Task?'
+          : 'Update Task?',
       message: widget.template == null
-          ? 'This creates one shared task each day for users assigned to the selected Tag.'
-          : 'Existing daily evidence stays unchanged. This update applies to future task records.',
+          ? 'This creates one shared ${scheduleType.label.toLowerCase()} Task for users assigned to the selected Tag.'
+          : 'Existing Task records stay unchanged. This update applies to future scheduled Tasks.',
       action: 'Save',
     );
     if (!confirmed || !mounted) return;
     try {
-      late final DailyTaskTemplate saved;
+      late final TaskTemplate saved;
       if (widget.template == null) {
-        saved = await widget.api.createDailyTaskTemplate(
+        saved = await widget.api.createTaskTemplate(
           tenantId: widget.tenantId,
           title: title,
           instruction: instructionController.text,
           tagId: selectedTagId,
           requiredPhotoCount: requiredPhotoCount,
+          scheduleType: scheduleType,
+          firstTaskDate: firstTaskDate,
+          endDate: scheduleType == TaskScheduleType.adHoc ? null : endDate,
           checklistItems: checks,
           active: active,
         );
       } else {
-        saved = await widget.api.updateDailyTaskTemplate(
+        saved = await widget.api.updateTaskTemplate(
           tenantId: widget.tenantId,
           templateId: widget.template!.id,
           title: title,
           instruction: instructionController.text,
           tagId: selectedTagId,
           requiredPhotoCount: requiredPhotoCount,
+          scheduleType: scheduleType,
+          firstTaskDate: firstTaskDate,
+          endDate: scheduleType == TaskScheduleType.adHoc ? null : endDate,
           checklistItems: checks,
           active: active,
         );
@@ -2123,7 +2185,7 @@ class _DailyTaskTemplatePageState extends State<DailyTaskTemplatePage> {
       backgroundColor: AppColours.background,
       appBar: AppBar(
         title: Text(
-          text.t(widget.template == null ? 'Create Daily Task' : 'Edit Daily Task'),
+          text.t(widget.template == null ? 'Create Task' : 'Edit Task'),
         ),
         backgroundColor: AppColours.background,
         surfaceTintColor: Colors.transparent,
@@ -2153,6 +2215,88 @@ class _DailyTaskTemplatePageState extends State<DailyTaskTemplatePage> {
                   decoration: const InputDecoration(
                     labelText: 'Instruction (Optional)',
                     border: OutlineInputBorder(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          WhiteCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text(
+                  'Schedule',
+                  style: TextStyle(
+                    fontSize: AppTextSize.s18,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                DropdownButtonFormField<TaskScheduleType>(
+                  value: scheduleType,
+                  decoration: const InputDecoration(
+                    labelText: 'Schedule Type',
+                    prefixIcon: Icon(Icons.event_repeat_rounded),
+                    border: OutlineInputBorder(),
+                  ),
+                  items: TaskScheduleType.values
+                      .map(
+                        (type) => DropdownMenuItem<TaskScheduleType>(
+                          value: type,
+                          child: Text(type.label),
+                        ),
+                      )
+                      .toList(growable: false),
+                  onChanged: (value) {
+                    if (value == null) return;
+                    setState(() {
+                      scheduleType = value;
+                      if (value == TaskScheduleType.adHoc) endDate = null;
+                    });
+                  },
+                ),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: selectFirstTaskDate,
+                  icon: const Icon(Icons.calendar_today_outlined),
+                  label: Text(
+                    '${scheduleType == TaskScheduleType.adHoc ? 'Task date' : 'First task date'}: ${_formatDate(firstTaskDate)}',
+                  ),
+                ),
+                if (scheduleType != TaskScheduleType.adHoc) ...[
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: selectEndDate,
+                          icon: const Icon(Icons.event_available_outlined),
+                          label: Text(
+                            endDate == null
+                                ? 'End date: No end date'
+                                : 'End date: ${_formatDate(endDate!)}',
+                          ),
+                        ),
+                      ),
+                      if (endDate != null) ...[
+                        const SizedBox(width: 6),
+                        IconButton(
+                          tooltip: 'Remove end date',
+                          onPressed: () => setState(() => endDate = null),
+                          icon: const Icon(Icons.close_rounded),
+                        ),
+                      ],
+                    ],
+                  ),
+                ],
+                const SizedBox(height: 8),
+                Text(
+                  _scheduleDescription(scheduleType, firstTaskDate),
+                  style: const TextStyle(
+                    color: AppColours.textMuted,
+                    fontSize: AppTextSize.s13,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ],
@@ -2242,7 +2386,7 @@ class _DailyTaskTemplatePageState extends State<DailyTaskTemplatePage> {
                 DropdownButtonFormField<int>(
                   value: requiredPhotoCount,
                   decoration: const InputDecoration(
-                    labelText: 'Minimum photos required daily',
+                    labelText: 'Minimum photos required',
                     border: OutlineInputBorder(),
                   ),
                   items: List.generate(
@@ -2292,7 +2436,7 @@ class _DailyTaskTemplatePageState extends State<DailyTaskTemplatePage> {
                     'Active',
                     style: TextStyle(fontWeight: FontWeight.w800),
                   ),
-                  subtitle: const Text('Active templates create a shared task each day.'),
+                  subtitle: const Text('Active Tasks appear on their scheduled dates.'),
                   value: active,
                   onChanged: (value) => setState(() => active = value),
                 ),
@@ -2315,15 +2459,15 @@ class _DailyTaskTemplatePageState extends State<DailyTaskTemplatePage> {
   }
 }
 
-class _DailyTaskRatingDialog extends StatefulWidget {
-  const _DailyTaskRatingDialog();
+class _TaskRatingDialog extends StatefulWidget {
+  const _TaskRatingDialog();
 
   @override
-  State<_DailyTaskRatingDialog> createState() =>
-      _DailyTaskRatingDialogState();
+  State<_TaskRatingDialog> createState() =>
+      _TaskRatingDialogState();
 }
 
-class _DailyTaskRatingDialogState extends State<_DailyTaskRatingDialog> {
+class _TaskRatingDialogState extends State<_TaskRatingDialog> {
   final commentController = TextEditingController();
   int rating = 0;
   String? error;
@@ -2346,7 +2490,7 @@ class _DailyTaskRatingDialogState extends State<_DailyTaskRatingDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Rate Daily Task'),
+      title: const Text('Rate Task'),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -2404,21 +2548,21 @@ class _RatingResult {
 }
 
 class _TaskStatusPill extends StatelessWidget {
-  final DailyTaskStatus status;
+  final TaskStatus status;
 
   const _TaskStatusPill({required this.status});
 
   @override
   Widget build(BuildContext context) {
     final colour = switch (status) {
-      DailyTaskStatus.pending => AppColours.orange,
-      DailyTaskStatus.submitted => AppColours.blue,
-      DailyTaskStatus.done => AppColours.green,
+      TaskStatus.pending => AppColours.orange,
+      TaskStatus.submitted => AppColours.blue,
+      TaskStatus.done => AppColours.green,
     };
     final background = switch (status) {
-      DailyTaskStatus.pending => AppColours.orangeSoft,
-      DailyTaskStatus.submitted => const Color(0xFFEAF3FF),
-      DailyTaskStatus.done => AppColours.greenSoft,
+      TaskStatus.pending => AppColours.orangeSoft,
+      TaskStatus.submitted => const Color(0xFFEAF3FF),
+      TaskStatus.done => AppColours.greenSoft,
     };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
@@ -2513,11 +2657,11 @@ Future<bool> _confirmAction(
 
 DateTime _dateOnly(DateTime value) => DateTime(value.year, value.month, value.day);
 
-String _statusLabel(DailyTaskStatus status) {
+String _statusLabel(TaskStatus status) {
   return switch (status) {
-    DailyTaskStatus.pending => 'Pending',
-    DailyTaskStatus.submitted => 'Submitted',
-    DailyTaskStatus.done => 'Done',
+    TaskStatus.pending => 'Pending',
+    TaskStatus.submitted => 'Submitted',
+    TaskStatus.done => 'Done',
   };
 }
 
@@ -2538,6 +2682,28 @@ String _formatDate(DateTime value) {
   ];
   final local = value.toLocal();
   return '${local.day} ${months[local.month - 1]} ${local.year}';
+}
+
+String _formatTemplateSchedule(TaskTemplate template) {
+  if (template.scheduleType == TaskScheduleType.adHoc) {
+    return 'Ad hoc · ${_formatDate(template.firstTaskDate)}';
+  }
+  final end = template.endDate == null
+      ? 'No end date'
+      : 'Ends ${_formatDate(template.endDate!)}';
+  return '${template.scheduleType.label} · Starts ${_formatDate(template.firstTaskDate)} · $end';
+}
+
+String _scheduleDescription(TaskScheduleType type, DateTime firstTaskDate) {
+  final date = _formatDate(firstTaskDate);
+  return switch (type) {
+    TaskScheduleType.adHoc => 'Runs once on $date.',
+    TaskScheduleType.daily => 'Repeats every day from $date.',
+    TaskScheduleType.weekly => 'Repeats every 7 days from $date.',
+    TaskScheduleType.biweekly => 'Repeats every 14 days from $date.',
+    TaskScheduleType.monthly =>
+      'Repeats monthly from $date. Shorter months use their final day.',
+  };
 }
 
 String _formatDateTime(DateTime value) {

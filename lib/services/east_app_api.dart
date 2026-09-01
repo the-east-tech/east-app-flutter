@@ -11,7 +11,7 @@ import '../models/knowledge_audit_models.dart';
 import '../models/api_models.dart';
 import '../models/advertisement_models.dart';
 import '../models/auth_models.dart';
-import '../models/daily_task_models.dart';
+import '../models/task_models.dart';
 import '../models/organisation_models.dart';
 import '../models/notification_models.dart';
 import '../models/people_models.dart';
@@ -112,17 +112,17 @@ class EastAppApi {
   final _tenantsCache = _AsyncMemoryCache<List<EastAppTenant>>(
     ttl: const Duration(minutes: 5),
   );
-  final Map<String, _DailyTaskMemoryValue<DailyTaskList>>
-      _dailyTaskRecordCache = <String, _DailyTaskMemoryValue<DailyTaskList>>{};
-  final Map<String, Future<DailyTaskList>> _dailyTaskRecordRequests =
-      <String, Future<DailyTaskList>>{};
-  final Map<String, List<DailyTaskTemplate>> _dailyTaskTemplateCache =
-      <String, List<DailyTaskTemplate>>{};
-  final Map<String, Future<List<DailyTaskTemplate>>>
-      _dailyTaskTemplateRequests =
-      <String, Future<List<DailyTaskTemplate>>>{};
-  int _dailyTaskRecordCacheGeneration = 0;
-  int _dailyTaskTemplateCacheGeneration = 0;
+  final Map<String, _TaskMemoryValue<TaskList>>
+      _taskRecordCache = <String, _TaskMemoryValue<TaskList>>{};
+  final Map<String, Future<TaskList>> _taskRecordRequests =
+      <String, Future<TaskList>>{};
+  final Map<String, List<TaskTemplate>> _taskTemplateCache =
+      <String, List<TaskTemplate>>{};
+  final Map<String, Future<List<TaskTemplate>>>
+      _taskTemplateRequests =
+      <String, Future<List<TaskTemplate>>>{};
+  int _taskRecordCacheGeneration = 0;
+  int _taskTemplateCacheGeneration = 0;
 
   static const Duration _requestTimeout = Duration(seconds: 15);
 
@@ -145,7 +145,7 @@ class EastAppApi {
     required bool managementView,
     required String userId,
   }) =>
-      'tenant:$tenantId:report:dashboard:v3:'
+      'tenant:$tenantId:report:dashboard:v4:'
       '${managementView ? 'management' : 'operational:$userId'}:$days';
   static String salesHistoryCacheKey(
     String tenantId,
@@ -177,10 +177,10 @@ class EastAppApi {
       'tenant:$tenantId:setup:roles:';
   static String advertisementFeedCacheKey(String tenantId) =>
       'tenant:$tenantId:home:advertisements:active:v1';
-  static String dailyTaskRecordsCachePrefix(String tenantId) =>
-      'tenant:$tenantId:daily-tasks:records:';
-  static String dailyTaskTemplatesCacheKey(String tenantId) =>
-      'tenant:$tenantId:daily-tasks:templates';
+  static String taskRecordsCachePrefix(String tenantId) =>
+      'tenant:$tenantId:tasks:records:';
+  static String taskTemplatesCacheKey(String tenantId) =>
+      'tenant:$tenantId:tasks:templates';
 
   DateTime? featureCacheUpdatedAt(String cacheKey) =>
       FeatureDataCache.instance.updatedAt(cacheKey);
@@ -203,31 +203,31 @@ class EastAppApi {
     _featureCacheRevisions.clear();
     _featureReadRequests.clear();
     _clearMediaBytesCache();
-    _clearDailyTaskMemoryCaches();
+    _clearTaskMemoryCaches();
     await FeatureDataCache.instance.clearAll();
   }
 
-  void invalidateDailyTaskRecords(String tenantId) {
-    final prefix = dailyTaskRecordsCachePrefix(tenantId);
-    _dailyTaskRecordCacheGeneration += 1;
-    _dailyTaskRecordCache.removeWhere((key, _) => key.startsWith(prefix));
-    _dailyTaskRecordRequests.removeWhere((key, _) => key.startsWith(prefix));
+  void invalidateTaskRecords(String tenantId) {
+    final prefix = taskRecordsCachePrefix(tenantId);
+    _taskRecordCacheGeneration += 1;
+    _taskRecordCache.removeWhere((key, _) => key.startsWith(prefix));
+    _taskRecordRequests.removeWhere((key, _) => key.startsWith(prefix));
   }
 
-  void invalidateDailyTaskTemplates(String tenantId) {
-    final key = dailyTaskTemplatesCacheKey(tenantId);
-    _dailyTaskTemplateCacheGeneration += 1;
-    _dailyTaskTemplateCache.remove(key);
-    _dailyTaskTemplateRequests.remove(key);
+  void invalidateTaskTemplates(String tenantId) {
+    final key = taskTemplatesCacheKey(tenantId);
+    _taskTemplateCacheGeneration += 1;
+    _taskTemplateCache.remove(key);
+    _taskTemplateRequests.remove(key);
   }
 
-  void _clearDailyTaskMemoryCaches() {
-    _dailyTaskRecordCacheGeneration += 1;
-    _dailyTaskTemplateCacheGeneration += 1;
-    _dailyTaskRecordCache.clear();
-    _dailyTaskRecordRequests.clear();
-    _dailyTaskTemplateCache.clear();
-    _dailyTaskTemplateRequests.clear();
+  void _clearTaskMemoryCaches() {
+    _taskRecordCacheGeneration += 1;
+    _taskTemplateCacheGeneration += 1;
+    _taskRecordCache.clear();
+    _taskRecordRequests.clear();
+    _taskTemplateCache.clear();
+    _taskTemplateRequests.clear();
   }
 
   void _clearMediaBytesCache() {
@@ -244,7 +244,7 @@ class EastAppApi {
       invalidateAvailableContextsCache();
       invalidateTenantsCache();
       _clearContentTranslation();
-      _clearDailyTaskMemoryCaches();
+      _clearTaskMemoryCaches();
       _clearMediaBytesCache();
     }
     _token = token;
@@ -935,112 +935,124 @@ class EastAppApi {
     return DailyPhotoReport.fromJson(body);
   }
 
-  Future<List<DailyTaskTemplate>> dailyTaskTemplates({
+  Future<List<TaskTemplate>> taskTemplates({
     required String tenantId,
     bool forceRefresh = false,
   }) {
-    final cacheKey = dailyTaskTemplatesCacheKey(tenantId);
+    final cacheKey = taskTemplatesCacheKey(tenantId);
     if (forceRefresh) {
-      _dailyTaskTemplateCacheGeneration += 1;
-      _dailyTaskTemplateCache.remove(cacheKey);
+      _taskTemplateCacheGeneration += 1;
+      _taskTemplateCache.remove(cacheKey);
     } else {
-      final cached = _dailyTaskTemplateCache[cacheKey];
+      final cached = _taskTemplateCache[cacheKey];
       if (cached != null) return Future.value(cached);
-      final existing = _dailyTaskTemplateRequests[cacheKey];
+      final existing = _taskTemplateRequests[cacheKey];
       if (existing != null) return existing;
     }
 
-    final generation = _dailyTaskTemplateCacheGeneration;
-    late final Future<List<DailyTaskTemplate>> request;
+    final generation = _taskTemplateCacheGeneration;
+    late final Future<List<TaskTemplate>> request;
     request = (() async {
       final body = await _requestJson(
         'GET',
-        '/api/v1/daily-tasks/templates',
+        '/api/v1/tasks/templates',
       ) as List<dynamic>;
       final loaded = body
           .map(
             (item) =>
-                DailyTaskTemplate.fromJson(item as Map<String, dynamic>),
+                TaskTemplate.fromJson(item as Map<String, dynamic>),
           )
           .toList(growable: false);
-      if (generation == _dailyTaskTemplateCacheGeneration) {
-        _dailyTaskTemplateCache[cacheKey] = loaded;
+      if (generation == _taskTemplateCacheGeneration) {
+        _taskTemplateCache[cacheKey] = loaded;
       }
       return loaded;
     })();
-    _dailyTaskTemplateRequests[cacheKey] = request;
+    _taskTemplateRequests[cacheKey] = request;
     return request.whenComplete(() {
-      if (identical(_dailyTaskTemplateRequests[cacheKey], request)) {
-        _dailyTaskTemplateRequests.remove(cacheKey);
+      if (identical(_taskTemplateRequests[cacheKey], request)) {
+        _taskTemplateRequests.remove(cacheKey);
       }
     });
   }
 
-  Future<DailyTaskTemplate> createDailyTaskTemplate({
+  Future<TaskTemplate> createTaskTemplate({
     required String tenantId,
     required String title,
     required String instruction,
     required String tagId,
     required int requiredPhotoCount,
+    required TaskScheduleType scheduleType,
+    required DateTime firstTaskDate,
+    DateTime? endDate,
     required List<String> checklistItems,
     required bool active,
   }) async {
     final body = await _requestJson(
       'POST',
-      '/api/v1/daily-tasks/templates',
+      '/api/v1/tasks/templates',
       body: {
         'title': title.trim(),
         'instruction': instruction.trim(),
         'tagId': tagId,
         'requiredPhotoCount': requiredPhotoCount,
+        'scheduleType': scheduleType.apiValue,
+        'firstTaskDate': formatApiDate(firstTaskDate),
+        'endDate': endDate == null ? null : formatApiDate(endDate),
         'checklistItems': checklistItems
             .map((item) => item.trim())
             .toList(growable: false),
         'active': active,
       },
     ) as Map<String, dynamic>;
-    final created = DailyTaskTemplate.fromJson(body);
-    invalidateDailyTaskTemplates(tenantId);
-    invalidateDailyTaskRecords(tenantId);
+    final created = TaskTemplate.fromJson(body);
+    invalidateTaskTemplates(tenantId);
+    invalidateTaskRecords(tenantId);
     return created;
   }
 
-  Future<DailyTaskTemplate> updateDailyTaskTemplate({
+  Future<TaskTemplate> updateTaskTemplate({
     required String tenantId,
     required String templateId,
     required String title,
     required String instruction,
     required String tagId,
     required int requiredPhotoCount,
+    required TaskScheduleType scheduleType,
+    required DateTime firstTaskDate,
+    DateTime? endDate,
     required List<String> checklistItems,
     required bool active,
   }) async {
     final body = await _requestJson(
       'PATCH',
-      '/api/v1/daily-tasks/templates/$templateId',
+      '/api/v1/tasks/templates/$templateId',
       body: {
         'title': title.trim(),
         'instruction': instruction.trim(),
         'tagId': tagId,
         'requiredPhotoCount': requiredPhotoCount,
+        'scheduleType': scheduleType.apiValue,
+        'firstTaskDate': formatApiDate(firstTaskDate),
+        'endDate': endDate == null ? null : formatApiDate(endDate),
         'checklistItems': checklistItems
             .map((item) => item.trim())
             .toList(growable: false),
         'active': active,
       },
     ) as Map<String, dynamic>;
-    final updated = DailyTaskTemplate.fromJson(body);
-    invalidateDailyTaskTemplates(tenantId);
-    invalidateDailyTaskRecords(tenantId);
+    final updated = TaskTemplate.fromJson(body);
+    invalidateTaskTemplates(tenantId);
+    invalidateTaskRecords(tenantId);
     return updated;
   }
 
-  Future<DailyTaskList> dailyTaskRecords({
+  Future<TaskList> taskRecords({
     required String tenantId,
     required DateTime dateFrom,
     required DateTime dateTo,
     String? tagId,
-    DailyTaskStatus? status,
+    TaskStatus? status,
     bool submittedByMe = false,
     bool forceRefresh = false,
   }) {
@@ -1053,54 +1065,54 @@ class EastAppApi {
         'submittedByMe': submittedByMe.toString(),
       },
     ).query;
-    final cacheKey = '${dailyTaskRecordsCachePrefix(tenantId)}$query';
+    final cacheKey = '${taskRecordsCachePrefix(tenantId)}$query';
     final dayKey = _localDayKey();
     if (forceRefresh) {
-      _dailyTaskRecordCacheGeneration += 1;
-      _dailyTaskRecordCache.remove(cacheKey);
+      _taskRecordCacheGeneration += 1;
+      _taskRecordCache.remove(cacheKey);
     } else {
-      final cached = _dailyTaskRecordCache[cacheKey];
+      final cached = _taskRecordCache[cacheKey];
       if (cached != null && cached.dayKey == dayKey) {
         return Future.value(cached.value);
       }
-      if (cached != null) _dailyTaskRecordCache.remove(cacheKey);
-      final existing = _dailyTaskRecordRequests[cacheKey];
+      if (cached != null) _taskRecordCache.remove(cacheKey);
+      final existing = _taskRecordRequests[cacheKey];
       if (existing != null) return existing;
     }
 
-    final generation = _dailyTaskRecordCacheGeneration;
-    late final Future<DailyTaskList> request;
+    final generation = _taskRecordCacheGeneration;
+    late final Future<TaskList> request;
     request = (() async {
       final body = await _requestJson(
         'GET',
-        '/api/v1/daily-tasks/records?$query',
+        '/api/v1/tasks/records?$query',
       ) as Map<String, dynamic>;
-      final loaded = DailyTaskList.fromJson(body);
-      if (generation == _dailyTaskRecordCacheGeneration) {
-        _dailyTaskRecordCache[cacheKey] = _DailyTaskMemoryValue(
+      final loaded = TaskList.fromJson(body);
+      if (generation == _taskRecordCacheGeneration) {
+        _taskRecordCache[cacheKey] = _TaskMemoryValue(
           value: loaded,
           dayKey: _localDayKey(),
         );
       }
       return loaded;
     })();
-    _dailyTaskRecordRequests[cacheKey] = request;
+    _taskRecordRequests[cacheKey] = request;
     return request.whenComplete(() {
-      if (identical(_dailyTaskRecordRequests[cacheKey], request)) {
-        _dailyTaskRecordRequests.remove(cacheKey);
+      if (identical(_taskRecordRequests[cacheKey], request)) {
+        _taskRecordRequests.remove(cacheKey);
       }
     });
   }
 
-  Future<DailyTaskRecord> dailyTaskRecord(String recordId) async {
+  Future<TaskRecord> taskRecord(String recordId) async {
     final body = await _requestJson(
       'GET',
-      '/api/v1/daily-tasks/records/$recordId',
+      '/api/v1/tasks/records/$recordId',
     ) as Map<String, dynamic>;
-    return DailyTaskRecord.fromJson(body);
+    return TaskRecord.fromJson(body);
   }
 
-  Future<DailyTaskRecord> submitDailyTask({
+  Future<TaskRecord> submitTask({
     required String recordId,
     required List<String> completedChecklistItemIds,
     required List<String> photoPaths,
@@ -1108,7 +1120,7 @@ class EastAppApi {
     _beginProcessingRequest();
     final stopwatch = Stopwatch()..start();
     const method = 'POST';
-    final path = '/api/v1/daily-tasks/records/$recordId/submit';
+    final path = '/api/v1/tasks/records/$recordId/submit';
     try {
       final token = _token;
       if (token == null || token.isEmpty) {
@@ -1139,8 +1151,8 @@ class EastAppApi {
       } on Exception catch (exception) {
         final error = EastAppApiException(
           statusCode: null,
-          code: 'DAILY_TASK_PHOTO_READ_FAILED',
-          message: 'Unable to read a selected Daily Task photo: $exception',
+          code: 'TASK_PHOTO_READ_FAILED',
+          message: 'Unable to read a selected Task photo: $exception',
           method: method,
           path: path,
         );
@@ -1158,7 +1170,7 @@ class EastAppApi {
         final error = EastAppApiException(
           statusCode: null,
           code: 'REQUEST_TIMEOUT',
-          message: 'The Daily Task submission did not finish within 3 minutes.',
+          message: 'The Task submission did not finish within 3 minutes.',
           method: method,
           path: path,
         );
@@ -1183,7 +1195,7 @@ class EastAppApi {
           path: path,
           durationMs: stopwatch.elapsedMilliseconds,
         );
-        if (error.code != 'DAILY_TASK_ALREADY_SUBMITTED') {
+        if (error.code != 'TASK_ALREADY_SUBMITTED') {
           _reportApiError(error);
         }
         if (error.invalidatesSession) {
@@ -1198,7 +1210,7 @@ class EastAppApi {
         final body = jsonDecode(utf8.decode(response.bodyBytes));
         if (body is Map<String, dynamic>) {
           await _observeUserContent(path, body);
-          return DailyTaskRecord.fromJson(body);
+          return TaskRecord.fromJson(body);
         }
       } on FormatException {
         // Report the standard invalid response error below.
@@ -1206,7 +1218,7 @@ class EastAppApi {
       final error = EastAppApiException(
         statusCode: response.statusCode,
         code: 'INVALID_API_RESPONSE',
-        message: 'The backend returned an invalid Daily Task response.',
+        message: 'The backend returned an invalid Task response.',
         method: method,
         path: path,
         durationMs: stopwatch.elapsedMilliseconds,
@@ -1218,17 +1230,17 @@ class EastAppApi {
     }
   }
 
-  Future<DailyTaskRecord> rateDailyTask({
+  Future<TaskRecord> rateTask({
     required String recordId,
     required int rating,
     required String comment,
   }) async {
     final body = await _requestJson(
       'POST',
-      '/api/v1/daily-tasks/records/$recordId/rate',
+      '/api/v1/tasks/records/$recordId/rate',
       body: {'rating': rating, 'comment': comment.trim()},
     ) as Map<String, dynamic>;
-    return DailyTaskRecord.fromJson(body);
+    return TaskRecord.fromJson(body);
   }
 
   Future<ComplaintReport> createComplaintReport({
@@ -3210,11 +3222,11 @@ String _localDayKey() {
       '${now.day.toString().padLeft(2, '0')}';
 }
 
-final class _DailyTaskMemoryValue<T> {
+final class _TaskMemoryValue<T> {
   final T value;
   final String dayKey;
 
-  const _DailyTaskMemoryValue({required this.value, required this.dayKey});
+  const _TaskMemoryValue({required this.value, required this.dayKey});
 }
 
 final class _AsyncMemoryCache<T> {

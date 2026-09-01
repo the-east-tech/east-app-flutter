@@ -9055,7 +9055,7 @@ class _TagEditorSheetState extends State<_TagEditorSheet> {
       context,
       action: widget.tag == null ? 'Create Tag?' : 'Update Tag?',
       details:
-          'This saves the tag name and the users responsible for its shared Daily Tasks.',
+          'This saves the tag name and the users responsible for its shared Tasks.',
     );
     if (!confirmed || !mounted) return;
     final users = selectedUserIds
@@ -9173,7 +9173,7 @@ class _TagEditorSheetState extends State<_TagEditorSheet> {
               const SizedBox(height: 6),
               Text(
                 text.t(
-                  'Everyone assigned here shares the same Daily Tasks. Any one of them may contribute or submit.',
+                  'Everyone assigned here shares the same Tasks. Any one of them may contribute or submit.',
                 ),
                 style: const TextStyle(
                   color: AppColours.textMuted,

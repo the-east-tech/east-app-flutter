@@ -1,34 +1,54 @@
-enum DailyTaskStatus {
+enum TaskStatus {
   pending('PENDING'),
   submitted('SUBMITTED'),
   done('DONE');
 
   final String apiValue;
 
-  const DailyTaskStatus(this.apiValue);
+  const TaskStatus(this.apiValue);
 
-  static DailyTaskStatus fromApi(Object? value) {
-    return DailyTaskStatus.values.firstWhere(
+  static TaskStatus fromApi(Object? value) {
+    return TaskStatus.values.firstWhere(
       (status) => status.apiValue == value,
-      orElse: () => DailyTaskStatus.pending,
+      orElse: () => TaskStatus.pending,
     );
   }
 }
 
-class DailyTaskOverview {
+enum TaskScheduleType {
+  adHoc('AD_HOC', 'Ad hoc'),
+  daily('DAILY', 'Daily'),
+  weekly('WEEKLY', 'Weekly'),
+  biweekly('BIWEEKLY', 'Biweekly'),
+  monthly('MONTHLY', 'Monthly');
+
+  final String apiValue;
+  final String label;
+
+  const TaskScheduleType(this.apiValue, this.label);
+
+  static TaskScheduleType fromApi(Object? value) {
+    return TaskScheduleType.values.firstWhere(
+      (type) => type.apiValue == value,
+      orElse: () => TaskScheduleType.daily,
+    );
+  }
+}
+
+class TaskOverview {
   final int total;
   final int pending;
   final int submitted;
   final int done;
 
-  const DailyTaskOverview({
+  const TaskOverview({
     required this.total,
     required this.pending,
     required this.submitted,
     required this.done,
   });
 
-  static const empty = DailyTaskOverview(
+  static const empty = TaskOverview(
     total: 0,
     pending: 0,
     submitted: 0,
@@ -37,8 +57,8 @@ class DailyTaskOverview {
 
   double get completionRate => total == 0 ? 0.0 : done / total;
 
-  factory DailyTaskOverview.fromJson(Map<String, dynamic> json) {
-    return DailyTaskOverview(
+  factory TaskOverview.fromJson(Map<String, dynamic> json) {
+    return TaskOverview(
       total: (json['total'] as num? ?? 0).toInt(),
       pending: (json['pending'] as num? ?? 0).toInt(),
       submitted: (json['submitted'] as num? ?? 0).toInt(),
@@ -47,21 +67,21 @@ class DailyTaskOverview {
   }
 }
 
-class DailyTaskPerson {
+class TaskPerson {
   final String userId;
   final String fullName;
   final String employeeId;
   final String role;
 
-  const DailyTaskPerson({
+  const TaskPerson({
     required this.userId,
     required this.fullName,
     required this.employeeId,
     required this.role,
   });
 
-  factory DailyTaskPerson.fromJson(Map<String, dynamic> json) {
-    return DailyTaskPerson(
+  factory TaskPerson.fromJson(Map<String, dynamic> json) {
+    return TaskPerson(
       userId: json['userId'] as String,
       fullName: json['fullName'] as String,
       employeeId: json['employeeId'] as String,
@@ -70,28 +90,34 @@ class DailyTaskPerson {
   }
 }
 
-class DailyTaskTemplate {
+class TaskTemplate {
   final String id;
   final String tagId;
   final String tagName;
   final String title;
   final String instruction;
   final int requiredPhotoCount;
+  final TaskScheduleType scheduleType;
+  final DateTime firstTaskDate;
+  final DateTime? endDate;
   final List<String> checklistItems;
   final bool active;
-  final DailyTaskPerson createdBy;
-  final DailyTaskPerson updatedBy;
+  final TaskPerson createdBy;
+  final TaskPerson updatedBy;
   final DateTime createdAt;
   final DateTime updatedAt;
-  final List<DailyTaskAuditEntry> activity;
+  final List<TaskAuditEntry> activity;
 
-  const DailyTaskTemplate({
+  const TaskTemplate({
     required this.id,
     required this.tagId,
     required this.tagName,
     required this.title,
     required this.instruction,
     required this.requiredPhotoCount,
+    required this.scheduleType,
+    required this.firstTaskDate,
+    required this.endDate,
     required this.checklistItems,
     required this.active,
     required this.createdBy,
@@ -101,29 +127,32 @@ class DailyTaskTemplate {
     required this.activity,
   });
 
-  factory DailyTaskTemplate.fromJson(Map<String, dynamic> json) {
-    return DailyTaskTemplate(
+  factory TaskTemplate.fromJson(Map<String, dynamic> json) {
+    return TaskTemplate(
       id: json['id'] as String,
       tagId: json['tagId'] as String,
       tagName: json['tagName'] as String,
       title: json['title'] as String,
       instruction: json['instruction'] as String? ?? '',
       requiredPhotoCount: (json['requiredPhotoCount'] as num).toInt(),
+      scheduleType: TaskScheduleType.fromApi(json['scheduleType']),
+      firstTaskDate: DateTime.parse(json['firstTaskDate'] as String),
+      endDate: _dateTime(json['endDate']),
       checklistItems: (json['checklistItems'] as List<dynamic>? ?? const [])
           .map((item) => item as String)
           .toList(growable: false),
       active: json['active'] as bool,
-      createdBy: DailyTaskPerson.fromJson(
+      createdBy: TaskPerson.fromJson(
         json['createdBy'] as Map<String, dynamic>,
       ),
-      updatedBy: DailyTaskPerson.fromJson(
+      updatedBy: TaskPerson.fromJson(
         json['updatedBy'] as Map<String, dynamic>,
       ),
       createdAt: DateTime.parse(json['createdAt'] as String),
       updatedAt: DateTime.parse(json['updatedAt'] as String),
       activity: (json['activity'] as List<dynamic>? ?? const [])
           .map(
-            (item) => DailyTaskAuditEntry.fromJson(
+            (item) => TaskAuditEntry.fromJson(
               item as Map<String, dynamic>,
             ),
           )
@@ -132,15 +161,15 @@ class DailyTaskTemplate {
   }
 }
 
-class DailyTaskChecklistItem {
+class TaskChecklistItem {
   final String id;
   final int position;
   final String description;
   final bool completed;
-  final DailyTaskPerson? completedBy;
+  final TaskPerson? completedBy;
   final DateTime? completedAt;
 
-  const DailyTaskChecklistItem({
+  const TaskChecklistItem({
     required this.id,
     required this.position,
     required this.description,
@@ -149,8 +178,8 @@ class DailyTaskChecklistItem {
     required this.completedAt,
   });
 
-  factory DailyTaskChecklistItem.fromJson(Map<String, dynamic> json) {
-    return DailyTaskChecklistItem(
+  factory TaskChecklistItem.fromJson(Map<String, dynamic> json) {
+    return TaskChecklistItem(
       id: json['id'] as String,
       position: (json['position'] as num).toInt(),
       description: json['description'] as String,
@@ -161,24 +190,24 @@ class DailyTaskChecklistItem {
   }
 }
 
-class DailyTaskPhoto {
+class TaskPhoto {
   final String id;
   final String photoStorageKey;
-  final DailyTaskPerson submittedBy;
+  final TaskPerson submittedBy;
   final DateTime submittedAt;
 
-  const DailyTaskPhoto({
+  const TaskPhoto({
     required this.id,
     required this.photoStorageKey,
     required this.submittedBy,
     required this.submittedAt,
   });
 
-  factory DailyTaskPhoto.fromJson(Map<String, dynamic> json) {
-    return DailyTaskPhoto(
+  factory TaskPhoto.fromJson(Map<String, dynamic> json) {
+    return TaskPhoto(
       id: json['id'] as String,
       photoStorageKey: json['photoStorageKey'] as String,
-      submittedBy: DailyTaskPerson.fromJson(
+      submittedBy: TaskPerson.fromJson(
         json['submittedBy'] as Map<String, dynamic>,
       ),
       submittedAt: DateTime.parse(json['submittedAt'] as String),
@@ -186,14 +215,14 @@ class DailyTaskPhoto {
   }
 }
 
-class DailyTaskAuditEntry {
+class TaskAuditEntry {
   final String id;
   final String action;
   final String details;
-  final DailyTaskPerson actor;
+  final TaskPerson actor;
   final DateTime occurredAt;
 
-  const DailyTaskAuditEntry({
+  const TaskAuditEntry({
     required this.id,
     required this.action,
     required this.details,
@@ -201,12 +230,12 @@ class DailyTaskAuditEntry {
     required this.occurredAt,
   });
 
-  factory DailyTaskAuditEntry.fromJson(Map<String, dynamic> json) {
-    return DailyTaskAuditEntry(
+  factory TaskAuditEntry.fromJson(Map<String, dynamic> json) {
+    return TaskAuditEntry(
       id: json['id'] as String,
       action: json['action'] as String,
       details: json['details'] as String? ?? '',
-      actor: DailyTaskPerson.fromJson(
+      actor: TaskPerson.fromJson(
         json['actor'] as Map<String, dynamic>,
       ),
       occurredAt: DateTime.parse(json['occurredAt'] as String),
@@ -214,7 +243,7 @@ class DailyTaskAuditEntry {
   }
 }
 
-class DailyTaskRecord {
+class TaskRecord {
   final String id;
   final String templateId;
   final String tagId;
@@ -223,23 +252,24 @@ class DailyTaskRecord {
   final String title;
   final String instruction;
   final int requiredPhotoCount;
+  final TaskScheduleType scheduleType;
   final int photoCount;
-  final DailyTaskStatus status;
-  final List<DailyTaskChecklistItem> checklistItems;
-  final List<DailyTaskPhoto> photos;
+  final TaskStatus status;
+  final List<TaskChecklistItem> checklistItems;
+  final List<TaskPhoto> photos;
   final bool requirementsMet;
-  final DailyTaskPerson? submittedBy;
+  final TaskPerson? submittedBy;
   final DateTime? submittedAt;
   final int? rating;
   final String? ratingComment;
-  final DailyTaskPerson? ratedBy;
+  final TaskPerson? ratedBy;
   final DateTime? ratedAt;
   final bool canContribute;
   final bool canSubmit;
   final bool canRate;
-  final List<DailyTaskAuditEntry> activity;
+  final List<TaskAuditEntry> activity;
 
-  const DailyTaskRecord({
+  const TaskRecord({
     required this.id,
     required this.templateId,
     required this.tagId,
@@ -248,6 +278,7 @@ class DailyTaskRecord {
     required this.title,
     required this.instruction,
     required this.requiredPhotoCount,
+    required this.scheduleType,
     required this.photoCount,
     required this.status,
     required this.checklistItems,
@@ -265,8 +296,8 @@ class DailyTaskRecord {
     required this.activity,
   });
 
-  factory DailyTaskRecord.fromJson(Map<String, dynamic> json) {
-    return DailyTaskRecord(
+  factory TaskRecord.fromJson(Map<String, dynamic> json) {
+    return TaskRecord(
       id: json['id'] as String,
       templateId: json['templateId'] as String,
       tagId: json['tagId'] as String,
@@ -275,19 +306,20 @@ class DailyTaskRecord {
       title: json['title'] as String,
       instruction: json['instruction'] as String? ?? '',
       requiredPhotoCount: (json['requiredPhotoCount'] as num).toInt(),
+      scheduleType: TaskScheduleType.fromApi(json['scheduleType']),
       photoCount: (json['photoCount'] as num).toInt(),
-      status: DailyTaskStatus.fromApi(json['status']),
+      status: TaskStatus.fromApi(json['status']),
       checklistItems:
           (json['checklistItems'] as List<dynamic>? ?? const [])
               .map(
-                (item) => DailyTaskChecklistItem.fromJson(
+                (item) => TaskChecklistItem.fromJson(
                   item as Map<String, dynamic>,
                 ),
               )
               .toList(growable: false),
       photos: (json['photos'] as List<dynamic>? ?? const [])
           .map(
-            (item) => DailyTaskPhoto.fromJson(item as Map<String, dynamic>),
+            (item) => TaskPhoto.fromJson(item as Map<String, dynamic>),
           )
           .toList(growable: false),
       requirementsMet: json['requirementsMet'] as bool,
@@ -302,7 +334,7 @@ class DailyTaskRecord {
       canRate: json['canRate'] as bool,
       activity: (json['activity'] as List<dynamic>? ?? const [])
           .map(
-            (item) => DailyTaskAuditEntry.fromJson(
+            (item) => TaskAuditEntry.fromJson(
               item as Map<String, dynamic>,
             ),
           )
@@ -311,14 +343,14 @@ class DailyTaskRecord {
   }
 }
 
-class DailyTaskList {
+class TaskList {
   final DateTime taskDate;
   final DateTime dateFrom;
   final DateTime dateTo;
-  final DailyTaskOverview overview;
-  final List<DailyTaskRecord> records;
+  final TaskOverview overview;
+  final List<TaskRecord> records;
 
-  const DailyTaskList({
+  const TaskList({
     required this.taskDate,
     required this.dateFrom,
     required this.dateTo,
@@ -326,27 +358,27 @@ class DailyTaskList {
     required this.records,
   });
 
-  factory DailyTaskList.fromJson(Map<String, dynamic> json) {
+  factory TaskList.fromJson(Map<String, dynamic> json) {
     final fallbackDate = json['taskDate'] as String;
-    return DailyTaskList(
+    return TaskList(
       taskDate: DateTime.parse(fallbackDate),
       dateFrom: DateTime.parse(json['dateFrom'] as String? ?? fallbackDate),
       dateTo: DateTime.parse(json['dateTo'] as String? ?? fallbackDate),
-      overview: DailyTaskOverview.fromJson(
+      overview: TaskOverview.fromJson(
         json['overview'] as Map<String, dynamic>,
       ),
       records: (json['records'] as List<dynamic>? ?? const [])
           .map(
-            (item) => DailyTaskRecord.fromJson(item as Map<String, dynamic>),
+            (item) => TaskRecord.fromJson(item as Map<String, dynamic>),
           )
           .toList(growable: false),
     );
   }
 }
 
-DailyTaskPerson? _person(Object? value) {
+TaskPerson? _person(Object? value) {
   return value is Map<String, dynamic>
-      ? DailyTaskPerson.fromJson(value)
+      ? TaskPerson.fromJson(value)
       : null;
 }
 

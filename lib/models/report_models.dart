@@ -1,4 +1,4 @@
-import 'daily_task_models.dart';
+import 'task_models.dart';
 
 class ReportDashboard {
   final DateTime asOfDate;
@@ -10,7 +10,7 @@ class ReportDashboard {
   final InventoryIntelligence? inventory;
   final WasteOverview? waste;
   final DailyPhotoOverview dailyPhotos;
-  final DailyTaskOverview dailyTasks;
+  final TaskOverview tasks;
   final ComplaintOverview? complaints;
   final int pendingApprovals;
   final List<ReportTrendPoint> trend;
@@ -25,7 +25,7 @@ class ReportDashboard {
     required this.inventory,
     required this.waste,
     required this.dailyPhotos,
-    required this.dailyTasks,
+    required this.tasks,
     required this.complaints,
     required this.pendingApprovals,
     required this.trend,
@@ -60,11 +60,11 @@ class ReportDashboard {
       dailyPhotos: DailyPhotoOverview.fromJson(
         json['dailyPhotos'] as Map<String, dynamic>,
       ),
-      dailyTasks: json['dailyTasks'] is Map<String, dynamic>
-          ? DailyTaskOverview.fromJson(
-              json['dailyTasks'] as Map<String, dynamic>,
+      tasks: json['tasks'] is Map<String, dynamic>
+          ? TaskOverview.fromJson(
+              json['tasks'] as Map<String, dynamic>,
             )
-          : DailyTaskOverview.empty,
+          : TaskOverview.empty,
       complaints: json['complaints'] == null
           ? null
           : ComplaintOverview.fromJson(
