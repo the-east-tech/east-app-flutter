@@ -132,129 +132,126 @@ Future<String?> showAppNumberPad(
                   'back',
                 ];
 
-          return FractionallySizedBox(
-            heightFactor: .88,
-            child: Material(
-              color: AppColours.background,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(28),
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(18, 10, 18, 22),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 44,
-                      height: 5,
-                      decoration: BoxDecoration(
-                        color: AppColours.border,
-                        borderRadius: BorderRadius.circular(999),
-                      ),
+          return Material(
+            color: AppColours.background,
+            borderRadius: const BorderRadius.vertical(
+              top: Radius.circular(28),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(18, 10, 18, 22),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 44,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: AppColours.border,
+                      borderRadius: BorderRadius.circular(999),
                     ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            textScope?.text.t(title) ?? title,
-                            style: const TextStyle(
-                              fontSize: AppTextSize.s24,
-                              fontWeight: FontWeight.w700,
-                            ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          textScope?.text.t(title) ?? title,
+                          style: const TextStyle(
+                            fontSize: AppTextSize.s24,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
-                        IconButton(
-                          onPressed: () => Navigator.of(sheetContext).pop(),
-                          icon: const Icon(Icons.close_rounded),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 140),
-                      transitionBuilder: (child, animation) => ScaleTransition(
-                        scale: Tween<double>(begin: .96, end: 1).animate(
-                          CurvedAnimation(
-                            parent: animation,
-                            curve: Curves.easeOut,
-                          ),
-                        ),
-                        child: FadeTransition(opacity: animation, child: child),
                       ),
-                      child: Text(
-                        '$prefixText$displayValue$suffixText',
-                        key: ValueKey(displayValue),
-                        style: const TextStyle(
-                          fontSize: AppTextSize.s34,
-                          fontWeight: FontWeight.w700,
-                          color: AppColours.textMain,
-                        ),
-                      ),
-                    ),
-                    if (keypadError != null) ...[
-                      const SizedBox(height: 6),
-                      Text(
-                        keypadError!,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: AppColours.red,
-                          fontSize: AppTextSize.s13,
-                          fontWeight: FontWeight.w800,
-                        ),
+                      IconButton(
+                        onPressed: () => Navigator.of(sheetContext).pop(),
+                        icon: const Icon(Icons.close_rounded),
                       ),
                     ],
-                    if (previewBuilder != null) ...[
-                      const SizedBox(height: 8),
-                      previewBuilder(context, value),
-                    ],
-                    const SizedBox(height: 14),
-                    GridView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: keys.length,
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 3,
-                            crossAxisSpacing: 10,
-                            mainAxisSpacing: 10,
-                            childAspectRatio: 2,
-                          ),
-                      itemBuilder: (context, index) {
-                        final key = keys[index];
-                        return _AppNumberPadButton(
-                          label: key == 'back' ? '' : key,
-                          icon: key == 'back'
-                              ? Icons.backspace_outlined
-                              : null,
-                          onTap: () => addKey(key),
-                        );
-                      },
+                  ),
+                  const SizedBox(height: 10),
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 140),
+                    transitionBuilder: (child, animation) => ScaleTransition(
+                      scale: Tween<double>(begin: .96, end: 1).animate(
+                        CurvedAnimation(
+                          parent: animation,
+                          curve: Curves.easeOut,
+                        ),
+                      ),
+                      child: FadeTransition(opacity: animation, child: child),
                     ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: PrimaryButton(
-                            text: textScope?.text.t('Clear') ?? 'Clear',
-                            icon: Icons.clear_rounded,
-                            outlined: true,
-                            onPressed: () => addKey('clear'),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: PrimaryButton(
-                            text: textScope?.text.t('Save') ?? 'Save',
-                            icon: Icons.check_rounded,
-                            onPressed: save,
-                          ),
-                        ),
-                      ],
+                    child: Text(
+                      '$prefixText$displayValue$suffixText',
+                      key: ValueKey(displayValue),
+                      style: const TextStyle(
+                        fontSize: AppTextSize.s34,
+                        fontWeight: FontWeight.w700,
+                        color: AppColours.textMain,
+                      ),
+                    ),
+                  ),
+                  if (keypadError != null) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      keypadError!,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: AppColours.red,
+                        fontSize: AppTextSize.s13,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
                   ],
-                ),
+                  if (previewBuilder != null) ...[
+                    const SizedBox(height: 8),
+                    previewBuilder(context, value),
+                  ],
+                  const SizedBox(height: 14),
+                  GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: keys.length,
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 3,
+                          crossAxisSpacing: 10,
+                          mainAxisSpacing: 10,
+                          childAspectRatio: 2,
+                        ),
+                    itemBuilder: (context, index) {
+                      final key = keys[index];
+                      return _AppNumberPadButton(
+                        label: key == 'back' ? '' : key,
+                        icon: key == 'back'
+                            ? Icons.backspace_outlined
+                            : null,
+                        onTap: () => addKey(key),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: PrimaryButton(
+                          text: textScope?.text.t('Clear') ?? 'Clear',
+                          icon: Icons.clear_rounded,
+                          outlined: true,
+                          onPressed: () => addKey('clear'),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: PrimaryButton(
+                          text: textScope?.text.t('Save') ?? 'Save',
+                          icon: Icons.check_rounded,
+                          onPressed: save,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
           );
