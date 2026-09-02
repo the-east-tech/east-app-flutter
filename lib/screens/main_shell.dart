@@ -1948,8 +1948,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
               api: widget.api,
               isOwner: widget.session.user.role.isOwner,
               currentTenantId: widget.session.tenant.id,
-              currentTenantName: widget.session.tenant.businessName,
-              onReloadAfterSkuCopy: () async {
+              onReloadAfterSkuImport: () async {
                 await Future.wait([
                   widget.api.invalidateFeatureCache(
                     EastAppApi.stockTagsCachePrefix(widget.session.tenant.id),

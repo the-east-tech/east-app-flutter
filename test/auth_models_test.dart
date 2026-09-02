@@ -33,7 +33,7 @@ void main() {
         },
         'permissions': [
           'REPORT_INTELLIGENCE_VIEW',
-          'DAILY_TASK_MANAGE',
+          'TASK_MANAGE',
           'UNKNOWN_FUTURE_PERMISSION',
         ],
       },
@@ -43,7 +43,7 @@ void main() {
       session.can(EastAppPermission.reportIntelligenceView),
       isTrue,
     );
-    expect(session.can(EastAppPermission.dailyTaskManage), isTrue);
+    expect(session.can(EastAppPermission.taskManage), isTrue);
     expect(session.can(EastAppPermission.reportReview), isFalse);
     expect(session.permissions, hasLength(2));
   });

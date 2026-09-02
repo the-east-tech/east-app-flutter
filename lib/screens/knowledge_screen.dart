@@ -607,7 +607,7 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
         child: KeyedSubtree(
           key: ValueKey<int>(viewKey),
           child: selected != null
-              ? _SopDetailPage(
+              ? KnowledgeSopDetailView(
                   api: widget.api,
                   item: selected,
                   versions: selectedGroup?.versions ?? [selected],
@@ -629,7 +629,7 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
   }
 }
 
-class _SopDetailPage extends StatefulWidget {
+class KnowledgeSopDetailView extends StatefulWidget {
   final EastAppApi api;
   final KnowledgeItem item;
   final List<KnowledgeItem> versions;
@@ -637,7 +637,7 @@ class _SopDetailPage extends StatefulWidget {
   final VoidCallback onBack;
   final ValueChanged<KnowledgeItem>? onEdit;
 
-  const _SopDetailPage({
+  const KnowledgeSopDetailView({
     required this.api,
     required this.item,
     required this.versions,
@@ -647,10 +647,11 @@ class _SopDetailPage extends StatefulWidget {
   });
 
   @override
-  State<_SopDetailPage> createState() => _SopDetailPageState();
+  State<KnowledgeSopDetailView> createState() =>
+      _KnowledgeSopDetailViewState();
 }
 
-class _SopDetailPageState extends State<_SopDetailPage>
+class _KnowledgeSopDetailViewState extends State<KnowledgeSopDetailView>
     with WidgetsBindingObserver {
   late KnowledgeItem selectedItem;
   late YoutubePlayerController controller;
@@ -686,7 +687,7 @@ class _SopDetailPageState extends State<_SopDetailPage>
   }
 
   @override
-  void didUpdateWidget(covariant _SopDetailPage oldWidget) {
+  void didUpdateWidget(covariant KnowledgeSopDetailView oldWidget) {
     super.didUpdateWidget(oldWidget);
     KnowledgeItem nextItem = widget.item;
     for (final version in widget.versions) {

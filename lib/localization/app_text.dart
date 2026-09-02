@@ -331,17 +331,6 @@ class AppText {
           ? '$lockedPhotos 张照片将被锁定并提交经理审批。'
           : 'ဓာတ်ပုံ $lockedPhotos ပုံကို လော့ခ်ချပြီး မန်နေဂျာ အတည်ပြုရန် ပို့မည်။';
     }
-    final copiedStock = RegExp(
-      r'^(\d+) SKU, (\d+) tags and (\d+) suppliers copied\.$',
-    ).firstMatch(key);
-    if (copiedStock != null) {
-      final skuCount = copiedStock.group(1)!;
-      final tagCount = copiedStock.group(2)!;
-      final supplierCount = copiedStock.group(3)!;
-      return language == AppLanguage.chinese
-          ? '已复制 $skuCount 个SKU、$tagCount 个标签和 $supplierCount 个供应商。'
-          : 'SKU $skuCount ခု၊ Tag $tagCount ခုနှင့် ပေးသွင်းသူ $supplierCount ယောက် ကူးယူပြီး။';
-    }
     final stockRange = RegExp(
       r'^Balance (.+) · Range (.+)–(.+)$',
     ).firstMatch(key);
@@ -376,22 +365,6 @@ class AppText {
       return language == AppLanguage.chinese
           ? '预计总销售额 RM $estimatedSales。扣除预估平台佣金后，仅计入外卖平台总销售额的60%。除非Head或Owner拒绝报告，否则销售字段和作废账单将被锁定。'
           : 'ခန့်မှန်းရောင်းအားစုစုပေါင်း RM $estimatedSales။ ပလက်ဖောင်းကော်မရှင် ခန့်မှန်းပြီးနောက် Food Delivery စုစုပေါင်းရောင်းအား၏ ၆၀% ကိုသာ ထည့်တွက်သည်။ Head သို့မဟုတ် Owner က အစီရင်ခံစာကို ပယ်ချမှသာ အရောင်းအကွက်များနှင့် ပယ်ဖျက်ဘေလ်များကို ပြန်ပြင်နိုင်မည်။';
-    }
-    final copyTarget = matchedValue(r'^Copy SKUs to (.+)\?$');
-    if (copyTarget != null) {
-      return language == AppLanguage.chinese
-          ? '复制SKU到 $copyTarget？'
-          : 'SKU များကို $copyTarget သို့ ကူးယူမည်လား။';
-    }
-    final copyDetails = RegExp(
-      r'^The selected SKUs, tags and suppliers will be duplicated from ([\s\S]+) into ([\s\S]+)\.\n\nThis may create duplicate tags, suppliers or SKU records\. Copied records are independent and future changes will not stay synchronised\.$',
-    ).firstMatch(key);
-    if (copyDetails != null) {
-      final source = copyDetails.group(1)!;
-      final target = copyDetails.group(2)!;
-      return language == AppLanguage.chinese
-          ? '所选SKU、标签和供应商将从 $source 复制到 $target。\n\n这可能会创建重复的标签、供应商或SKU记录。复制的记录彼此独立，之后的更改不会保持同步。'
-          : 'ရွေးထားသော SKU၊ Tag နှင့် ပေးသွင်းသူများကို $source မှ $target သို့ ကူးယူမည်။\n\nထပ်နေသော Tag၊ ပေးသွင်းသူ သို့မဟုတ် SKU မှတ်တမ်းများ ဖြစ်ပေါ်နိုင်သည်။ ကူးယူထားသော မှတ်တမ်းများသည် သီးခြားဖြစ်ပြီး နောက်ပိုင်းပြောင်းလဲမှုများ အလိုအလျောက် မကိုက်ညီပါ။';
     }
     final capturedEvidence = matchedValue(r'^(.+) Captured$');
     if (capturedEvidence != null) {
@@ -540,6 +513,28 @@ class AppText {
 }
 
 const Map<String, String> _myanmar = {
+  'Export SKUs': 'SKU များ ထုတ်ယူရန်',
+  'Import SKUs': 'SKU များ ထည့်သွင်းရန်',
+  'More SKU actions': 'နောက်ထပ် SKU လုပ်ဆောင်ချက်များ',
+  'Unable to save the SKU CSV file.': 'SKU CSV ဖိုင်ကို မသိမ်းနိုင်ပါ။',
+  'The SKU CSV must not exceed 2 MB.': 'SKU CSV သည် 2 MB ထက် မကျော်ရပါ။',
+  'Import SKUs?': 'SKU များ ထည့်သွင်းမည်လား။',
+  'CSV cannot be imported': 'CSV ကို ထည့်သွင်း၍မရပါ',
+  'Recognised format': 'အသိအမှတ်ပြုထားသော ဖော်မတ်',
+  'Total rows': 'စုစုပေါင်း အတန်းများ',
+  'Ready to import': 'ထည့်သွင်းရန် အသင့်',
+  'Existing duplicates skipped': 'ရှိပြီးသား ထပ်နေမှုများကို ကျော်မည်',
+  'New tags': 'Tag အသစ်များ',
+  'Invalid rows': 'မမှန်ကန်သော အတန်းများ',
+  'Unmatched suppliers will remain unlinked:':
+      'မကိုက်ညီသော ပေးသွင်းသူများကို မချိတ်ဆက်ပါ:',
+  'Images, current balances and assignees are not imported.':
+      'ဓာတ်ပုံ၊ လက်ရှိလက်ကျန်နှင့် တာဝန်ခံများကို မထည့်သွင်းပါ။',
+  'Import': 'ထည့်သွင်းရန်',
+  'Unable to read the selected SKU CSV file.':
+      'ရွေးထားသော SKU CSV ဖိုင်ကို မဖတ်နိုင်ပါ။',
+  'Exported': 'ထုတ်ယူပြီး',
+  'Imported': 'ထည့်သွင်းပြီး',
   '\$label required': '\$label ဖြည့်ရန်လိုအပ်သည်',
   'Access SOPs, recipes, and ingredients': 'SOP၊ ချက်နည်းနှင့် ပါဝင်ပစ္စည်းများကို ကြည့်ရှုရန်',
   'Active': 'အသုံးပြုနေသည်',
@@ -717,6 +712,8 @@ const Map<String, String> _myanmar = {
   'English': 'အင်္ဂလိပ်',
   'Myanmar': 'မြန်မာ',
   'Linked Video': 'ချိတ်ဆက်ထားသော ဗီဒီယို',
+  'Link an existing Knowledge SOP to teach staff how to complete this task.':
+      'ဤအလုပ်ကို မှန်ကန်စွာ ပြီးမြောက်စေရန် ဝန်ထမ်းများကို သင်ပေးဖို့ ရှိပြီးသား Knowledge SOP ကို ချိတ်ဆက်ပါ။',
   'No linked video': 'ချိတ်ဆက်ဗီဒီယို မရှိ',
   'Select Language': 'ဘာသာစကား ရွေးပါ',
   'Select Video Language': 'ဗီဒီယို ဘာသာစကား ရွေးပါ',
@@ -1359,10 +1356,6 @@ const Map<String, String> _myanmar = {
   'Complaint updated': 'တိုင်ကြားချက် ပြင်ဆင်ပြီး',
   'Complete all pending items': 'စောင့်ဆိုင်းနေသော ပစ္စည်းအားလုံးကို ပြီးစီးပါ',
   'Copy': 'ကူးယူရန်',
-  'Copy SKUs from Business': 'လုပ်ငန်းမှ SKU များ ကူးယူရန်',
-  'Copy from another business': 'အခြားလုပ်ငန်းမှ ကူးယူရန်',
-  'Copy selected SKUs with their tags and suppliers.':
-      'ရွေးထားသော SKU များကို Tag နှင့် ပေးသွင်းသူများအပါအဝင် ကူးယူပါ။',
   'Customer Gender': 'ဖောက်သည် လိင်',
   'Daily Sales Input': 'နေ့စဉ် အရောင်းထည့်သွင်းမှု',
   'Daily photos submitted': 'နေ့စဉ်ဓာတ်ပုံများ တင်ပြပြီး',
@@ -1422,14 +1415,12 @@ const Map<String, String> _myanmar = {
   'Sales Report Loader': 'အရောင်းအစီရင်ခံစာ ရယူရန်',
   'Sales Submission Details': 'အရောင်းတင်ပြမှု အသေးစိတ်',
   'Sales report submitted': 'အရောင်းအစီရင်ခံစာ တင်ပြပြီး',
-  'Search source SKU': 'မူရင်း SKU ရှာရန်',
   'Select Sales report dates': 'အရောင်းအစီရင်ခံစာ ရက်များရွေးပါ',
   'Select a date range, then tap Load Report.':
       'ရက်အပိုင်းအခြား ရွေးပြီး အစီရင်ခံစာ ရယူရန်ကို နှိပ်ပါ။',
   'Select a maximum of 30 days.': 'အများဆုံး ရက် ၃၀ ရွေးပါ။',
   'Select up to 30 days, then load submitted reports.':
       'ရက် ၃၀ အထိ ရွေးပြီး တင်ပြထားသော အစီရင်ခံစာများကို ရယူပါ။',
-  'Source business': 'မူရင်းလုပ်ငန်း',
   'Start date & time *': 'စတင်ရက်နှင့် အချိန် *',
   'Submission Details': 'တင်ပြမှု အသေးစိတ်',
   'Submit Complaint': 'တိုင်ကြားချက် တင်ပြရန်',
@@ -1523,9 +1514,6 @@ const Map<String, String> _myanmar = {
   'Save Advertisement': 'ကြော်ငြာ သိမ်းရန်',
   'Published': 'ပြသနေသည်',
   'Scheduled': 'အချိန်သတ်မှတ်ထားသည်',
-  'No other business is available.': 'အခြားလုပ်ငန်း မရှိပါ။',
-  'Clear visible': 'မြင်ရသောရွေးချယ်မှုများ ရှင်းရန်',
-  'Select visible': 'မြင်ရသောပစ္စည်းများ ရွေးရန်',
   'Copying…': 'ကူးယူနေသည်…',
   'The photo, customer estimate, complaint and action will be stored for business review.':
       'ဓာတ်ပုံ၊ ဖောက်သည်ခန့်မှန်းချက်၊ တိုင်ကြားချက်နှင့် လုပ်ဆောင်မှုကို လုပ်ငန်းစစ်ဆေးရန် သိမ်းဆည်းမည်။',
@@ -1782,6 +1770,26 @@ const Map<String, String> _myanmar = {
 };
 
 const Map<String, String> _chinese = {
+  'Export SKUs': '导出SKU',
+  'Import SKUs': '导入SKU',
+  'More SKU actions': '更多SKU操作',
+  'Unable to save the SKU CSV file.': '无法保存SKU CSV文件。',
+  'The SKU CSV must not exceed 2 MB.': 'SKU CSV文件不得超过2 MB。',
+  'Import SKUs?': '导入SKU？',
+  'CSV cannot be imported': '无法导入CSV',
+  'Recognised format': '已识别格式',
+  'Total rows': '总行数',
+  'Ready to import': '可导入',
+  'Existing duplicates skipped': '跳过现有重复项',
+  'New tags': '新标签',
+  'Invalid rows': '无效行',
+  'Unmatched suppliers will remain unlinked:': '以下供应商无法匹配，将不会关联：',
+  'Images, current balances and assignees are not imported.':
+      '不会导入图片、当前库存和负责人。',
+  'Import': '导入',
+  'Unable to read the selected SKU CSV file.': '无法读取所选SKU CSV文件。',
+  'Exported': '已导出',
+  'Imported': '已导入',
   '\$label required': '\$label为必填项',
   'Access SOPs, recipes, and ingredients': '查看SOP、食谱和食材',
   'Active': '启用',
@@ -1958,6 +1966,8 @@ const Map<String, String> _chinese = {
   'English': '英语',
   'Myanmar': '缅甸语',
   'Linked Video': '关联视频',
+  'Link an existing Knowledge SOP to teach staff how to complete this task.':
+      '关联现有的知识库SOP，教员工如何正确完成此任务。',
   'No linked video': '不关联视频',
   'Select Language': '选择语言',
   'Select Video Language': '选择视频语言',
@@ -2586,10 +2596,6 @@ const Map<String, String> _chinese = {
   'Complaint updated': '投诉已更新',
   'Complete all pending items': '完成所有待处理项目',
   'Copy': '复制',
-  'Copy SKUs from Business': '从业务复制SKU',
-  'Copy from another business': '从其他业务复制',
-  'Copy selected SKUs with their tags and suppliers.':
-      '复制所选SKU及其标签和供应商。',
   'Customer Gender': '客户性别',
   'Daily Sales Input': '每日销售输入',
   'Daily photos submitted': '每日照片已提交',
@@ -2649,14 +2655,12 @@ const Map<String, String> _chinese = {
   'Sales Report Loader': '销售报告加载器',
   'Sales Submission Details': '销售提交详情',
   'Sales report submitted': '销售报告已提交',
-  'Search source SKU': '搜索来源SKU',
   'Select Sales report dates': '选择销售报告日期',
   'Select a date range, then tap Load Report.':
       '选择日期范围，然后点击加载报告。',
   'Select a maximum of 30 days.': '最多选择30天。',
   'Select up to 30 days, then load submitted reports.':
       '最多选择30天，然后加载已提交的报告。',
-  'Source business': '来源业务',
   'Start date & time *': '开始日期和时间 *',
   'Submission Details': '提交详情',
   'Submit Complaint': '提交投诉',
@@ -2750,9 +2754,6 @@ const Map<String, String> _chinese = {
   'Save Advertisement': '保存广告',
   'Published': '已发布',
   'Scheduled': '已排期',
-  'No other business is available.': '没有其他可用业务。',
-  'Clear visible': '清除可见项',
-  'Select visible': '选择可见项',
   'Copying…': '正在复制…',
   'The photo, customer estimate, complaint and action will be stored for business review.':
       '照片、客户估计、投诉内容和处理行动将保存供业务审核。',

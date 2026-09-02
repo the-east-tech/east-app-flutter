@@ -242,6 +242,8 @@ bool _shouldShowSuccessBurst(String message) {
     'updated',
     'complete',
     'completed',
+    'imported',
+    'exported',
   ];
 
   return successWords.any(value.contains);
@@ -257,6 +259,8 @@ String _successBurstMessage(String message) {
   if (value.contains('updated')) return 'Updated';
   if (value.contains('created')) return 'Created';
   if (value.contains('completed')) return 'Completed';
+  if (value.contains('imported')) return 'Imported';
+  if (value.contains('exported')) return 'Exported';
   if (value.contains('save')) return 'Saved';
   if (value.contains('submit')) return 'Submitted';
   if (value.contains('approve')) return 'Approved';
@@ -944,6 +948,8 @@ class AppProcessingOverlay extends StatelessWidget {
                             decorationColor: Colors.transparent,
                           ),
                         ),
+                        const SizedBox(height: 12),
+                        const _ProcessingDots(),
                       ],
                     ),
                   ),
@@ -1041,6 +1047,71 @@ class _ProcessingAnimationState extends State<_ProcessingAnimation>
               ),
             ],
           ),
+        );
+      },
+    );
+  }
+}
+
+class _ProcessingDots extends StatefulWidget {
+  const _ProcessingDots();
+
+  @override
+  State<_ProcessingDots> createState() => _ProcessingDotsState();
+}
+
+class _ProcessingDotsState extends State<_ProcessingDots>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController controller;
+
+  @override
+  void initState() {
+    super.initState();
+    controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const colours = [
+      AppColours.blue,
+      Color(0xFF4AA3FF),
+      Color(0xFF8B5CF6),
+    ];
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (context, child) {
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: List.generate(3, (index) {
+            final phase = (controller.value - (index * 0.16)) % 1.0;
+            final wave = (math.sin((phase * math.pi * 2) - (math.pi / 2)) + 1) / 2;
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 3),
+              child: Opacity(
+                opacity: 0.35 + (wave * 0.65),
+                child: Transform.translate(
+                  offset: Offset(0, -3 * wave),
+                  child: Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: colours[index],
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }),
         );
       },
     );

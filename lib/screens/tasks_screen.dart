@@ -15,6 +15,7 @@ import '../services/east_app_api.dart';
 import '../theme/app_theme.dart';
 import '../utils/app_diagnostics.dart';
 import '../widgets/app_components.dart';
+import 'knowledge_screen.dart';
 
 enum TasksEntry { tasks, setup }
 
@@ -968,6 +969,8 @@ class _TaskDetailPageState extends State<_TaskDetailPage> {
   final List<String> selectedPhotoPaths = [];
   bool changed = false;
   bool loading = false;
+  bool loadingLinkedSop = false;
+  List<KnowledgeItem>? linkedSopVersions;
 
   bool get acceptingInput =>
       record.status == TaskStatus.pending && record.canContribute;
@@ -1227,6 +1230,49 @@ class _TaskDetailPageState extends State<_TaskDetailPage> {
       );
     } on EastAppApiException {
       return;
+    }
+  }
+
+  Future<void> openLinkedSop() async {
+    final linkedSopId = record.linkedSopId;
+    if (linkedSopId == null || loadingLinkedSop) return;
+    setState(() => loadingLinkedSop = true);
+    try {
+      final versions = linkedSopVersions ??
+          await widget.api.knowledgeSopVersions(linkedSopId);
+      if (!mounted) return;
+      linkedSopVersions = versions;
+      setState(() => loadingLinkedSop = false);
+      if (versions.isEmpty) return;
+      final selected = versions.firstWhere(
+        (item) => item.id == linkedSopId,
+        orElse: () => versions.first,
+      );
+      await Navigator.of(context).push<void>(
+        MaterialPageRoute(
+          builder: (routeContext) => Scaffold(
+            backgroundColor: AppColours.background,
+            body: SafeArea(
+              child: KnowledgeSopDetailView(
+                api: widget.api,
+                item: selected,
+                versions: versions,
+                tagNameFor: (tagId) {
+                  for (final version in versions) {
+                    if (version.tagId == tagId && version.tagName.isNotEmpty) {
+                      return version.tagName;
+                    }
+                  }
+                  return 'Unknown Tag';
+                },
+                onBack: () => Navigator.of(routeContext).pop(),
+              ),
+            ),
+          ),
+        ),
+      );
+    } on EastAppApiException {
+      if (mounted) setState(() => loadingLinkedSop = false);
     }
   }
 
@@ -1495,6 +1541,67 @@ class _TaskDetailPageState extends State<_TaskDetailPage> {
                   text: 'Rate Task',
                   icon: Icons.star_rounded,
                   onPressed: rate,
+                ),
+              ],
+              if (record.linkedSopId != null) ...[
+                const SizedBox(height: 16),
+                WhiteCard(
+                  padding: EdgeInsets.zero,
+                  child: Pressable(
+                    onTap: loadingLinkedSop ? null : openLinkedSop,
+                    borderRadius: BorderRadius.circular(18),
+                    child: Padding(
+                      padding: const EdgeInsets.all(14),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 42,
+                            height: 42,
+                            decoration: BoxDecoration(
+                              color: AppColours.blue.withValues(alpha: 0.10),
+                              borderRadius: BorderRadius.circular(13),
+                            ),
+                            child: const Icon(
+                              Icons.play_circle_outline_rounded,
+                              color: AppColours.blue,
+                            ),
+                          ),
+                          const SizedBox(width: 11),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  text.content(
+                                    record.linkedSopTitle ??
+                                        text.t('Linked Video'),
+                                  ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  text.t('View SOP'),
+                                  style: const TextStyle(
+                                    color: AppColours.textMuted,
+                                    fontSize: AppTextSize.s13,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Icon(
+                            Icons.chevron_right_rounded,
+                            color: AppColours.textMuted,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
               ],
             ],
@@ -1999,6 +2106,10 @@ class _TaskTemplatePageState extends State<TaskTemplatePage> {
   DateTime? endDate;
   bool active = true;
   bool loadingTags = false;
+  String? linkedSopId;
+  String? linkedSopTitle;
+  List<KnowledgeItem>? sopOptions;
+  bool loadingSops = false;
 
   @override
   void initState() {
@@ -2029,6 +2140,8 @@ class _TaskTemplatePageState extends State<TaskTemplatePage> {
         ? null
         : _dateOnly(template!.endDate!);
     active = template?.active ?? true;
+    linkedSopId = template?.linkedSopId;
+    linkedSopTitle = template?.linkedSopTitle;
     for (var index = 0; index < 5; index++) {
       checklistControllers.add(
         TextEditingController(
@@ -2118,6 +2231,39 @@ class _TaskTemplatePageState extends State<TaskTemplatePage> {
     setState(() => endDate = _dateOnly(selected));
   }
 
+  Future<void> selectLinkedSop() async {
+    if (loadingSops) return;
+    var options = sopOptions;
+    if (options == null) {
+      setState(() => loadingSops = true);
+      try {
+        final page = await widget.api.knowledgeSops(size: 100);
+        if (!mounted) return;
+        options = page.content;
+        sopOptions = options;
+        setState(() => loadingSops = false);
+      } on EastAppApiException {
+        if (mounted) setState(() => loadingSops = false);
+        return;
+      }
+    }
+    final loadedOptions = options;
+    if (!mounted || loadedOptions == null) return;
+    final selected = await Navigator.of(context).push<KnowledgeItem>(
+      MaterialPageRoute(
+        builder: (_) => _TaskSopPickerPage(
+          items: loadedOptions,
+          selectedSopId: linkedSopId,
+        ),
+      ),
+    );
+    if (selected == null || !mounted) return;
+    setState(() {
+      linkedSopId = selected.id;
+      linkedSopTitle = selected.title;
+    });
+  }
+
   Future<void> save() async {
     final title = titleController.text.trim();
     final selectedTagId = tagId;
@@ -2160,6 +2306,7 @@ class _TaskTemplatePageState extends State<TaskTemplatePage> {
           title: title,
           instruction: instructionController.text,
           tagId: selectedTagId,
+          linkedSopId: linkedSopId,
           requiredPhotoCount: requiredPhotoCount,
           scheduleType: scheduleType,
           firstTaskDate: firstTaskDate,
@@ -2174,6 +2321,7 @@ class _TaskTemplatePageState extends State<TaskTemplatePage> {
           title: title,
           instruction: instructionController.text,
           tagId: selectedTagId,
+          linkedSopId: linkedSopId,
           requiredPhotoCount: requiredPhotoCount,
           scheduleType: scheduleType,
           firstTaskDate: firstTaskDate,
@@ -2459,6 +2607,64 @@ class _TaskTemplatePageState extends State<TaskTemplatePage> {
             const SizedBox(height: 12),
             _ActivityCard(entries: widget.template!.activity),
           ],
+          const SizedBox(height: 12),
+          WhiteCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  '${text.t('Linked Video')} (${text.t('Optional')})',
+                  style: const TextStyle(
+                    fontSize: AppTextSize.s18,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  text.t(
+                    'Link an existing Knowledge SOP to teach staff how to complete this task.',
+                  ),
+                  style: const TextStyle(
+                    color: AppColours.textMuted,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: loadingSops ? null : selectLinkedSop,
+                        icon: Icon(
+                          linkedSopId == null
+                              ? Icons.video_library_outlined
+                              : Icons.play_circle_outline_rounded,
+                        ),
+                        label: Text(
+                          linkedSopTitle == null
+                              ? text.t('Select SOP')
+                              : text.content(linkedSopTitle!),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ),
+                    if (linkedSopId != null) ...[
+                      const SizedBox(width: 6),
+                      IconButton(
+                        tooltip: text.t('Clear'),
+                        onPressed: () => setState(() {
+                          linkedSopId = null;
+                          linkedSopTitle = null;
+                        }),
+                        icon: const Icon(Icons.close_rounded),
+                      ),
+                    ],
+                  ],
+                ),
+              ],
+            ),
+          ),
           const SizedBox(height: 16),
           PrimaryButton(
             text: 'Save Task',
@@ -2468,6 +2674,223 @@ class _TaskTemplatePageState extends State<TaskTemplatePage> {
         ],
       ),
     );
+  }
+}
+
+class _TaskSopPickerPage extends StatefulWidget {
+  final List<KnowledgeItem> items;
+  final String? selectedSopId;
+
+  const _TaskSopPickerPage({
+    required this.items,
+    required this.selectedSopId,
+  });
+
+  @override
+  State<_TaskSopPickerPage> createState() => _TaskSopPickerPageState();
+}
+
+class _TaskSopPickerPageState extends State<_TaskSopPickerPage> {
+  final searchController = TextEditingController();
+  String appliedSearch = '';
+
+  @override
+  void dispose() {
+    searchController.dispose();
+    super.dispose();
+  }
+
+  List<_TaskSopGroup> visibleGroups() {
+    final grouped = <String, List<KnowledgeItem>>{};
+    for (final item in widget.items.where((item) => item.type == 'SOP')) {
+      final groupId = item.linkGroupId.isEmpty ? item.id : item.linkGroupId;
+      grouped.putIfAbsent(groupId, () => <KnowledgeItem>[]).add(item);
+    }
+    final query = appliedSearch.trim().toLowerCase();
+    final groups = grouped.entries
+        .map((entry) => _TaskSopGroup(entry.key, entry.value))
+        .where((group) {
+          if (query.isEmpty) return true;
+          return group.versions.any(
+            (item) => [
+              item.title,
+              item.description,
+              item.expectedOutcome,
+              item.tagName,
+              item.language.label,
+            ].join(' ').toLowerCase().contains(query),
+          );
+        })
+        .toList();
+    groups.sort(
+      (left, right) => left.title.toLowerCase().compareTo(
+            right.title.toLowerCase(),
+          ),
+    );
+    return groups;
+  }
+
+  void applySearch() {
+    FocusScope.of(context).unfocus();
+    setState(() => appliedSearch = searchController.text);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
+    final groups = visibleGroups();
+    return Scaffold(
+      backgroundColor: AppColours.background,
+      appBar: AppBar(
+        title: Text(text.t('Select SOP')),
+        backgroundColor: AppColours.background,
+        surfaceTintColor: Colors.transparent,
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(14, 8, 14, 30),
+        children: [
+          WhiteCard(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: searchController,
+                    textInputAction: TextInputAction.search,
+                    onSubmitted: (_) => applySearch(),
+                    decoration: InputDecoration(
+                      labelText: text.t('Search SOP...'),
+                      prefixIcon: const Icon(Icons.search_rounded),
+                      border: const OutlineInputBorder(),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                FilledButton(
+                  onPressed: applySearch,
+                  child: Text(text.t('Search')),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          if (groups.isEmpty)
+            WhiteCard(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 20),
+                child: Center(
+                  child: Text(
+                    text.t('No SOP found.'),
+                    style: const TextStyle(
+                      color: AppColours.textMuted,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+            )
+          else
+            for (final group in groups) ...[
+              WhiteCard(
+                key: ValueKey(group.id),
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: EdgeInsets.zero,
+                child: Pressable(
+                  onTap: () => Navigator.of(context).pop(group.selectionFor(
+                    widget.selectedSopId,
+                  )),
+                  borderRadius: BorderRadius.circular(18),
+                  child: Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 42,
+                          height: 42,
+                          decoration: BoxDecoration(
+                            color: AppColours.blue.withValues(alpha: 0.10),
+                            borderRadius: BorderRadius.circular(13),
+                          ),
+                          child: const Icon(
+                            Icons.video_library_outlined,
+                            color: AppColours.blue,
+                          ),
+                        ),
+                        const SizedBox(width: 11),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                text.content(group.title),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                [
+                                  text.content(group.tagName),
+                                  ...group.versions.map(
+                                    (item) => text.t(item.language.label),
+                                  ),
+                                ].where((value) => value.isNotEmpty).join(' · '),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: AppColours.textMuted,
+                                  fontSize: AppTextSize.s13,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Icon(
+                          group.contains(widget.selectedSopId)
+                              ? Icons.check_circle_rounded
+                              : Icons.chevron_right_rounded,
+                          color: group.contains(widget.selectedSopId)
+                              ? AppColours.green
+                              : AppColours.textMuted,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+        ],
+      ),
+    );
+  }
+}
+
+class _TaskSopGroup {
+  final String id;
+  final List<KnowledgeItem> versions;
+
+  _TaskSopGroup(this.id, List<KnowledgeItem> items)
+      : versions = [...items]
+          ..sort(
+            (left, right) => left.language.index.compareTo(
+              right.language.index,
+            ),
+          );
+
+  String get title => versions.first.title;
+  String get tagName => versions.first.tagName;
+
+  bool contains(String? sopId) =>
+      sopId != null && versions.any((item) => item.id == sopId);
+
+  KnowledgeItem selectionFor(String? selectedSopId) {
+    for (final item in versions) {
+      if (item.id == selectedSopId) return item;
+    }
+    return versions.first;
   }
 }
 

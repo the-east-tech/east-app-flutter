@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:camera/camera.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -200,8 +201,7 @@ class StockScreen extends StatefulWidget {
   final EastAppApi api;
   final bool isOwner;
   final String currentTenantId;
-  final String currentTenantName;
-  final Future<void> Function() onReloadAfterSkuCopy;
+  final Future<void> Function() onReloadAfterSkuImport;
   final List<StockTask> stockTasks;
   final List<StockSubmission> submissions;
   final List<SupplierProfile> suppliers;
@@ -257,8 +257,7 @@ class StockScreen extends StatefulWidget {
     required this.api,
     required this.isOwner,
     required this.currentTenantId,
-    required this.currentTenantName,
-    required this.onReloadAfterSkuCopy,
+    required this.onReloadAfterSkuImport,
     required this.stockTasks,
     required this.submissions,
     required this.suppliers,
@@ -596,9 +595,7 @@ class _StockScreenState extends State<StockScreen> {
           child: _SkuSetupPage(
             api: widget.api,
             isOwner: widget.isOwner,
-            currentTenantId: widget.currentTenantId,
-            currentTenantName: widget.currentTenantName,
-            onReloadAfterSkuCopy: widget.onReloadAfterSkuCopy,
+            onReloadAfterSkuImport: widget.onReloadAfterSkuImport,
             tags: widget.tags,
             suppliers: widget.suppliers,
             skus: widget.stockSkus,
@@ -5343,9 +5340,7 @@ class _ReviewInfoRow {
 class _SkuSetupPage extends StatefulWidget {
   final EastAppApi api;
   final bool isOwner;
-  final String currentTenantId;
-  final String currentTenantName;
-  final Future<void> Function() onReloadAfterSkuCopy;
+  final Future<void> Function() onReloadAfterSkuImport;
   final List<StockTag> tags;
   final List<SupplierProfile> suppliers;
   final List<StockSku> skus;
@@ -5356,9 +5351,7 @@ class _SkuSetupPage extends StatefulWidget {
   const _SkuSetupPage({
     required this.api,
     required this.isOwner,
-    required this.currentTenantId,
-    required this.currentTenantName,
-    required this.onReloadAfterSkuCopy,
+    required this.onReloadAfterSkuImport,
     required this.tags,
     required this.suppliers,
     required this.skus,
@@ -5481,27 +5474,129 @@ class _SkuSetupPageState extends State<_SkuSetupPage> {
     );
   }
 
-  Future<void> openCopySkuSheet() async {
+  Future<void> exportSkus() async {
     AppFeedback.tap();
-    final result = await showStockBottomSheet<StockSkuCopyResult>(
-      context,
-      maxHeightFactor: 0.94,
-      builder: (_) => _CopySkuSheet(
-        api: widget.api,
-        targetTenantId: widget.currentTenantId,
-        targetTenantName: widget.currentTenantName,
-      ),
-    );
-    if (result == null || !mounted) return;
-    await widget.onReloadAfterSkuCopy();
-    if (!mounted) return;
-    showSuccessSnackBar(
-      context,
-      AppTextScope.of(context).t(
-        '${result.skusCopied} SKU, ${result.tagsCopied} tags and '
-        '${result.suppliersCopied} suppliers copied.',
-      ),
-    );
+    try {
+      final csv = await widget.api.exportStockSkusCsv();
+      if (!mounted) return;
+      final saved = await FilePicker.saveFile(
+        dialogTitle: AppTextScope.of(context).t('Export SKUs'),
+        fileName: csv.fileName,
+        bytes: csv.bytes,
+      );
+      if (saved == null || !mounted) return;
+      showSuccessSnackBar(context, 'Exported');
+    } on EastAppApiException {
+      // The global API error handler already shows the failure.
+    } catch (_) {
+      if (!mounted) return;
+      showErrorSnackBar(context, 'Unable to save the SKU CSV file.');
+    }
+  }
+
+  Future<void> importSkus() async {
+    AppFeedback.tap();
+    try {
+      final file = await FilePicker.pickFile(
+        type: FileType.custom,
+        allowedExtensions: const ['csv'],
+      );
+      if (file == null) return;
+      final bytes = await file.readAsBytes();
+      if (bytes.length > 2 * 1024 * 1024) {
+        if (mounted) showErrorSnackBar(context, 'The SKU CSV must not exceed 2 MB.');
+        return;
+      }
+      final preview = await widget.api.previewStockSkuCsv(
+        fileName: file.name,
+        bytes: bytes,
+      );
+      if (!mounted) return;
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) {
+          final text = AppTextScope.of(dialogContext);
+          return AlertDialog(
+            title: Text(
+              text.t(preview.invalidRows == 0 ? 'Import SKUs?' : 'CSV cannot be imported'),
+            ),
+            content: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 460),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${text.t('Recognised format')}: ${preview.format} v${preview.formatVersion}',
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 14),
+                    _SkuCsvPreviewRow(label: text.t('Total rows'), value: preview.totalRows),
+                    _SkuCsvPreviewRow(label: text.t('Ready to import'), value: preview.readyRows, colour: AppColours.green),
+                    _SkuCsvPreviewRow(label: text.t('Existing duplicates skipped'), value: preview.duplicateRows),
+                    _SkuCsvPreviewRow(label: text.t('New tags'), value: preview.newTagCount),
+                    _SkuCsvPreviewRow(label: text.t('Invalid rows'), value: preview.invalidRows, colour: preview.invalidRows == 0 ? null : AppColours.red),
+                    if (preview.unmatchedSupplierCount > 0) ...[
+                      const SizedBox(height: 10),
+                      Text(
+                        text.t('Unmatched suppliers will remain unlinked:'),
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(preview.unmatchedSupplierNames.join(', ')),
+                    ],
+                    if (preview.errors.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      ...preview.errors.map(
+                        (error) => Padding(
+                          padding: const EdgeInsets.only(bottom: 4),
+                          child: Text(
+                            error,
+                            style: const TextStyle(color: AppColours.red),
+                          ),
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 12),
+                    Text(
+                      text.t('Images, current balances and assignees are not imported.'),
+                      style: const TextStyle(
+                        color: AppColours.textMuted,
+                        fontSize: AppTextSize.s12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: Text(text.t(preview.canImport ? 'Cancel' : 'Close')),
+              ),
+              if (preview.canImport)
+                FilledButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(true),
+                  child: Text(text.t('Import')),
+                ),
+            ],
+          );
+        },
+      );
+      if (confirmed != true || !mounted) return;
+      await widget.api.importStockSkuCsv(fileName: file.name, bytes: bytes);
+      if (!mounted) return;
+      await widget.onReloadAfterSkuImport();
+      if (!mounted) return;
+      showSuccessSnackBar(context, 'Imported');
+    } on EastAppApiException {
+      // The global API error handler already shows the failure.
+    } catch (_) {
+      if (!mounted) return;
+      showErrorSnackBar(context, 'Unable to read the selected SKU CSV file.');
+    }
   }
 
   @override
@@ -5514,60 +5609,59 @@ class _SkuSetupPageState extends State<_SkuSetupPage> {
       title: text.t('SKU'),
       subtitle: text.t('Search, filter and edit SKU.'),
       onBack: widget.onBack,
-      trailing: SizedBox(
-        width: 150,
-        child: PrimaryButton(
-          text: text.t('Add SKU'),
-          icon: Icons.add_rounded,
-          onPressed: () => showAddSkuDialog(
-            context,
-            tags: widget.tags,
-            suppliers: widget.suppliers,
-            onCreateSku: widget.onCreateSku,
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            width: 140,
+            child: PrimaryButton(
+              text: text.t('Add SKU'),
+              icon: Icons.add_rounded,
+              onPressed: () => showAddSkuDialog(
+                context,
+                tags: widget.tags,
+                suppliers: widget.suppliers,
+                onCreateSku: widget.onCreateSku,
+              ),
+            ),
           ),
-        ),
-      ),
-      children: [
-        if (widget.isOwner) ...[
-          WhiteCard(
-            child: Row(
-              children: [
-                const Icon(Icons.copy_all_rounded, color: AppColours.blue),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        text.t('Copy from another business'),
-                        style: const TextStyle(
-                          fontSize: AppTextSize.s16,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      SizedBox(height: 2),
-                      Text(
-                        text.t('Copy selected SKUs with their tags and suppliers.'),
-                        style: const TextStyle(
-                          color: AppColours.textMuted,
-                          fontSize: AppTextSize.s12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
+          if (widget.isOwner) ...[
+            const SizedBox(width: 2),
+            PopupMenuButton<String>(
+              tooltip: text.t('More SKU actions'),
+              icon: const Icon(Icons.more_vert_rounded),
+              onSelected: (value) {
+                if (value == 'import') {
+                  unawaited(importSkus());
+                } else if (value == 'export') {
+                  unawaited(exportSkus());
+                }
+              },
+              itemBuilder: (_) => [
+                PopupMenuItem<String>(
+                  value: 'import',
+                  child: ListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.file_upload_outlined),
+                    title: Text(text.t('Import SKUs')),
                   ),
                 ),
-                const SizedBox(width: 10),
-                FilledButton.tonalIcon(
-                  onPressed: openCopySkuSheet,
-                  icon: const Icon(Icons.arrow_forward_rounded, size: 18),
-                  label: Text(text.t('Copy')),
+                PopupMenuItem<String>(
+                  value: 'export',
+                  child: ListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.file_download_outlined),
+                    title: Text(text.t('Export SKUs')),
+                  ),
                 ),
               ],
             ),
-          ),
-          const SizedBox(height: 12),
+          ],
         ],
+      ),
+      children: [
         Row(
           children: [
             Expanded(child: _MiniMetric(label: text.t('Total SKU'), value: '${widget.skus.length}', icon: Icons.inventory_2_outlined)),
@@ -5631,335 +5725,30 @@ class _SkuSetupPageState extends State<_SkuSetupPage> {
 }
 
 
+class _SkuCsvPreviewRow extends StatelessWidget {
+  final String label;
+  final int value;
+  final Color? colour;
 
-class _CopySkuSheet extends StatefulWidget {
-  final EastAppApi api;
-  final String targetTenantId;
-  final String targetTenantName;
-
-  const _CopySkuSheet({
-    required this.api,
-    required this.targetTenantId,
-    required this.targetTenantName,
+  const _SkuCsvPreviewRow({
+    required this.label,
+    required this.value,
+    this.colour,
   });
 
   @override
-  State<_CopySkuSheet> createState() => _CopySkuSheetState();
-}
-
-class _CopySkuSheetState extends State<_CopySkuSheet> {
-  final searchController = TextEditingController();
-  List<EastAppTenant> sourceTenants = const [];
-  List<StockSku> sourceSkus = const [];
-  final Set<String> selectedSkuIds = <String>{};
-  String? sourceTenantId;
-  bool loading = true;
-  bool copying = false;
-  String? error;
-
-  @override
-  void initState() {
-    super.initState();
-    unawaited(loadTenants());
-  }
-
-  @override
-  void dispose() {
-    searchController.dispose();
-    super.dispose();
-  }
-
-  EastAppTenant? get sourceTenant {
-    for (final tenant in sourceTenants) {
-      if (tenant.id == sourceTenantId) return tenant;
-    }
-    return null;
-  }
-
-  List<StockSku> get filteredSkus {
-    final query = searchController.text.trim().toLowerCase();
-    if (query.isEmpty) return sourceSkus;
-    return sourceSkus.where((sku) {
-      return sku.name.toLowerCase().contains(query) ||
-          sku.category.toLowerCase().contains(query) ||
-          sku.location.toLowerCase().contains(query);
-    }).toList(growable: false);
-  }
-
-  Future<void> loadTenants() async {
-    try {
-      final tenants = (await widget.api.availableContexts())
-          .map((context) => context.tenant)
-          .where(
-            (tenant) => tenant.active && tenant.id != widget.targetTenantId,
-          )
-          .toList(growable: false);
-      if (!mounted) return;
-      setState(() {
-        sourceTenants = tenants;
-        sourceTenantId = tenants.isEmpty ? null : tenants.first.id;
-        loading = tenants.isNotEmpty;
-        error = tenants.isEmpty
-            ? 'No other business is available.'
-            : null;
-      });
-      if (tenants.isNotEmpty) await loadSkus(tenants.first.id);
-    } on EastAppApiException catch (apiError) {
-      if (!mounted) return;
-      setState(() {
-        loading = false;
-        error = apiError.message;
-      });
-    }
-  }
-
-  Future<void> loadSkus(String tenantId) async {
-    setState(() {
-      loading = true;
-      error = null;
-      sourceSkus = const [];
-      selectedSkuIds.clear();
-    });
-    try {
-      final result = await widget.api.stockCopySourceSkus(
-        tenantId: tenantId,
-        active: true,
-        size: 100,
-      );
-      if (!mounted || sourceTenantId != tenantId) return;
-      setState(() {
-        sourceSkus = result.content;
-        loading = false;
-      });
-    } on EastAppApiException catch (apiError) {
-      if (!mounted) return;
-      setState(() {
-        loading = false;
-        error = apiError.message;
-      });
-    }
-  }
-
-  Future<void> proceed() async {
-    final source = sourceTenant;
-    if (source == null || selectedSkuIds.isEmpty || copying) {
-      AppFeedback.warning();
-      return;
-    }
-
-    final text = AppTextScope.of(context);
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: Text(text.t('Copy SKUs to ${widget.targetTenantName}?')),
-          content: Text(
-            text.t(
-              'The selected SKUs, tags and suppliers will be duplicated from '
-              '${source.businessName} into ${widget.targetTenantName}.\n\n'
-              'This may create duplicate tags, suppliers or SKU records. '
-              'Copied records are independent and future changes will not stay '
-              'synchronised.',
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: Text(text.t('Cancel')),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: Text(text.t('Proceed')),
-            ),
-          ],
-        );
-      },
-    );
-    if (confirmed != true || !mounted) return;
-
-    setState(() => copying = true);
-    try {
-      final result = await widget.api.copyStockSkus(
-        sourceTenantId: source.id,
-        skuIds: selectedSkuIds.toList(growable: false),
-      );
-      if (!mounted) return;
-      Navigator.of(context).pop(result);
-    } on EastAppApiException {
-      if (!mounted) return;
-      setState(() => copying = false);
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final text = AppTextScope.of(context);
-    final visibleSkus = filteredSkus;
-    final allVisibleSelected = visibleSkus.isNotEmpty &&
-        visibleSkus.every((sku) => selectedSkuIds.contains(sku.id));
-
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
-      child: Column(
+      padding: const EdgeInsets.only(bottom: 7),
+      child: Row(
         children: [
-          stockBottomSheetHandle(),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  text.t('Copy SKUs from Business'),
-                  style: const TextStyle(
-                    fontSize: AppTextSize.s24,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              IconButton(
-                onPressed: copying ? null : () => Navigator.of(context).pop(),
-                icon: const Icon(Icons.close_rounded),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          DropdownButtonFormField<String>(
-            initialValue: sourceTenantId,
-            isExpanded: true,
-            decoration: _inputDecoration(text.t('Source business')),
-            items: sourceTenants
-                .map(
-                  (tenant) => DropdownMenuItem<String>(
-                    value: tenant.id,
-                    child: Text(tenant.businessName),
-                  ),
-                )
-                .toList(growable: false),
-            onChanged: copying || sourceTenants.isEmpty
-                ? null
-                : (value) {
-                    if (value == null || value == sourceTenantId) return;
-                    AppFeedback.select();
-                    setState(() => sourceTenantId = value);
-                    unawaited(loadSkus(value));
-                  },
-          ),
-          const SizedBox(height: 10),
-          TextField(
-            controller: searchController,
-            enabled: !copying,
-            onChanged: (_) => setState(() {}),
-            decoration: _inputDecoration(text.t('Search source SKU')).copyWith(
-              prefixIcon: const Icon(Icons.search_rounded),
+          Expanded(child: Text(label)),
+          Text(
+            '$value',
+            style: TextStyle(
+              color: colour ?? AppColours.textMain,
+              fontWeight: FontWeight.w800,
             ),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  text.t('${selectedSkuIds.length} selected'),
-                  style: const TextStyle(
-                    color: AppColours.textMuted,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              TextButton(
-                onPressed: loading || copying || visibleSkus.isEmpty
-                    ? null
-                    : () {
-                        setState(() {
-                          if (allVisibleSelected) {
-                            selectedSkuIds.removeAll(
-                              visibleSkus.map((sku) => sku.id),
-                            );
-                          } else {
-                            selectedSkuIds.addAll(
-                              visibleSkus.map((sku) => sku.id),
-                            );
-                          }
-                        });
-                      },
-                child: Text(
-                  text.t(allVisibleSelected ? 'Clear visible' : 'Select visible'),
-                ),
-              ),
-            ],
-          ),
-          Expanded(
-            child: loading
-                ? const Center(child: CircularProgressIndicator())
-                : error != null
-                    ? Center(
-                            child: Text(
-                              text.t(error!),
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            color: AppColours.textMuted,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      )
-                    : visibleSkus.isEmpty
-                        ? Center(
-                            child: Text(
-                              text.t('No SKU found.'),
-                              style: const TextStyle(
-                                color: AppColours.textMuted,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          )
-                        : ListView.separated(
-                            itemCount: visibleSkus.length,
-                            separatorBuilder: (_, _) => const Divider(height: 1),
-                            itemBuilder: (context, index) {
-                              final sku = visibleSkus[index];
-                              final selected = selectedSkuIds.contains(sku.id);
-                              return CheckboxListTile(
-                                value: selected,
-                                contentPadding: EdgeInsets.zero,
-                                title: Text(
-                                  text.content(sku.name),
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                                subtitle: Text(
-                                  '${text.content(sku.category)} · ${sku.unit}',
-                                ),
-                                onChanged: copying
-                                    ? null
-                                    : (value) {
-                                        setState(() {
-                                          if (value == true) {
-                                            selectedSkuIds.add(sku.id);
-                                          } else {
-                                            selectedSkuIds.remove(sku.id);
-                                          }
-                                        });
-                                      },
-                              );
-                            },
-                          ),
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: copying ? null : () => Navigator.of(context).pop(),
-                  child: Text(text.t('Cancel')),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: FilledButton(
-                  onPressed: selectedSkuIds.isEmpty || copying ? null : proceed,
-                  child: Text(text.t(copying ? 'Copying…' : 'Proceed')),
-                ),
-              ),
-            ],
           ),
         ],
       ),
@@ -5967,13 +5756,7 @@ class _CopySkuSheetState extends State<_CopySkuSheet> {
   }
 }
 
-String formatCountTimer(Duration duration) {
-  final days = duration.inDays;
-  final hours = duration.inHours.remainder(24).toString().padLeft(2, '0');
-  final minutes = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
-  final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
-  return '${days}d ${hours}h ${minutes}m ${seconds}s';
-}
+
 
 class _SkuCompactRow extends StatelessWidget {
   final StockSku sku;

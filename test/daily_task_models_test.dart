@@ -1,9 +1,9 @@
-import 'package:east_app/models/daily_task_models.dart';
+import 'package:east_app/models/task_models.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test('parses an immutable submitted Daily Task record', () {
-    final record = DailyTaskRecord.fromJson({
+    final record = TaskRecord.fromJson({
       'id': 'record-1',
       'templateId': 'template-1',
       'tagId': 'tag-1',
@@ -53,7 +53,7 @@ void main() {
       ],
     });
 
-    expect(record.status, DailyTaskStatus.submitted);
+    expect(record.status, TaskStatus.submitted);
     expect(record.requirementsMet, isTrue);
     expect(record.canContribute, isFalse);
     expect(record.canRate, isTrue);
@@ -62,7 +62,7 @@ void main() {
   });
 
   test('Daily Task overview calculates completion from done tasks', () {
-    const overview = DailyTaskOverview(
+    const overview = TaskOverview(
       total: 4,
       pending: 1,
       submitted: 1,
@@ -73,7 +73,7 @@ void main() {
   });
 
   test('parses a manually loaded Daily Task date range', () {
-    final result = DailyTaskList.fromJson({
+    final result = TaskList.fromJson({
       'taskDate': '2026-08-24',
       'dateFrom': '2026-08-18',
       'dateTo': '2026-08-24',

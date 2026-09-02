@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'app_models.dart';
 import 'api_models.dart';
 
@@ -333,27 +335,83 @@ EastAppPage<StockReceivingRecord> stockReceivingPageFromJson(
   return EastAppPage.fromJson(json, stockReceivingRecordFromJson);
 }
 
-class StockSkuCopyResult {
-  final int skusCopied;
-  final int tagsCopied;
-  final int suppliersCopied;
-  final List<StockSku> copiedSkus;
+class StockSkuCsvFile {
+  final String fileName;
+  final Uint8List bytes;
 
-  const StockSkuCopyResult({
-    required this.skusCopied,
-    required this.tagsCopied,
-    required this.suppliersCopied,
-    required this.copiedSkus,
+  const StockSkuCsvFile({required this.fileName, required this.bytes});
+}
+
+class StockSkuCsvPreview {
+  final String format;
+  final int formatVersion;
+  final int totalRows;
+  final int readyRows;
+  final int duplicateRows;
+  final int invalidRows;
+  final int newTagCount;
+  final int unmatchedSupplierCount;
+  final List<String> unmatchedSupplierNames;
+  final List<String> errors;
+
+  const StockSkuCsvPreview({
+    required this.format,
+    required this.formatVersion,
+    required this.totalRows,
+    required this.readyRows,
+    required this.duplicateRows,
+    required this.invalidRows,
+    required this.newTagCount,
+    required this.unmatchedSupplierCount,
+    required this.unmatchedSupplierNames,
+    required this.errors,
   });
 
-  factory StockSkuCopyResult.fromJson(Map<String, dynamic> json) {
-    return StockSkuCopyResult(
-      skusCopied: (json['skusCopied'] as num? ?? 0).toInt(),
-      tagsCopied: (json['tagsCopied'] as num? ?? 0).toInt(),
-      suppliersCopied: (json['suppliersCopied'] as num? ?? 0).toInt(),
-      copiedSkus: (json['skus'] as List<dynamic>? ?? const [])
-          .map((item) => stockSkuFromJson(item as Map<String, dynamic>))
+  bool get canImport => readyRows > 0 && invalidRows == 0;
+
+  factory StockSkuCsvPreview.fromJson(Map<String, dynamic> json) {
+    return StockSkuCsvPreview(
+      format: json['format'] as String? ?? '',
+      formatVersion: (json['formatVersion'] as num? ?? 0).toInt(),
+      totalRows: (json['totalRows'] as num? ?? 0).toInt(),
+      readyRows: (json['readyRows'] as num? ?? 0).toInt(),
+      duplicateRows: (json['duplicateRows'] as num? ?? 0).toInt(),
+      invalidRows: (json['invalidRows'] as num? ?? 0).toInt(),
+      newTagCount: (json['newTagCount'] as num? ?? 0).toInt(),
+      unmatchedSupplierCount:
+          (json['unmatchedSupplierCount'] as num? ?? 0).toInt(),
+      unmatchedSupplierNames:
+          (json['unmatchedSupplierNames'] as List<dynamic>? ?? const [])
+              .map((item) => item.toString())
+              .toList(growable: false),
+      errors: (json['errors'] as List<dynamic>? ?? const [])
+          .map((item) => item.toString())
           .toList(growable: false),
+    );
+  }
+}
+
+class StockSkuCsvImportResult {
+  final int importedRows;
+  final int skippedDuplicateRows;
+  final int createdTags;
+  final int unmatchedSupplierLinks;
+
+  const StockSkuCsvImportResult({
+    required this.importedRows,
+    required this.skippedDuplicateRows,
+    required this.createdTags,
+    required this.unmatchedSupplierLinks,
+  });
+
+  factory StockSkuCsvImportResult.fromJson(Map<String, dynamic> json) {
+    return StockSkuCsvImportResult(
+      importedRows: (json['importedRows'] as num? ?? 0).toInt(),
+      skippedDuplicateRows:
+          (json['skippedDuplicateRows'] as num? ?? 0).toInt(),
+      createdTags: (json['createdTags'] as num? ?? 0).toInt(),
+      unmatchedSupplierLinks:
+          (json['unmatchedSupplierLinks'] as num? ?? 0).toInt(),
     );
   }
 }

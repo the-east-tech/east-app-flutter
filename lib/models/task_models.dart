@@ -96,6 +96,8 @@ class TaskTemplate {
   final String tagName;
   final String title;
   final String instruction;
+  final String? linkedSopId;
+  final String? linkedSopTitle;
   final int requiredPhotoCount;
   final TaskScheduleType scheduleType;
   final DateTime firstTaskDate;
@@ -114,6 +116,8 @@ class TaskTemplate {
     required this.tagName,
     required this.title,
     required this.instruction,
+    required this.linkedSopId,
+    required this.linkedSopTitle,
     required this.requiredPhotoCount,
     required this.scheduleType,
     required this.firstTaskDate,
@@ -134,6 +138,8 @@ class TaskTemplate {
       tagName: json['tagName'] as String,
       title: json['title'] as String,
       instruction: json['instruction'] as String? ?? '',
+      linkedSopId: json['linkedSopId'] as String?,
+      linkedSopTitle: json['linkedSopTitle'] as String?,
       requiredPhotoCount: (json['requiredPhotoCount'] as num).toInt(),
       scheduleType: TaskScheduleType.fromApi(json['scheduleType']),
       firstTaskDate: DateTime.parse(json['firstTaskDate'] as String),
@@ -251,6 +257,8 @@ class TaskRecord {
   final DateTime taskDate;
   final String title;
   final String instruction;
+  final String? linkedSopId;
+  final String? linkedSopTitle;
   final int requiredPhotoCount;
   final TaskScheduleType scheduleType;
   final int photoCount;
@@ -277,6 +285,8 @@ class TaskRecord {
     required this.taskDate,
     required this.title,
     required this.instruction,
+    required this.linkedSopId,
+    required this.linkedSopTitle,
     required this.requiredPhotoCount,
     required this.scheduleType,
     required this.photoCount,
@@ -305,6 +315,8 @@ class TaskRecord {
       taskDate: DateTime.parse(json['taskDate'] as String),
       title: json['title'] as String,
       instruction: json['instruction'] as String? ?? '',
+      linkedSopId: json['linkedSopId'] as String?,
+      linkedSopTitle: json['linkedSopTitle'] as String?,
       requiredPhotoCount: (json['requiredPhotoCount'] as num).toInt(),
       scheduleType: TaskScheduleType.fromApi(json['scheduleType']),
       photoCount: (json['photoCount'] as num).toInt(),

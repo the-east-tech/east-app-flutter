@@ -983,6 +983,7 @@ class EastAppApi {
     required String title,
     required String instruction,
     required String tagId,
+    String? linkedSopId,
     required int requiredPhotoCount,
     required TaskScheduleType scheduleType,
     required DateTime firstTaskDate,
@@ -997,6 +998,7 @@ class EastAppApi {
         'title': title.trim(),
         'instruction': instruction.trim(),
         'tagId': tagId,
+        'linkedSopId': linkedSopId,
         'requiredPhotoCount': requiredPhotoCount,
         'scheduleType': scheduleType.apiValue,
         'firstTaskDate': formatApiDate(firstTaskDate),
@@ -1019,6 +1021,7 @@ class EastAppApi {
     required String title,
     required String instruction,
     required String tagId,
+    String? linkedSopId,
     required int requiredPhotoCount,
     required TaskScheduleType scheduleType,
     required DateTime firstTaskDate,
@@ -1033,6 +1036,7 @@ class EastAppApi {
         'title': title.trim(),
         'instruction': instruction.trim(),
         'tagId': tagId,
+        'linkedSopId': linkedSopId,
         'requiredPhotoCount': requiredPhotoCount,
         'scheduleType': scheduleType.apiValue,
         'firstTaskDate': formatApiDate(firstTaskDate),
@@ -1599,6 +1603,18 @@ class EastAppApi {
     return knowledgeItemFromJson(body);
   }
 
+  Future<List<KnowledgeItem>> knowledgeSopVersions(String sopId) async {
+    final body = await _requestJson(
+      'GET',
+      '/api/v1/knowledge/sops/${Uri.encodeComponent(sopId)}/versions',
+    ) as List<dynamic>;
+    return body
+        .map(
+          (item) => knowledgeItemFromJson(item as Map<String, dynamic>),
+        )
+        .toList(growable: false);
+  }
+
   Future<void> deleteKnowledgeSops(Set<String> sopIds) async {
     final ids = sopIds.where((id) => id.trim().isNotEmpty).toList()..sort();
     if (ids.isEmpty) {
@@ -1852,40 +1868,150 @@ class EastAppApi {
     return stockSkuPageFromJson(body as Map<String, dynamic>);
   }
 
-  Future<EastAppPage<StockSku>> stockCopySourceSkus({
-    required String tenantId,
-    String search = '',
-    bool? active,
-    int page = 0,
-    int size = 100,
-  }) async {
-    final query = Uri(queryParameters: {
-      'tenantId': tenantId,
-      if (search.trim().isNotEmpty) 'search': search.trim(),
-      if (active != null) 'active': '$active',
-      'page': '$page',
-      'size': '$size',
-    }).query;
-    final body = await _requestJson(
+  Future<StockSkuCsvFile> exportStockSkusCsv() async {
+    final response = await _stockSkuCsvResponse(
       'GET',
-      '/api/v1/stock/skus/copy-source?$query',
-    ) as Map<String, dynamic>;
-    return stockSkuPageFromJson(body);
+      '/api/v1/stock/skus/export',
+    );
+    final disposition = response.headers['content-disposition'] ?? '';
+    final match = RegExp(r'filename="?([^";]+)').firstMatch(disposition);
+    return StockSkuCsvFile(
+      fileName: match?.group(1)?.trim() ?? 'eastapp-skus.csv',
+      bytes: Uint8List.fromList(response.bodyBytes),
+    );
   }
 
-  Future<StockSkuCopyResult> copyStockSkus({
-    required String sourceTenantId,
-    required List<String> skuIds,
+  Future<StockSkuCsvPreview> previewStockSkuCsv({
+    required String fileName,
+    required Uint8List bytes,
   }) async {
-    final body = await _requestJson(
+    final response = await _stockSkuCsvResponse(
       'POST',
-      '/api/v1/stock/skus/copy',
-      body: {
-        'sourceTenantId': sourceTenantId,
-        'skuIds': skuIds,
-      },
-    ) as Map<String, dynamic>;
-    return StockSkuCopyResult.fromJson(body);
+      '/api/v1/stock/skus/import/preview',
+      fileName: fileName,
+      bytes: bytes,
+    );
+    return StockSkuCsvPreview.fromJson(
+      jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>,
+    );
+  }
+
+  Future<StockSkuCsvImportResult> importStockSkuCsv({
+    required String fileName,
+    required Uint8List bytes,
+  }) async {
+    final response = await _stockSkuCsvResponse(
+      'POST',
+      '/api/v1/stock/skus/import',
+      fileName: fileName,
+      bytes: bytes,
+    );
+    return StockSkuCsvImportResult.fromJson(
+      jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>,
+    );
+  }
+
+  Future<http.Response> _stockSkuCsvResponse(
+    String method,
+    String path, {
+    String? fileName,
+    Uint8List? bytes,
+  }) async {
+    _beginProcessingRequest();
+    final stopwatch = Stopwatch()..start();
+    try {
+      final token = _token;
+      if (token == null || token.isEmpty) {
+        final error = EastAppApiException(
+          statusCode: 401,
+          code: 'MISSING_SESSION',
+          message: 'Login required.',
+          method: method,
+          path: path,
+        );
+        _reportApiError(error);
+        final callback = onSessionInvalidated;
+        if (callback != null) unawaited(callback());
+        throw error;
+      }
+
+      late final http.Response response;
+      try {
+        if (method == 'GET') {
+          response = await _client.get(
+            Uri.parse('$baseUrl$path'),
+            headers: {
+              'Accept': 'text/csv',
+              'Authorization': 'Bearer $token',
+            },
+          ).timeout(_requestTimeout);
+        } else {
+          final csvBytes = bytes;
+          if (fileName == null || csvBytes == null) {
+            throw ArgumentError('CSV file name and bytes are required.');
+          }
+          final request = http.MultipartRequest(
+            method,
+            Uri.parse('$baseUrl$path'),
+          )
+            ..headers['Accept'] = 'application/json'
+            ..headers['Authorization'] = 'Bearer $token'
+            ..files.add(
+              http.MultipartFile.fromBytes(
+                'file',
+                csvBytes,
+                filename: fileName,
+              ),
+            );
+          final streamed = await _client.send(request).timeout(_requestTimeout);
+          response = await http.Response.fromStream(streamed);
+        }
+      } on TimeoutException {
+        final error = EastAppApiException(
+          statusCode: null,
+          code: 'REQUEST_TIMEOUT',
+          message: 'The application server did not respond within 15 seconds.',
+          method: method,
+          path: path,
+        );
+        _reportApiError(error);
+        throw error;
+      } on http.ClientException {
+        final error = EastAppApiException(
+          statusCode: null,
+          code: 'NETWORK_ERROR',
+          message: 'Unable to connect to the application server.',
+          method: method,
+          path: path,
+        );
+        _reportApiError(error);
+        throw error;
+      }
+
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        final error = _apiException(
+          response,
+          method: method,
+          path: path,
+          durationMs: stopwatch.elapsedMilliseconds,
+        );
+        _reportApiError(
+          error,
+          requestParameters: fileName == null
+              ? null
+              : {'fileName': fileName, 'sizeBytes': bytes?.length ?? 0},
+        );
+        if (error.invalidatesSession) {
+          useToken(null);
+          final callback = onSessionInvalidated;
+          if (callback != null) unawaited(callback());
+        }
+        throw error;
+      }
+      return response;
+    } finally {
+      _endProcessingRequest();
+    }
   }
 
   Future<StockReviewSummary> todayStockReviewSummary() async {
