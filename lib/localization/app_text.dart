@@ -1768,6 +1768,20 @@ const Map<String, String> _myanmar = {
   'No SOP videos available.': 'SOP ဗီဒီယို မရှိပါ။',
   'Playback time is recorded only while the SOP video is actively playing in the foreground. It cannot prove attention or understanding.':
       'SOP ဗီဒီယိုကို မျက်နှာပြင်ပေါ်တွင် အမှန်တကယ်ဖွင့်ထားချိန်ကိုသာ မှတ်တမ်းတင်သည်။ အာရုံစိုက်မှု သို့မဟုတ် နားလည်မှုကို သက်သေမပြနိုင်ပါ။',
+  'Sales Approvals': 'အရောင်း အတည်ပြုမှုများ',
+  'All Sales reports reviewed': 'အရောင်းအစီရင်ခံစာအားလုံး စစ်ဆေးပြီး',
+  'Open Sales Approvals': 'အရောင်း အတည်ပြုမှုများကို ဖွင့်ရန်',
+  'Open Task Approvals': 'တာဝန် အတည်ပြုမှုများကို ဖွင့်ရန်',
+  'All Tasks reviewed': 'တာဝန်အားလုံး စစ်ဆေးပြီး',
+  'Open a submitted Task to review its evidence and rate it.':
+      'တင်ပြထားသော တာဝန်ကို ဖွင့်၍ အထောက်အထားများ စစ်ဆေးပြီး အဆင့်သတ်မှတ်ပါ။',
+  'Only the next 3 pending active Tasks are loaded.':
+      'နောက်လာမည့် စောင့်ဆိုင်းနေသော တာဝန် ၃ ခုကိုသာ ရယူမည်။',
+  'Submitted & Done': 'တင်ပြပြီးနှင့် ပြီးဆုံး',
+  'Change Tag, then tap Load Tasks.':
+      'Tag ပြောင်းပြီးနောက် Load Tasks ကို နှိပ်ပါ။',
+  'Tap Load Tasks to load the next 3 pending Tasks.':
+      'နောက်လာမည့် စောင့်ဆိုင်းနေသော တာဝန် ၃ ခုကို ရယူရန် Load Tasks ကို နှိပ်ပါ။',
 };
 
 const Map<String, String> _chinese = {
@@ -3000,4 +3014,17 @@ const Map<String, String> _chinese = {
   'No SOP videos available.': '暂无SOP视频。',
   'Playback time is recorded only while the SOP video is actively playing in the foreground. It cannot prove attention or understanding.':
       '仅记录SOP视频在前台实际播放的时间，不能证明员工是否专注或理解内容。',
+  'Sales Approvals': '销售审批',
+  'All Sales reports reviewed': '所有销售报告均已审核',
+  'Open Sales Approvals': '打开销售审批',
+  'Open Task Approvals': '打开任务审批',
+  'All Tasks reviewed': '所有任务均已审核',
+  'Open a submitted Task to review its evidence and rate it.':
+      '打开已提交的任务，审核证据并评分。',
+  'Only the next 3 pending active Tasks are loaded.':
+      '仅加载接下来3个待处理的有效任务。',
+  'Submitted & Done': '已提交和已完成',
+  'Change Tag, then tap Load Tasks.': '更改标签后，点击“加载任务”。',
+  'Tap Load Tasks to load the next 3 pending Tasks.':
+      '点击“加载任务”以加载接下来3个待处理任务。',
 };

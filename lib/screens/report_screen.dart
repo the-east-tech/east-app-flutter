@@ -71,6 +71,10 @@ class _ReportScreenState extends State<ReportScreen>
     return widget.permissions.contains(EastAppPermission.taskManage);
   }
 
+  bool get canRateTasks {
+    return widget.permissions.contains(EastAppPermission.taskRate);
+  }
+
   bool get canViewAllTasks {
     return widget.permissions.contains(EastAppPermission.taskViewAll);
   }
@@ -193,7 +197,6 @@ class _ReportScreenState extends State<ReportScreen>
               onRefresh:
                   loading ? null : () => loadDashboard(forceRefresh: true),
               lastUpdatedAt: lastUpdatedAt,
-              onApprovals: canReview ? showApprovals : null,
             ),
             const SizedBox(height: 12),
           ],
@@ -234,6 +237,9 @@ class _ReportScreenState extends State<ReportScreen>
                   onTap: showSalesHistory,
                   onAction: showSales,
                   actionTooltip: 'Create today’s Sales Report',
+                  onApproval: canReview ? showSalesApprovals : null,
+                  approvalCount: data?.pendingSalesApprovals ?? 0,
+                  approvalTooltip: 'Open Sales Approvals',
                 ),
               ),
               const SizedBox(height: 12),
@@ -264,6 +270,9 @@ class _ReportScreenState extends State<ReportScreen>
                 onTap: showTasks,
                 onAction: canManageTasks ? showCreateTask : null,
                 actionTooltip: 'Open Task Setup',
+                onApproval: canRateTasks ? showTaskApprovals : null,
+                approvalCount: data?.pendingTaskApprovals ?? 0,
+                approvalTooltip: 'Open Task Approvals',
               ),
             ),
             const SizedBox(height: 12),
@@ -492,6 +501,26 @@ class _ReportScreenState extends State<ReportScreen>
     if (mounted && changed) await handleChanged();
   }
 
+  Future<void> showTaskApprovals() async {
+    if (!canRateTasks) return;
+    var changed = false;
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => TasksScreen(
+          api: widget.api,
+          tenantId: widget.tenantId,
+          currentUser: widget.currentUser,
+          permissions: widget.permissions,
+          onChanged: () async {
+            changed = true;
+          },
+          initialEntry: TasksEntry.approvals,
+        ),
+      ),
+    );
+    if (mounted && changed) await handleChanged();
+  }
+
   Future<void> showComplaints() async {
     List<ComplaintReport> records;
     try {
@@ -523,12 +552,12 @@ class _ReportScreenState extends State<ReportScreen>
     );
   }
 
-  Future<void> showApprovals() async {
+  Future<void> showSalesApprovals() async {
     List<ReportApproval> approvals;
     try {
       final loaded = await _runReportAction<List<ReportApproval>>(
         context,
-        widget.api.reportApprovals,
+        () => widget.api.reportApprovals(reportType: 'SALES'),
       );
       if (loaded == null) return;
       approvals = loaded;
@@ -538,7 +567,7 @@ class _ReportScreenState extends State<ReportScreen>
     if (!mounted) return;
     await _showReportSheet<void>(
       context,
-      title: 'Report Approvals',
+      title: 'Sales Approvals',
       icon: Icons.fact_check_rounded,
       builder: (_) => _ApprovalsSheet(
         api: widget.api,
@@ -558,7 +587,6 @@ class _ReportHero extends StatelessWidget {
   final ValueChanged<int> onPeriodChanged;
   final VoidCallback? onRefresh;
   final DateTime? lastUpdatedAt;
-  final VoidCallback? onApprovals;
 
   const _ReportHero({
     required this.controller,
@@ -569,7 +597,6 @@ class _ReportHero extends StatelessWidget {
     required this.onPeriodChanged,
     required this.onRefresh,
     required this.lastUpdatedAt,
-    required this.onApprovals,
   });
 
   @override
@@ -814,61 +841,33 @@ class _ReportHero extends StatelessWidget {
                   ],
                   if (isManagement) ...[
                     const SizedBox(height: 14),
-                    LayoutBuilder(
-                      builder: (context, constraints) {
-                        final periodSelector = SegmentedButton<int>(
-                          showSelectedIcon: false,
-                          expandedInsets: EdgeInsets.zero,
-                          style: ButtonStyle(
-                            visualDensity: VisualDensity.compact,
-                            backgroundColor: WidgetStateProperty.resolveWith(
-                              (states) => states.contains(WidgetState.selected)
-                                  ? Colors.white
-                                  : Colors.white.withValues(alpha: .10),
-                            ),
-                            foregroundColor: WidgetStateProperty.resolveWith(
-                              (states) => states.contains(WidgetState.selected)
-                                  ? AppColours.blueDark
-                                  : Colors.white,
-                            ),
-                            side: WidgetStateProperty.all(
-                              BorderSide(color: Colors.white.withValues(alpha: .18)),
-                            ),
-                          ),
-                          segments: const [
-                            ButtonSegment(value: 7, label: Text('7D')),
-                            ButtonSegment(value: 14, label: Text('14D')),
-                            ButtonSegment(value: 30, label: Text('30D')),
-                          ],
-                          selected: {periodDays},
-                          onSelectionChanged: (values) =>
-                              onPeriodChanged(values.first),
-                        );
-                        final approvalButton = onApprovals == null
-                            ? null
-                            : _ApprovalActionButton(
-                                count: dashboard?.pendingApprovals ?? 0,
-                                onPressed: onApprovals!,
-                              );
-                        if (approvalButton == null) return periodSelector;
-                        if (constraints.maxWidth < 390) {
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              periodSelector,
-                              const SizedBox(height: 10),
-                              approvalButton,
-                            ],
-                          );
-                        }
-                        return Row(
-                          children: [
-                            Expanded(child: periodSelector),
-                            const SizedBox(width: 12),
-                            Expanded(child: approvalButton),
-                          ],
-                        );
-                      },
+                    SegmentedButton<int>(
+                      showSelectedIcon: false,
+                      expandedInsets: EdgeInsets.zero,
+                      style: ButtonStyle(
+                        visualDensity: VisualDensity.compact,
+                        backgroundColor: WidgetStateProperty.resolveWith(
+                          (states) => states.contains(WidgetState.selected)
+                              ? Colors.white
+                              : Colors.white.withValues(alpha: .10),
+                        ),
+                        foregroundColor: WidgetStateProperty.resolveWith(
+                          (states) => states.contains(WidgetState.selected)
+                              ? AppColours.blueDark
+                              : Colors.white,
+                        ),
+                        side: WidgetStateProperty.all(
+                          BorderSide(color: Colors.white.withValues(alpha: .18)),
+                        ),
+                      ),
+                      segments: const [
+                        ButtonSegment(value: 7, label: Text('7D')),
+                        ButtonSegment(value: 14, label: Text('14D')),
+                        ButtonSegment(value: 30, label: Text('30D')),
+                      ],
+                      selected: {periodDays},
+                      onSelectionChanged: (values) =>
+                          onPeriodChanged(values.first),
                     ),
                   ],
 
@@ -878,57 +877,6 @@ class _ReportHero extends StatelessWidget {
           ),
         );
       },
-    );
-  }
-}
-
-class _ApprovalActionButton extends StatelessWidget {
-  final int count;
-  final VoidCallback onPressed;
-
-  const _ApprovalActionButton({
-    required this.count,
-    required this.onPressed,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final text = AppTextScope.of(context);
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        SizedBox(
-          width: double.infinity,
-          child: FilledButton.tonalIcon(
-            onPressed: onPressed,
-            icon: const Icon(Icons.fact_check_outlined),
-            label: Text(text.t('Approvals')),
-          ),
-        ),
-        if (count > 0)
-          Positioned(
-            right: 8,
-            top: -7,
-            child: Container(
-              constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: AppColours.red,
-                borderRadius: BorderRadius.circular(999),
-                border: Border.all(color: Colors.white, width: 1.5),
-              ),
-              alignment: Alignment.center,
-              child: Text(
-                count > 99 ? '99+' : '$count',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: AppTextSize.s10,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ),
-          ),
-      ],
     );
   }
 }
@@ -1023,6 +971,9 @@ class _ReportCard extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback? onAction;
   final String? actionTooltip;
+  final VoidCallback? onApproval;
+  final int approvalCount;
+  final String? approvalTooltip;
 
   const _ReportCard({
     required this.title,
@@ -1035,6 +986,9 @@ class _ReportCard extends StatelessWidget {
     required this.onTap,
     this.onAction,
     this.actionTooltip,
+    this.onApproval,
+    this.approvalCount = 0,
+    this.approvalTooltip,
   });
 
   @override
@@ -1147,13 +1101,25 @@ class _ReportCard extends StatelessWidget {
                       ],
                     ),
                   ),
-                  if (badges.isNotEmpty)
+                  if (badges.isNotEmpty || onApproval != null)
                     Flexible(
                       child: Wrap(
                         alignment: WrapAlignment.end,
+                        crossAxisAlignment: WrapCrossAlignment.center,
                         spacing: 6,
                         runSpacing: 6,
-                        children: badges,
+                        children: [
+                          ...badges,
+                          if (onApproval != null)
+                            _CardApprovalButton(
+                              count: approvalCount,
+                              tooltip: approvalTooltip,
+                              onPressed: () {
+                                AppFeedback.tap();
+                                onApproval!();
+                              },
+                            ),
+                        ],
                       ),
                     ),
                 ],
@@ -1162,6 +1128,57 @@ class _ReportCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _CardApprovalButton extends StatelessWidget {
+  final int count;
+  final String? tooltip;
+  final VoidCallback onPressed;
+
+  const _CardApprovalButton({
+    required this.count,
+    required this.tooltip,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        IconButton.filledTonal(
+          tooltip: tooltip == null ? null : text.t(tooltip!),
+          onPressed: onPressed,
+          icon: const Icon(Icons.fact_check_outlined),
+        ),
+        if (count > 0)
+          Positioned(
+            right: -5,
+            top: -7,
+            child: Container(
+              constraints: const BoxConstraints(minWidth: 20, minHeight: 20),
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: AppColours.red,
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(color: Colors.white, width: 1.5),
+              ),
+              child: Text(
+                count > 99 ? '99+' : '$count',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: AppTextSize.s10,
+                  fontWeight: FontWeight.w900,
+                  height: 1,
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }
@@ -4110,7 +4127,7 @@ class _ApprovalsSheetState extends State<_ApprovalsSheet> {
                   const Icon(Icons.verified_rounded, color: AppColours.green, size: 48),
                   const SizedBox(height: 10),
                   Text(
-                    text.t('All reports reviewed'),
+                    text.t('All Sales reports reviewed'),
                     style: const TextStyle(
                       fontSize: AppTextSize.s18,
                       fontWeight: FontWeight.w900,

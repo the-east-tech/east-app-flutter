@@ -13,6 +13,8 @@ class ReportDashboard {
   final TaskOverview tasks;
   final ComplaintOverview? complaints;
   final int pendingApprovals;
+  final int pendingSalesApprovals;
+  final int pendingTaskApprovals;
   final List<ReportTrendPoint> trend;
 
   const ReportDashboard({
@@ -28,6 +30,8 @@ class ReportDashboard {
     required this.tasks,
     required this.complaints,
     required this.pendingApprovals,
+    required this.pendingSalesApprovals,
+    required this.pendingTaskApprovals,
     required this.trend,
   });
 
@@ -70,7 +74,18 @@ class ReportDashboard {
           : ComplaintOverview.fromJson(
               json['complaints'] as Map<String, dynamic>,
             ),
-      pendingApprovals: (json['pendingApprovals'] as num).toInt(),
+      pendingApprovals: (json['pendingApprovals'] as num? ?? 0).toInt(),
+      pendingSalesApprovals:
+          (json['pendingSalesApprovals'] as num? ??
+                  json['pendingApprovals'] as num? ??
+                  0)
+              .toInt(),
+      pendingTaskApprovals:
+          (json['pendingTaskApprovals'] as num? ??
+                  ((json['tasks'] as Map<String, dynamic>?)?['submitted']
+                      as num?) ??
+                  0)
+              .toInt(),
       trend: (json['trend'] as List<dynamic>? ?? const [])
           .map((item) => ReportTrendPoint.fromJson(item as Map<String, dynamic>))
           .toList(growable: false),

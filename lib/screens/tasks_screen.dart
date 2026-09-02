@@ -17,7 +17,7 @@ import '../utils/app_diagnostics.dart';
 import '../widgets/app_components.dart';
 import 'knowledge_screen.dart';
 
-enum TasksEntry { tasks, setup }
+enum TasksEntry { tasks, setup, approvals }
 
 enum _SelectedPhotoAction { remove, retake }
 
@@ -57,8 +57,6 @@ class TasksScreen extends StatefulWidget {
 }
 
 class _TasksScreenState extends State<TasksScreen> {
-  static const int _activeTaskFutureDays = 10;
-
   late final List<_TaskTabState> taskTabStates;
   List<StockTag> tags = const [];
   List<TaskTemplate> templates = const [];
@@ -78,6 +76,8 @@ class _TasksScreenState extends State<TasksScreen> {
 
   bool get showingSetup => widget.initialEntry == TasksEntry.setup;
 
+  bool get showingApprovals => widget.initialEntry == TasksEntry.approvals;
+
   bool get showingActiveTasks => !showingSetup && selectedTab == 1;
 
   bool get showingPersonalHistory =>
@@ -93,14 +93,16 @@ class _TasksScreenState extends State<TasksScreen> {
     );
     taskTabStates = [
       _TaskTabState(selectedRange: defaultRange),
-      _TaskTabState(
-        selectedRange: _activeTaskRange(today),
-      ),
+      _TaskTabState(selectedRange: DateTimeRange(start: today, end: today)),
     ];
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      unawaited(loadTags());
-      if (showingSetup) unawaited(loadTemplates());
+      if (showingApprovals) {
+        unawaited(loadRecords(tabIndex: 0));
+      } else {
+        unawaited(loadTags());
+        if (showingSetup) unawaited(loadTemplates());
+      }
     });
   }
 
@@ -117,22 +119,36 @@ class _TasksScreenState extends State<TasksScreen> {
     final tab = taskTabStates[requestedTab];
     if (tab.loadingRecords) return;
     final requestVersion = ++tab.requestVersion;
-    final dateFrom = tab.selectedRange.start;
-    final dateTo = tab.selectedRange.end;
     final tagId = tab.selectedTagId;
     final status = tab.selectedStatus;
     final submittedByMe = !canViewAllTasks && requestedTab == 0;
     setState(() => tab.loadingRecords = true);
     try {
-      final result = await widget.api.taskRecords(
-        tenantId: widget.tenantId,
-        dateFrom: dateFrom,
-        dateTo: dateTo,
-        tagId: tagId,
-        status: status,
-        submittedByMe: submittedByMe,
-        forceRefresh: forceRefresh,
-      );
+      final TaskList result;
+      if (showingApprovals) {
+        result = await widget.api.taskApprovals();
+      } else if (requestedTab == 1) {
+        result = await widget.api.taskRecords(
+          tenantId: widget.tenantId,
+          tagId: tagId,
+          upcoming: true,
+          limit: 3,
+          forceRefresh: forceRefresh,
+        );
+      } else {
+        result = await widget.api.taskRecords(
+          tenantId: widget.tenantId,
+          dateFrom: tab.selectedRange.start,
+          dateTo: tab.selectedRange.end,
+          tagId: tagId,
+          status: status,
+          statuses: status == null
+              ? const [TaskStatus.submitted, TaskStatus.done]
+              : null,
+          submittedByMe: submittedByMe,
+          forceRefresh: forceRefresh,
+        );
+      }
       if (!mounted || tab.requestVersion != requestVersion) return;
       setState(() {
         tab.records = result.records;
@@ -225,34 +241,22 @@ class _TasksScreenState extends State<TasksScreen> {
     tab.hasLoadedRecords = false;
   }
 
-  DateTimeRange _activeTaskRange(DateTime today) {
-    return DateTimeRange(
-      start: today,
-      end: today.add(const Duration(days: _activeTaskFutureDays)),
-    );
-  }
-
   Future<void> changeTab(int index) async {
     if (selectedTab == index) return;
-    final today = _dateOnly(DateTime.now());
-    final activeTaskRange = _activeTaskRange(today);
-    final tab = taskTabStates[index];
     var shouldAutomaticallyLoad = false;
     setState(() {
       selectedTab = index;
       if (index == 1) {
-        if (tab.selectedRange.start != activeTaskRange.start ||
-            tab.selectedRange.end != activeTaskRange.end) {
-          tab.selectedRange = activeTaskRange;
-          clearLoadedRecords(tab);
-        }
         shouldAutomaticallyLoad = true;
       }
     });
     if (shouldAutomaticallyLoad) await loadRecords(tabIndex: index);
   }
 
-  Future<void> openRecord(TaskRecord record) async {
+  Future<void> openRecord(
+    TaskRecord record, {
+    bool allowRating = false,
+  }) async {
     final openedTab = selectedTab;
     final tab = taskTabStates[openedTab];
     final changed = await Navigator.of(context).push<bool>(
@@ -260,6 +264,7 @@ class _TasksScreenState extends State<TasksScreen> {
         builder: (_) => _TaskDetailPage(
           api: widget.api,
           initialRecord: record,
+          allowRating: allowRating,
         ),
       ),
     );
@@ -315,13 +320,23 @@ class _TasksScreenState extends State<TasksScreen> {
     return Scaffold(
       backgroundColor: AppColours.background,
       appBar: AppBar(
-        title: Text(text.t(showingSetup ? 'Task Setup' : 'Task')),
+        title: Text(
+          text.t(
+            showingSetup
+                ? 'Task Setup'
+                : showingApprovals
+                    ? 'Task Approvals'
+                    : 'Task',
+          ),
+        ),
         backgroundColor: AppColours.background,
         surfaceTintColor: Colors.transparent,
       ),
       body: showingSetup
           ? _buildTemplates(text)
-          : Column(
+          : showingApprovals
+              ? _buildApprovals(text)
+              : Column(
               children: [
                 Padding(
                   padding: const EdgeInsets.fromLTRB(14, 4, 14, 10),
@@ -397,7 +412,11 @@ class _TasksScreenState extends State<TasksScreen> {
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      text.t('Select a date range, then tap Load Tasks.'),
+                      text.t(
+                        showingActiveTasks
+                            ? 'Tap Load Tasks to load the next 3 pending Tasks.'
+                            : 'Select a date range, then tap Load Tasks.',
+                      ),
                       textAlign: TextAlign.center,
                       style: const TextStyle(
                         color: AppColours.textMuted,
@@ -442,6 +461,77 @@ class _TasksScreenState extends State<TasksScreen> {
                 record: record,
                 onTap: () => openRecord(record),
               ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildApprovals(AppText text) {
+    final tab = taskTabStates.first;
+    return RefreshIndicator(
+      onRefresh: () => loadRecords(tabIndex: 0, forceRefresh: true),
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(14, 4, 14, 28),
+        children: [
+          if (tab.loadingRecords)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 90),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (tab.records.isEmpty)
+            WhiteCard(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 28),
+                child: Column(
+                  children: [
+                    const Icon(
+                      Icons.verified_rounded,
+                      size: 48,
+                      color: AppColours.green,
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      text.t('All Tasks reviewed'),
+                      style: const TextStyle(
+                        fontSize: AppTextSize.s18,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else ...[
+            WhiteCard(
+              margin: const EdgeInsets.only(bottom: 12),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.fact_check_outlined,
+                    color: AppColours.blue,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      text.t(
+                        'Open a submitted Task to review its evidence and rate it.',
+                      ),
+                      style: const TextStyle(
+                        color: AppColours.textMuted,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            for (final record in tab.records)
+              _TaskRecordCard(
+                record: record,
+                onTap: () => openRecord(record, allowRating: true),
+              ),
+          ],
         ],
       ),
     );
@@ -626,19 +716,29 @@ class _TaskFilterCardState extends State<_TaskFilterCard> {
           ),
           const SizedBox(height: 10),
           if (widget.activeTasks)
-            InputDecorator(
-              decoration: const InputDecoration(
-                labelText: 'Active Task',
-                prefixIcon: Icon(Icons.event_available_rounded),
-                border: OutlineInputBorder(),
-                isDense: true,
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColours.greenSoft,
+                borderRadius: BorderRadius.circular(12),
               ),
-              child: Text(
-                '${_formatDate(widget.selectedRange.start)} — '
-                '${_formatDate(widget.selectedRange.end)}',
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.event_available_rounded,
+                    color: AppColours.green,
+                  ),
+                  const SizedBox(width: 9),
+                  Expanded(
+                    child: Text(
+                      text.t('Only the next 3 pending active Tasks are loaded.'),
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                ],
               ),
             )
-          else
+          else ...[
             OutlinedButton.icon(
               onPressed: widget.onDateRange,
               icon: const Icon(Icons.date_range_rounded),
@@ -655,28 +755,31 @@ class _TaskFilterCardState extends State<_TaskFilterCard> {
                 ],
               ),
             ),
-          const SizedBox(height: 10),
-          DropdownButtonFormField<TaskStatus?>(
-            value: widget.selectedStatus,
-            decoration: const InputDecoration(
-              labelText: 'Status',
-              border: OutlineInputBorder(),
-              isDense: true,
-            ),
-            items: [
-              const DropdownMenuItem<TaskStatus?>(
-                value: null,
-                child: Text('All Statuses'),
+            const SizedBox(height: 10),
+            DropdownButtonFormField<TaskStatus?>(
+              value: widget.selectedStatus,
+              decoration: const InputDecoration(
+                labelText: 'Status',
+                border: OutlineInputBorder(),
+                isDense: true,
               ),
-              ...TaskStatus.values.map(
-                (status) => DropdownMenuItem<TaskStatus?>(
-                  value: status,
-                  child: Text(_statusLabel(status)),
+              items: [
+                DropdownMenuItem<TaskStatus?>(
+                  value: null,
+                  child: Text(text.t('Submitted & Done')),
                 ),
-              ),
-            ],
-            onChanged: widget.onStatus,
-          ),
+                ...TaskStatus.values
+                    .where((status) => status != TaskStatus.pending)
+                    .map(
+                      (status) => DropdownMenuItem<TaskStatus?>(
+                        value: status,
+                        child: Text(text.t(_statusLabel(status))),
+                      ),
+                    ),
+              ],
+              onChanged: widget.onStatus,
+            ),
+          ],
           const SizedBox(height: 10),
           DropdownButtonFormField<String?>(
             value: widget.selectedTagId,
@@ -713,7 +816,11 @@ class _TaskFilterCardState extends State<_TaskFilterCard> {
           ),
           const SizedBox(height: 5),
           Text(
-            text.t('Changing a filter does not reload until u tap Load Tasks.'),
+            text.t(
+              widget.activeTasks
+                  ? 'Change Tag, then tap Load Tasks.'
+                  : 'Changing a filter does not reload until u tap Load Tasks.',
+            ),
             textAlign: TextAlign.center,
             style: const TextStyle(
               color: AppColours.textMuted,
@@ -953,10 +1060,12 @@ class _RequirementChip extends StatelessWidget {
 class _TaskDetailPage extends StatefulWidget {
   final EastAppApi api;
   final TaskRecord initialRecord;
+  final bool allowRating;
 
   const _TaskDetailPage({
     required this.api,
     required this.initialRecord,
+    required this.allowRating,
   });
 
   @override
@@ -1535,7 +1644,7 @@ class _TaskDetailPageState extends State<_TaskDetailPage> {
                   ),
                 ),
               ],
-              if (record.canRate) ...[
+              if (widget.allowRating && record.canRate) ...[
                 const SizedBox(height: 16),
                 PrimaryButton(
                   text: 'Rate Task',
@@ -2603,10 +2712,6 @@ class _TaskTemplatePageState extends State<TaskTemplatePage> {
               ],
             ),
           ),
-          if (widget.template?.activity.isNotEmpty == true) ...[
-            const SizedBox(height: 12),
-            _ActivityCard(entries: widget.template!.activity),
-          ],
           const SizedBox(height: 12),
           WhiteCard(
             child: Column(

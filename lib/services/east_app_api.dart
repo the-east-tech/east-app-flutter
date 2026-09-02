@@ -1074,20 +1074,27 @@ class EastAppApi {
 
   Future<TaskList> taskRecords({
     required String tenantId,
-    required DateTime dateFrom,
-    required DateTime dateTo,
+    DateTime? dateFrom,
+    DateTime? dateTo,
     String? tagId,
     TaskStatus? status,
+    List<TaskStatus>? statuses,
     bool submittedByMe = false,
+    bool upcoming = false,
+    int? limit,
     bool forceRefresh = false,
   }) {
     final query = Uri(
       queryParameters: {
-        'dateFrom': formatApiDate(dateFrom),
-        'dateTo': formatApiDate(dateTo),
+        if (dateFrom != null) 'dateFrom': formatApiDate(dateFrom),
+        if (dateTo != null) 'dateTo': formatApiDate(dateTo),
         if (tagId != null && tagId.isNotEmpty) 'tagId': tagId,
         if (status != null) 'status': status.apiValue,
+        if (statuses != null && statuses.isNotEmpty)
+          'statuses': statuses.map((item) => item.apiValue).join(','),
         'submittedByMe': submittedByMe.toString(),
+        if (upcoming) 'upcoming': 'true',
+        if (limit != null) 'limit': '$limit',
       },
     ).query;
     final cacheKey = '${taskRecordsCachePrefix(tenantId)}$query';
@@ -1127,6 +1134,14 @@ class EastAppApi {
         _taskRecordRequests.remove(cacheKey);
       }
     });
+  }
+
+  Future<TaskList> taskApprovals() async {
+    final body = await _requestJson(
+      'GET',
+      '/api/v1/tasks/approvals',
+    ) as Map<String, dynamic>;
+    return TaskList.fromJson(body);
   }
 
   Future<TaskRecord> taskRecord(String recordId) async {
@@ -1338,10 +1353,16 @@ class EastAppApi {
     return ComplaintReport.fromJson(body);
   }
 
-  Future<List<ReportApproval>> reportApprovals() async {
+  Future<List<ReportApproval>> reportApprovals({String? reportType}) async {
+    final query = Uri(
+      queryParameters: {
+        if (reportType != null && reportType.isNotEmpty)
+          'reportType': reportType,
+      },
+    ).query;
     final body = await _requestJson(
       'GET',
-      '/api/v1/reports/approvals',
+      '/api/v1/reports/approvals${query.isEmpty ? '' : '?$query'}',
     ) as List<dynamic>;
     return body
         .map((item) => ReportApproval.fromJson(item as Map<String, dynamic>))
