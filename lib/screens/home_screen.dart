@@ -322,18 +322,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 ],
               ),
               const SizedBox(height: 8),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(999),
-                child: LinearProgressIndicator(
-                  value: isManagement
-                      ? (totalReviewCount == 0 ? 0 : doneReviewCount / totalReviewCount)
-                      : taskProgress,
-                  minHeight: 8,
-                  backgroundColor: AppColours.blue.withValues(alpha: .12),
-                  valueColor: const AlwaysStoppedAnimation<Color>(
-                    AppColours.blue,
-                  ),
-                ),
+              _IntelligenceProgressBar(
+                value: isManagement
+                    ? (totalReviewCount == 0
+                        ? 0
+                        : doneReviewCount / totalReviewCount)
+                    : taskProgress,
               ),
               const SizedBox(height: 10),
               Row(
@@ -857,6 +851,73 @@ class _GoogleRatingCardState extends State<_GoogleRatingCard> {
                     ),
                   ],
                 ),
+    );
+  }
+}
+
+class _IntelligenceProgressBar extends StatefulWidget {
+  final double value;
+
+  const _IntelligenceProgressBar({required this.value});
+
+  @override
+  State<_IntelligenceProgressBar> createState() =>
+      _IntelligenceProgressBarState();
+}
+
+class _IntelligenceProgressBarState extends State<_IntelligenceProgressBar>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 3400),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final progress = widget.value.clamp(0.0, 1.0);
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(999),
+      child: Container(
+        height: 8,
+        color: const Color(0xFF1237B8).withValues(alpha: .12),
+        alignment: Alignment.centerLeft,
+        child: FractionallySizedBox(
+          widthFactor: progress,
+          heightFactor: 1,
+          alignment: Alignment.centerLeft,
+          child: AnimatedBuilder(
+            animation: _controller,
+            builder: (context, _) {
+              final shift = _controller.value;
+              return DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment(-1 + shift * .35, -1),
+                    end: Alignment(1, 1 - shift * .25),
+                    colors: const [
+                      Color(0xFF07011D),
+                      Color(0xFF1237B8),
+                      Color(0xFF7B2CFF),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ),
     );
   }
 }
