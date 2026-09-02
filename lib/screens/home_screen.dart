@@ -329,9 +329,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       ? (totalReviewCount == 0 ? 0 : doneReviewCount / totalReviewCount)
                       : taskProgress,
                   minHeight: 8,
-                  backgroundColor: const Color(0xFFD1D1D6),
+                  backgroundColor: AppColours.blue.withValues(alpha: .12),
                   valueColor: const AlwaysStoppedAnimation<Color>(
-                    Color(0xFF050014),
+                    AppColours.blue,
                   ),
                 ),
               ),

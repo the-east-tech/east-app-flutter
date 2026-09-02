@@ -991,7 +991,6 @@ class _ReportCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = AppTextScope.of(context);
-    final hasTrailingActions = onAction != null || onApproval != null;
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -1017,12 +1016,12 @@ class _ReportCard extends StatelessWidget {
           child: Stack(
             clipBehavior: Clip.none,
             children: [
-              Padding(
-                padding: EdgeInsets.only(right: hasTrailingActions ? 56 : 0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: EdgeInsets.only(right: onAction != null ? 56 : 0),
+                    child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Container(
@@ -1065,49 +1064,54 @@ class _ReportCard extends StatelessWidget {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 16),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                text.t(metric),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontSize: AppTextSize.s26,
-                                  fontWeight: FontWeight.w900,
-                                  color: accent,
-                                ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              text.t(metric),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: AppTextSize.s26,
+                                fontWeight: FontWeight.w900,
+                                color: accent,
                               ),
-                              Text(
-                                text.t(metricLabel),
-                                style: const TextStyle(
-                                  color: AppColours.textMuted,
-                                  fontSize: AppTextSize.s12,
-                                  fontWeight: FontWeight.w700,
-                                ),
+                            ),
+                            Text(
+                              text.t(metricLabel),
+                              style: const TextStyle(
+                                color: AppColours.textMuted,
+                                fontSize: AppTextSize.s12,
+                                fontWeight: FontWeight.w700,
                               ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
-                        if (badges.isNotEmpty)
-                          Flexible(
+                      ),
+                      if (badges.isNotEmpty)
+                        Expanded(
+                          child: Padding(
+                            padding: EdgeInsets.only(
+                              right: onApproval != null ? 56 : 0,
+                            ),
                             child: Wrap(
-                              alignment: WrapAlignment.end,
+                              alignment: WrapAlignment.start,
                               crossAxisAlignment: WrapCrossAlignment.center,
                               spacing: 6,
                               runSpacing: 6,
                               children: badges,
                             ),
                           ),
-                      ],
-                    ),
-                  ],
-                ),
+                        ),
+                    ],
+                  ),
+                ],
               ),
               if (onAction != null)
                 Positioned(
