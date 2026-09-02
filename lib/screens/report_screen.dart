@@ -374,10 +374,9 @@ class _ReportScreenState extends State<ReportScreen>
 
   Future<void> showSalesHistory() async {
     if (!mounted) return;
-    await _showReportSheet<void>(
+    await _showReportPage<void>(
       context,
       title: 'Sales Reports',
-      icon: Icons.receipt_long_rounded,
       builder: (_) => _SalesHistorySheet(
         api: widget.api,
         tenantId: widget.tenantId,
@@ -406,10 +405,9 @@ class _ReportScreenState extends State<ReportScreen>
       return;
     }
     if (!mounted || loaded == null) return;
-    await _showReportSheet<void>(
+    await _showReportPage<void>(
       context,
       title: 'Sales Report',
-      icon: Icons.point_of_sale_rounded,
       builder: (_) => _SalesSheet(
         api: widget.api,
         initialReport: loaded!.report,
@@ -565,10 +563,9 @@ class _ReportScreenState extends State<ReportScreen>
       return;
     }
     if (!mounted) return;
-    await _showReportSheet<void>(
+    await _showReportPage<void>(
       context,
       title: 'Sales Approvals',
-      icon: Icons.fact_check_rounded,
       builder: (_) => _ApprovalsSheet(
         api: widget.api,
         initialApprovals: approvals,
@@ -994,6 +991,7 @@ class _ReportCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = AppTextScope.of(context);
+    final hasTrailingActions = onAction != null || onApproval != null;
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -1016,114 +1014,129 @@ class _ReportCard extends StatelessWidget {
               ),
             ],
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: Stack(
+            clipBehavior: Clip.none,
             children: [
-              Row(
-                children: [
-                  Container(
-                    width: 46,
-                    height: 46,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [accent, accent.withValues(alpha: .65)],
-                      ),
-                      borderRadius: BorderRadius.circular(15),
-                    ),
-                    child: Icon(icon, color: Colors.white),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
+              Padding(
+                padding: EdgeInsets.only(right: hasTrailingActions ? 56 : 0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          text.t(title),
-                          style: const TextStyle(
-                            fontSize: AppTextSize.s19,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          text.t(subtitle),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: AppTextSize.s12,
-                            height: 1.25,
-                            color: AppColours.textMuted,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (onAction != null)
-                    IconButton.filledTonal(
-                      tooltip: actionTooltip == null
-                          ? null
-                          : text.t(actionTooltip!),
-                      onPressed: () {
-                        AppFeedback.tap();
-                        onAction!();
-                      },
-                      icon: const Icon(Icons.add_rounded),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          text.t(metric),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: AppTextSize.s26,
-                            fontWeight: FontWeight.w900,
-                            color: accent,
-                          ),
-                        ),
-                        Text(
-                          text.t(metricLabel),
-                          style: const TextStyle(
-                            color: AppColours.textMuted,
-                            fontSize: AppTextSize.s12,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (badges.isNotEmpty || onApproval != null)
-                    Flexible(
-                      child: Wrap(
-                        alignment: WrapAlignment.end,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        spacing: 6,
-                        runSpacing: 6,
-                        children: [
-                          ...badges,
-                          if (onApproval != null)
-                            _CardApprovalButton(
-                              count: approvalCount,
-                              tooltip: approvalTooltip,
-                              onPressed: () {
-                                AppFeedback.tap();
-                                onApproval!();
-                              },
+                        Container(
+                          width: 46,
+                          height: 46,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [accent, accent.withValues(alpha: .65)],
                             ),
-                        ],
-                      ),
+                            borderRadius: BorderRadius.circular(15),
+                          ),
+                          child: Icon(icon, color: Colors.white),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                text.t(title),
+                                style: const TextStyle(
+                                  fontSize: AppTextSize.s19,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                text.t(subtitle),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: AppTextSize.s12,
+                                  height: 1.25,
+                                  color: AppColours.textMuted,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
-                ],
+                    const SizedBox(height: 16),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                text.t(metric),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: AppTextSize.s26,
+                                  fontWeight: FontWeight.w900,
+                                  color: accent,
+                                ),
+                              ),
+                              Text(
+                                text.t(metricLabel),
+                                style: const TextStyle(
+                                  color: AppColours.textMuted,
+                                  fontSize: AppTextSize.s12,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (badges.isNotEmpty)
+                          Flexible(
+                            child: Wrap(
+                              alignment: WrapAlignment.end,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              spacing: 6,
+                              runSpacing: 6,
+                              children: badges,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
+              if (onAction != null)
+                Positioned(
+                  right: 0,
+                  top: 0,
+                  child: IconButton.filledTonal(
+                    tooltip: actionTooltip == null
+                        ? null
+                        : text.t(actionTooltip!),
+                    onPressed: () {
+                      AppFeedback.tap();
+                      onAction!();
+                    },
+                    icon: const Icon(Icons.add_rounded),
+                  ),
+                ),
+              if (onApproval != null)
+                Positioned(
+                  right: 0,
+                  bottom: 0,
+                  child: _CardApprovalButton(
+                    count: approvalCount,
+                    tooltip: approvalTooltip,
+                    onPressed: () {
+                      AppFeedback.tap();
+                      onApproval!();
+                    },
+                  ),
+                ),
             ],
           ),
         ),
@@ -1525,6 +1538,29 @@ Future<T?> _showReportSheet<T>(
   );
 }
 
+Future<T?> _showReportPage<T>(
+  BuildContext context, {
+  required String title,
+  required WidgetBuilder builder,
+}) {
+  return Navigator.of(context).push<T>(
+    MaterialPageRoute(
+      builder: (pageContext) {
+        final text = AppTextScope.of(pageContext);
+        return Scaffold(
+          backgroundColor: AppColours.background,
+          appBar: AppBar(
+            title: Text(text.t(title)),
+            backgroundColor: AppColours.background,
+            surfaceTintColor: Colors.transparent,
+          ),
+          body: builder(pageContext),
+        );
+      },
+    ),
+  );
+}
+
 class _SalesHistorySheet extends StatefulWidget {
   final EastAppApi api;
   final String tenantId;
@@ -1618,10 +1654,9 @@ class _SalesHistorySheetState extends State<_SalesHistorySheet> {
   }
 
   Future<void> openRecord(SalesReport report) async {
-    await _showReportSheet<void>(
+    await _showReportPage<void>(
       context,
       title: 'Sales · ${_formatDate(report.reportDate)}',
-      icon: Icons.receipt_long_rounded,
       builder: (_) => _SalesSubmittedDetail(api: widget.api, report: report),
     );
   }
@@ -4003,10 +4038,9 @@ class _ApprovalsSheetState extends State<_ApprovalsSheet> {
         );
         return;
       }
-      await _showReportSheet<void>(
+      await _showReportPage<void>(
         context,
         title: 'Review & Decide',
-        icon: _reportTypeIcon(item.reportType),
         builder: (evidenceContext) => _ApprovalEvidenceView(
           api: widget.api,
           approval: item,
@@ -4017,14 +4051,14 @@ class _ApprovalsSheetState extends State<_ApprovalsSheet> {
             Navigator.of(evidenceContext).pop();
             Future<void>.delayed(
               Duration.zero,
-              () => review(item, false),
+              () => review(item, false, sales: sales),
             );
           },
           onApprove: () {
             Navigator.of(evidenceContext).pop();
             Future<void>.delayed(
               Duration.zero,
-              () => review(item, true),
+              () => review(item, true, sales: sales),
             );
           },
         ),
@@ -4035,7 +4069,11 @@ class _ApprovalsSheetState extends State<_ApprovalsSheet> {
     }
   }
 
-  Future<void> review(ReportApproval item, bool approve) async {
+  Future<void> review(
+    ReportApproval item,
+    bool approve, {
+    SalesReport? sales,
+  }) async {
     if (!reviewingIds.add(item.id)) return;
     if (mounted) setState(() {});
     try {
@@ -4045,11 +4083,15 @@ class _ApprovalsSheetState extends State<_ApprovalsSheet> {
         context: context,
         barrierDismissible: false,
         builder: (dialogContext) => AlertDialog(
-          title: Text(text.t(approve ? 'Approve Report' : 'Reject Report')),
+          title: Text(
+            text.t(approve ? 'Comment & Review' : 'Reject Report'),
+            style: const TextStyle(fontWeight: FontWeight.w800),
+          ),
           content: TextField(
             controller: noteController,
             minLines: 3,
             maxLines: 5,
+            style: const TextStyle(fontWeight: FontWeight.w600),
             decoration: AppInputStyle.decoration(
               text.t(
                 approve
@@ -4064,7 +4106,10 @@ class _ApprovalsSheetState extends State<_ApprovalsSheet> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(),
-              child: Text(text.t('Cancel')),
+              child: Text(
+                text.t('Cancel'),
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
             ),
             FilledButton(
               onPressed: () {
@@ -4072,7 +4117,10 @@ class _ApprovalsSheetState extends State<_ApprovalsSheet> {
                 if (!approve && value.isEmpty) return;
                 Navigator.of(dialogContext).pop(value);
               },
-              child: Text(text.t(approve ? 'Approve' : 'Reject')),
+              child: Text(
+                text.t(approve ? 'Proceed' : 'Reject'),
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
             ),
           ],
         ),
@@ -4081,10 +4129,15 @@ class _ApprovalsSheetState extends State<_ApprovalsSheet> {
       if (!mounted || note == null) return;
       final confirmed = await confirmDataChange(
         context,
-        action: text.t(
-          approve ? 'Approve this report?' : 'Reject this report?',
-        ),
-        details: text.content(item.summary),
+        action: approve ? 'Approve this Report?' : 'Reject this report?',
+        details: approve && sales != null ? null : text.content(item.summary),
+        content: approve && sales != null
+            ? _SalesApprovalConfirmation(
+                report: sales,
+                reviewNote: note,
+              )
+            : null,
+        confirmLabel: approve ? 'Approve' : 'Proceed',
       );
       if (!confirmed || !mounted) return;
       try {
@@ -4211,6 +4264,114 @@ class _ApprovalsSheetState extends State<_ApprovalsSheet> {
             ),
           ),
       ],
+    );
+  }
+}
+
+class _SalesApprovalConfirmation extends StatelessWidget {
+  final SalesReport report;
+  final String reviewNote;
+
+  const _SalesApprovalConfirmation({
+    required this.report,
+    required this.reviewNote,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
+    return SingleChildScrollView(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _summaryRow(
+            context,
+            'Total Sales',
+            'RM ${_money(report.totalSalesRm)}',
+          ),
+          _summaryRow(
+            context,
+            'Cash Sales',
+            'RM ${_money(report.cashTotalRm)}',
+          ),
+          _summaryRow(
+            context,
+            'eWallet Sales',
+            'RM ${_money(report.ewalletTotalRm)}',
+          ),
+          _summaryRow(
+            context,
+            'Net Delivery (60%)',
+            'RM ${_money(report.netFoodDeliverySalesRm)}',
+          ),
+          _summaryRow(
+            context,
+            'Void Summary',
+            '${report.voidBills.length} · RM ${_money(report.voidTotalRm)}',
+          ),
+          const Divider(height: 24),
+          Text(
+            text.t('Review Comment'),
+            style: const TextStyle(
+              color: AppColours.textMain,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColours.background,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColours.border),
+            ),
+            child: Text(
+              reviewNote.isEmpty
+                  ? text.t('No review comment.')
+                  : reviewNote,
+              style: const TextStyle(
+                height: 1.4,
+                color: AppColours.textMain,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _summaryRow(
+    BuildContext context,
+    String label,
+    String value,
+  ) {
+    final text = AppTextScope.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              text.t(label),
+              style: const TextStyle(
+                color: AppColours.textMuted,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            value,
+            style: const TextStyle(
+              color: AppColours.textMain,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

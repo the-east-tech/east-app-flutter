@@ -89,6 +89,8 @@ Future<bool> confirmDataChange(
   BuildContext context, {
   required String action,
   String? details,
+  Widget? content,
+  String confirmLabel = 'Proceed',
 }) async {
   await AppFeedback.warning();
   if (!context.mounted) return false;
@@ -110,26 +112,33 @@ Future<bool> confirmDataChange(
           ),
         ],
       ),
-      content: Text(
-        text.t(
-          details ??
-              'Please review the information carefully. This will change business data.',
-        ),
-        style: const TextStyle(
-          fontSize: AppTextSize.s14,
-          height: 1.4,
-          color: AppColours.textMain,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
+      content: content ??
+          Text(
+            text.t(
+              details ??
+                  'Please review the information carefully. This will change business data.',
+            ),
+            style: const TextStyle(
+              fontSize: AppTextSize.s14,
+              height: 1.4,
+              color: AppColours.textMain,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(dialogContext).pop(false),
-          child: Text(text.t('Cancel')),
+          child: Text(
+            text.t('Cancel'),
+            style: const TextStyle(fontWeight: FontWeight.w700),
+          ),
         ),
         FilledButton(
           onPressed: () => Navigator.of(dialogContext).pop(true),
-          child: Text(text.t('Proceed')),
+          child: Text(
+            text.t(confirmLabel),
+            style: const TextStyle(fontWeight: FontWeight.w700),
+          ),
         ),
       ],
     ),
