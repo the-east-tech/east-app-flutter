@@ -991,6 +991,7 @@ class _ReportCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = AppTextScope.of(context);
+    final hasTrailingActions = onAction != null || onApproval != null;
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -1016,12 +1017,12 @@ class _ReportCard extends StatelessWidget {
           child: Stack(
             clipBehavior: Clip.none,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Padding(
-                    padding: EdgeInsets.only(right: onAction != null ? 56 : 0),
-                    child: Row(
+              Padding(
+                padding: EdgeInsets.only(right: hasTrailingActions ? 56 : 0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Container(
@@ -1064,8 +1065,7 @@ class _ReportCard extends StatelessWidget {
                         ),
                       ],
                     ),
-                  ),
-                  const SizedBox(height: 16),
+                    const SizedBox(height: 16),
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
@@ -1108,6 +1108,7 @@ class _ReportCard extends StatelessWidget {
                     ),
                   ],
                 ),
+              ),
               if (onAction != null)
                 Positioned(
                   right: 0,
