@@ -529,13 +529,15 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     });
   }
 
-  Future<String?> loadStockPageData(StockPage page) async {
+  Future<String?> loadStockPageData(StockPage page, {bool forceRefresh = false}) async {
     try {
       switch (page) {
         case StockPage.dailyCount:
           await Future.wait([
-            if (stockSkuPage < 0) loadStockSkus(reset: true),
-            if (stockCountPage < 0 ||
+            if (forceRefresh || stockSkuPage < 0)
+              loadStockSkus(reset: true, forceRefresh: forceRefresh),
+            if (forceRefresh ||
+                stockCountPage < 0 ||
                 stockCountsMine != (widget.role == UserRole.staff))
               loadStockCounts(
                 mine: widget.role == UserRole.staff,
@@ -546,8 +548,10 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
         case StockPage.receiving:
         case StockPage.restockMessage:
           await Future.wait([
-            if (stockSupplierPage < 0) loadStockSuppliers(reset: true),
-            if (stockSkuPage < 0) loadStockSkus(reset: true),
+            if (forceRefresh || stockSupplierPage < 0)
+              loadStockSuppliers(reset: true, forceRefresh: forceRefresh),
+            if (forceRefresh || stockSkuPage < 0)
+              loadStockSkus(reset: true, forceRefresh: forceRefresh),
           ]);
           break;
         case StockPage.review:
@@ -555,16 +559,23 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
           break;
         case StockPage.skuSetup:
           await Future.wait([
-            if (stockTagPage < 0) loadStockTags(reset: true),
-            if (stockSupplierPage < 0) loadStockSuppliers(reset: true),
-            if (stockSkuPage < 0) loadStockSkus(reset: true),
+            if (forceRefresh || stockTagPage < 0)
+              loadStockTags(reset: true, forceRefresh: forceRefresh),
+            if (forceRefresh || stockSupplierPage < 0)
+              loadStockSuppliers(reset: true, forceRefresh: forceRefresh),
+            if (forceRefresh || stockSkuPage < 0)
+              loadStockSkus(reset: true, forceRefresh: forceRefresh),
           ]);
           break;
         case StockPage.supplierSetup:
-          if (stockSupplierPage < 0) await loadStockSuppliers(reset: true);
+          if (forceRefresh || stockSupplierPage < 0) {
+            await loadStockSuppliers(reset: true, forceRefresh: forceRefresh);
+          }
           break;
         case StockPage.tagSetup:
-          if (stockTagPage < 0) await loadStockTags(reset: true);
+          if (forceRefresh || stockTagPage < 0) {
+            await loadStockTags(reset: true, forceRefresh: forceRefresh);
+          }
           break;
         case StockPage.assigneeSetup:
           // On-demand: Assignee loads only after Assigned/Unassigned + Load.
@@ -1978,10 +1989,8 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
               tagsLastUpdatedAt: stockTagsUpdatedAt,
               suppliersLastUpdatedAt: stockSuppliersUpdatedAt,
               skusLastUpdatedAt: stockSkusUpdatedAt,
-              onRefreshTags: () => loadStockTags(reset: true, forceRefresh: true),
-              onRefreshSuppliers: () => loadStockSuppliers(reset: true, forceRefresh: true),
-              onRefreshSkus: () => loadStockSkus(reset: true, forceRefresh: true),
-              onLoadPageData: loadStockPageData,
+              onLoadPageData: (page, forceRefresh) =>
+                  loadStockPageData(page, forceRefresh: forceRefresh),
               onLoadMoreTags: () => loadStockTags(),
               onLoadMoreSuppliers: () => loadStockSuppliers(),
               onLoadMoreSkus: () => loadStockSkus(),
