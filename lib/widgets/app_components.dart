@@ -878,6 +878,14 @@ class AppProcessingOverlay extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = AppTextScope.of(context);
+    final processingMessage = text.t('Processing... Please Wait!');
+    final ellipsisIndex = processingMessage.indexOf('...');
+    final messageBeforeDots = ellipsisIndex < 0
+        ? processingMessage
+        : processingMessage.substring(0, ellipsisIndex);
+    final messageAfterDots = ellipsisIndex < 0
+        ? ''
+        : processingMessage.substring(ellipsisIndex + 3);
     return PopScope(
       canPop: !isProcessing,
       child: Stack(
@@ -936,8 +944,20 @@ class AppProcessingOverlay extends StatelessWidget {
                       children: [
                         const _ProcessingAnimation(),
                         const SizedBox(height: 18),
-                        Text(
-                          text.t('Processing... Please Wait!'),
+                        Text.rich(
+                          TextSpan(
+                            children: [
+                              TextSpan(text: messageBeforeDots),
+                              const WidgetSpan(
+                                alignment: PlaceholderAlignment.middle,
+                                child: Padding(
+                                  padding: EdgeInsets.symmetric(horizontal: 3),
+                                  child: _ProcessingDots(),
+                                ),
+                              ),
+                              TextSpan(text: messageAfterDots),
+                            ],
+                          ),
                           textAlign: TextAlign.center,
                           style: const TextStyle(
                             fontSize: AppTextSize.s17,
@@ -948,8 +968,6 @@ class AppProcessingOverlay extends StatelessWidget {
                             decorationColor: Colors.transparent,
                           ),
                         ),
-                        const SizedBox(height: 12),
-                        const _ProcessingDots(),
                       ],
                     ),
                   ),
@@ -1089,29 +1107,35 @@ class _ProcessingDotsState extends State<_ProcessingDots>
     return AnimatedBuilder(
       animation: controller,
       builder: (context, child) {
-        return Row(
-          mainAxisSize: MainAxisSize.min,
-          children: List.generate(3, (index) {
-            final phase = (controller.value - (index * 0.16)) % 1.0;
-            final wave = (math.sin((phase * math.pi * 2) - (math.pi / 2)) + 1) / 2;
-            return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 3),
-              child: Opacity(
-                opacity: 0.35 + (wave * 0.65),
+        return SizedBox(
+          width: 32,
+          height: 18,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: List.generate(3, (index) {
+              final phase = (controller.value - (index * 0.16)) % 1.0;
+              final wave =
+                  (math.sin((phase * math.pi * 2) - (math.pi / 2)) + 1) /
+                  2;
+              return Opacity(
+                opacity: 0.30 + (wave * 0.70),
                 child: Transform.translate(
                   offset: Offset(0, -3 * wave),
-                  child: Container(
-                    width: 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      color: colours[index],
-                      shape: BoxShape.circle,
+                  child: Transform.scale(
+                    scale: 0.70 + (wave * 0.35),
+                    child: Container(
+                      width: 7,
+                      height: 7,
+                      decoration: BoxDecoration(
+                        color: colours[index],
+                        shape: BoxShape.circle,
+                      ),
                     ),
                   ),
                 ),
-              ),
-            );
-          }),
+              );
+            }),
+          ),
         );
       },
     );
