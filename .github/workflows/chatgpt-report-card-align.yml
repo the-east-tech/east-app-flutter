@@ -51,3 +51,5 @@ jobs:
           git add lib/screens/report_screen.dart
           git commit -m 'chatgpt: align report card metrics'
           git push origin HEAD:main
+
+# trigger via merged branch
