@@ -1006,7 +1006,6 @@ class _StockReceivingPageState extends State<_StockReceivingPage> {
                     invoiceCaptured: hasSupplierInvoicePhoto(items[i]),
                     goodsCaptured: hasSupplierGoodsPhoto(items[i]),
                     savedSkuCount: draftsForSupplier(items[i]).length,
-                    skuCount: skusForSupplier(items[i]).length,
                     submitted: isSupplierBatchSubmitted(items[i]),
                     selecting: selectingSupplierBatches,
                     selected: selectedSupplierBatchIds.contains(items[i].id),
@@ -1088,7 +1087,6 @@ class _ReceivingSupplierActionRow extends StatelessWidget {
   final VoidCallback onCaptureInvoice;
   final VoidCallback onCaptureGoods;
   final int savedSkuCount;
-  final int skuCount;
   final bool submitted;
   final bool selecting;
   final bool selected;
@@ -1103,7 +1101,6 @@ class _ReceivingSupplierActionRow extends StatelessWidget {
     required this.invoiceCaptured,
     required this.goodsCaptured,
     required this.savedSkuCount,
-    required this.skuCount,
     required this.submitted,
     required this.selecting,
     required this.selected,
@@ -1197,17 +1194,15 @@ class _ReceivingSupplierActionRow extends StatelessWidget {
                                 ),
                               ),
                             ],
-                            if (!submitted && skuCount > 0) ...[
+                            if (!submitted && savedSkuCount > 0) ...[
                               const SizedBox(height: 2),
                               Text(
-                                text.t(savedSkuCount >= skuCount
-                                    ? '$savedSkuCount SKU received'
-                                    : '${skuCount - savedSkuCount} pending'),
+                                text.t('$savedSkuCount SKU received'),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
+                                style: const TextStyle(
                                   fontSize: AppTextSize.s12,
-                                  color: savedSkuCount >= skuCount ? AppColours.green : AppColours.orange,
+                                  color: AppColours.green,
                                   fontWeight: FontWeight.w800,
                                 ),
                               ),
