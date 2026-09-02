@@ -1,0 +1,229 @@
+name: ChatGPT report card alignment
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/chatgpt-report-card-align.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply focused report card layout change
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('lib/screens/report_screen.dart')
+          text = path.read_text()
+          start = text.index('class _ReportCard extends StatelessWidget {')
+          end = text.index('class _CardApprovalButton extends StatelessWidget {')
+
+          replacement = r'''class _ReportCard extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final Color accent;
+  final String metric;
+  final String metricLabel;
+  final List<_CardBadge> badges;
+  final VoidCallback onTap;
+  final VoidCallback? onAction;
+  final String? actionTooltip;
+  final VoidCallback? onApproval;
+  final int approvalCount;
+  final String? approvalTooltip;
+
+  const _ReportCard({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.accent,
+    required this.metric,
+    required this.metricLabel,
+    required this.badges,
+    required this.onTap,
+    this.onAction,
+    this.actionTooltip,
+    this.onApproval,
+    this.approvalCount = 0,
+    this.approvalTooltip,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(22),
+        onTap: () {
+          AppFeedback.tap();
+          onTap();
+        },
+        child: Ink(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: AppColours.border),
+            boxShadow: [
+              BoxShadow(
+                color: accent.withValues(alpha: .08),
+                blurRadius: 22,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: EdgeInsets.only(right: onAction != null ? 56 : 0),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          width: 46,
+                          height: 46,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [accent, accent.withValues(alpha: .65)],
+                            ),
+                            borderRadius: BorderRadius.circular(15),
+                          ),
+                          child: Icon(icon, color: Colors.white),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                text.t(title),
+                                style: const TextStyle(
+                                  fontSize: AppTextSize.s19,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                text.t(subtitle),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: AppTextSize.s12,
+                                  height: 1.25,
+                                  color: AppColours.textMuted,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              text.t(metric),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: AppTextSize.s26,
+                                fontWeight: FontWeight.w900,
+                                color: accent,
+                              ),
+                            ),
+                            Text(
+                              text.t(metricLabel),
+                              style: const TextStyle(
+                                color: AppColours.textMuted,
+                                fontSize: AppTextSize.s12,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (badges.isNotEmpty)
+                        Flexible(
+                          child: Wrap(
+                            alignment: WrapAlignment.end,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            spacing: 6,
+                            runSpacing: 6,
+                            children: badges,
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+              if (onAction != null)
+                Positioned(
+                  right: 0,
+                  top: 0,
+                  child: IconButton.filledTonal(
+                    tooltip: actionTooltip == null
+                        ? null
+                        : text.t(actionTooltip!),
+                    onPressed: () {
+                      AppFeedback.tap();
+                      onAction!();
+                    },
+                    icon: const Icon(Icons.add_rounded),
+                  ),
+                ),
+              if (onApproval != null)
+                Positioned(
+                  right: 0,
+                  bottom: 0,
+                  child: _CardApprovalButton(
+                    count: approvalCount,
+                    tooltip: approvalTooltip,
+                    onPressed: () {
+                      AppFeedback.tap();
+                      onApproval!();
+                    },
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+'''
+          updated = text[:start] + replacement + text[end:]
+          if updated == text:
+              raise SystemExit('No report card change applied')
+          path.write_text(updated)
+          PY
+
+          git config user.name 'chatgpt-bot'
+          git config user.email 'chatgpt-bot@users.noreply.github.com'
+          git rm .github/workflows/chatgpt-report-card-align.yml
+          git add lib/screens/report_screen.dart
+          git commit -m 'chatgpt: align report card metrics'
+          git push origin HEAD:main
