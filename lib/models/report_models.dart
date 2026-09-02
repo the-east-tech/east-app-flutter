@@ -374,11 +374,35 @@ class ReportTrendPoint {
   }
 }
 
+class SalesCashRecipient {
+  final String userId;
+  final String employeeId;
+  final String fullName;
+  final String role;
+
+  const SalesCashRecipient({
+    required this.userId,
+    required this.employeeId,
+    required this.fullName,
+    required this.role,
+  });
+
+  factory SalesCashRecipient.fromJson(Map<String, dynamic> json) {
+    return SalesCashRecipient(
+      userId: json['userId'] as String,
+      employeeId: json['employeeId'] as String,
+      fullName: json['fullName'] as String,
+      role: json['role'] as String,
+    );
+  }
+}
+
 class SalesReport {
   final String? id;
   final DateTime reportDate;
   final String workflowStatus;
   final double cashTotalRm;
+  final String? cashReceivedByUserId;
   final String cashReceivedBy;
   final double foodDeliverySalesRm;
   final double netFoodDeliverySalesRm;
@@ -400,6 +424,7 @@ class SalesReport {
     required this.reportDate,
     required this.workflowStatus,
     required this.cashTotalRm,
+    required this.cashReceivedByUserId,
     required this.cashReceivedBy,
     required this.foodDeliverySalesRm,
     required this.netFoodDeliverySalesRm,
@@ -426,6 +451,7 @@ class SalesReport {
       reportDate: DateTime.parse(json['reportDate'] as String),
       workflowStatus: json['workflowStatus'] as String,
       cashTotalRm: _double(json['cashTotalRm']),
+      cashReceivedByUserId: json['cashReceivedByUserId'] as String?,
       cashReceivedBy: json['cashReceivedBy'] as String? ?? '',
       foodDeliverySalesRm: _double(json['foodDeliverySalesRm']),
       netFoodDeliverySalesRm: _double(json['netFoodDeliverySalesRm']),

@@ -16,6 +16,7 @@ import '../theme/app_theme.dart';
 import '../utils/app_diagnostics.dart';
 import '../widgets/app_components.dart';
 import '../widgets/app_feedback.dart';
+import '../widgets/app_number_pad.dart';
 import 'tasks_screen.dart';
 
 class ReportScreen extends StatefulWidget {
@@ -269,7 +270,7 @@ class _ReportScreenState extends State<ReportScreen>
             _AnimatedSection(
               delay: 180,
               child: _ReportCard(
-                title: 'Inventory Intelligence',
+                title: 'Inventory',
                 subtitle: isManagement
                     ? 'Calculated stock health, capital exposure and reorder priorities'
                     : 'Management-only calculated business intelligence',
@@ -377,23 +378,33 @@ class _ReportScreenState extends State<ReportScreen>
 
   Future<void> showSales({DateTime? date}) async {
     final reportDate = date ?? DateTime.now();
-    SalesReport? report;
+    ({SalesReport report, List<SalesCashRecipient> cashRecipients})? loaded;
     try {
-      report = await _runReportAction<SalesReport>(
+      loaded = await _runReportAction(
         context,
-        () => widget.api.salesReport(reportDate),
+        () async {
+          final reportFuture = widget.api.salesReport(reportDate);
+          final recipientsFuture = widget.api.salesCashRecipients(
+            tenantId: widget.tenantId,
+          );
+          return (
+            report: await reportFuture,
+            cashRecipients: await recipientsFuture,
+          );
+        },
       );
     } on EastAppApiException {
       return;
     }
-    if (!mounted || report == null) return;
+    if (!mounted || loaded == null) return;
     await _showReportSheet<void>(
       context,
       title: 'Sales Report',
       icon: Icons.point_of_sale_rounded,
       builder: (_) => _SalesSheet(
         api: widget.api,
-        initialReport: report!,
+        initialReport: loaded!.report,
+        cashRecipients: loaded!.cashRecipients,
         earliestDate: earliestEditableDate,
         onChanged: handleChanged,
       ),
@@ -405,7 +416,7 @@ class _ReportScreenState extends State<ReportScreen>
     if (value == null) return;
     await _showReportSheet<void>(
       context,
-      title: 'Inventory Intelligence',
+      title: 'Inventory',
       icon: Icons.hub_rounded,
       builder: (_) => _InventorySheet(data: value),
     );
@@ -1862,13 +1873,13 @@ class _SalesSubmittedDetail extends StatelessWidget {
         const SizedBox(height: 12),
         _MetricGrid(
           items: [
+            _MetricData('Total Sales', 'RM ${_money(report.totalSalesRm)}', AppColours.blue),
             _MetricData('Cash Total', 'RM ${_money(report.cashTotalRm)}', AppColours.green),
             _MetricData('eWallet Total', 'RM ${_money(report.ewalletTotalRm)}', AppColours.purple),
-            _MetricData('Gross Delivery', 'RM ${_money(report.foodDeliverySalesRm)}', AppColours.orange),
             _MetricData('Net Delivery (60%)', 'RM ${_money(report.netFoodDeliverySalesRm)}', AppColours.blue),
+            _MetricData('Gross Delivery', 'RM ${_money(report.foodDeliverySalesRm)}', AppColours.orange),
             _MetricData('Platform Commission', 'RM ${_money(report.estimatedPlatformCommissionRm)}', AppColours.red),
-            _MetricData('Total Sales', 'RM ${_money(report.totalSalesRm)}', AppColours.blue),
-            _MetricData('Staff on Duty', '${report.staffOnDuty}', AppColours.purple),
+            _MetricData('Number of Staff on Duty', '${report.staffOnDuty}', AppColours.purple),
             _MetricData('Sales / Staff-Day', 'RM ${_money(report.salesPerStaffRm)}', AppColours.blue),
             _MetricData('Void Total', 'RM ${_money(report.voidTotalRm)}', AppColours.red),
             _MetricData('Void Exposure', '${report.voidExposurePercent.toStringAsFixed(1)}%', AppColours.orange),
@@ -1991,12 +2002,14 @@ IconData _workflowIcon(String status) => switch (status.toUpperCase()) {
 class _SalesSheet extends StatefulWidget {
   final EastAppApi api;
   final SalesReport initialReport;
+  final List<SalesCashRecipient> cashRecipients;
   final DateTime earliestDate;
   final Future<void> Function() onChanged;
 
   const _SalesSheet({
     required this.api,
     required this.initialReport,
+    required this.cashRecipients,
     required this.earliestDate,
     required this.onChanged,
   });
@@ -2008,7 +2021,6 @@ class _SalesSheet extends StatefulWidget {
 class _SalesSheetState extends State<_SalesSheet> {
   late SalesReport report;
   late final TextEditingController cashTotalController;
-  late final TextEditingController cashReceivedByController;
   late final TextEditingController foodDeliveryController;
   late final TextEditingController ewalletController;
   late final TextEditingController staffOnDutyController;
@@ -2018,6 +2030,7 @@ class _SalesSheetState extends State<_SalesSheet> {
   String? validation;
   String? voidValidation;
   String? voidPhotoPath;
+  String? cashReceivedByUserId;
   bool voidExpanded = false;
 
   @override
@@ -2025,7 +2038,9 @@ class _SalesSheetState extends State<_SalesSheet> {
     super.initState();
     report = widget.initialReport;
     cashTotalController = TextEditingController(text: _editableNumber(report.cashTotalRm));
-    cashReceivedByController = TextEditingController(text: report.cashReceivedBy);
+    cashReceivedByUserId = selectableCashRecipientId(
+      report.cashReceivedByUserId,
+    );
     foodDeliveryController = TextEditingController(text: _editableNumber(report.foodDeliverySalesRm));
     ewalletController = TextEditingController(text: _editableNumber(report.ewalletTotalRm));
     staffOnDutyController = TextEditingController(
@@ -2039,7 +2054,6 @@ class _SalesSheetState extends State<_SalesSheet> {
   @override
   void dispose() {
     cashTotalController.dispose();
-    cashReceivedByController.dispose();
     foodDeliveryController.dispose();
     ewalletController.dispose();
     staffOnDutyController.dispose();
@@ -2052,12 +2066,21 @@ class _SalesSheetState extends State<_SalesSheet> {
   void applyReport(SalesReport value) {
     report = value;
     cashTotalController.text = _editableNumber(value.cashTotalRm);
-    cashReceivedByController.text = value.cashReceivedBy;
+    cashReceivedByUserId = selectableCashRecipientId(
+      value.cashReceivedByUserId,
+    );
     foodDeliveryController.text = _editableNumber(value.foodDeliverySalesRm);
     ewalletController.text = _editableNumber(value.ewalletTotalRm);
     staffOnDutyController.text = value.staffOnDuty == 0 ? '' : '${value.staffOnDuty}';
     validation = null;
     clearVoidDraft(collapse: true);
+  }
+
+  String? selectableCashRecipientId(String? userId) {
+    if (userId == null) return null;
+    return widget.cashRecipients.any((item) => item.userId == userId)
+        ? userId
+        : null;
   }
 
   bool get hasVoidDraft =>
@@ -2305,6 +2328,11 @@ class _SalesSheetState extends State<_SalesSheet> {
                         _AmountField(
                           controller: voidAmountController,
                           label: 'Void Amount',
+                          useNumberPad: true,
+                          minimum: .01,
+                          validationMessage: 'Enter a valid void amount.',
+                          onChanged: (_) =>
+                              setState(() => voidValidation = null),
                         ),
                         const SizedBox(height: 10),
                         TextField(
@@ -2380,12 +2408,17 @@ class _SalesSheetState extends State<_SalesSheet> {
     }
   }
 
-  ({double cashTotal, double foodDelivery, double ewallet, int staffOnDuty, String cashReceivedBy})? validateInput() {
+  ({
+    double cashTotal,
+    double foodDelivery,
+    double ewallet,
+    int staffOnDuty,
+    String cashReceivedByUserId,
+  })? validateInput() {
     final cashText = cashTotalController.text.trim();
     final deliveryText = foodDeliveryController.text.trim();
     final ewalletText = ewalletController.text.trim();
     final staffText = staffOnDutyController.text.trim();
-    final cashReceivedBy = cashReceivedByController.text.trim();
     if (cashText.isEmpty || deliveryText.isEmpty || ewalletText.isEmpty) {
       setState(() => validation = 'Cash Total, Gross Food Delivery Sales and eWallet Total are required. Enter 0 when a payment channel has no sales.');
       return null;
@@ -2399,13 +2432,23 @@ class _SalesSheetState extends State<_SalesSheet> {
       setState(() => validation = 'Payment totals must be valid non-negative amounts.');
       return null;
     }
-    if (cashReceivedBy.isEmpty) {
-      setState(() => validation = 'Cash Received By is required.');
+    final cashRecipientId = cashReceivedByUserId;
+    if (cashRecipientId == null ||
+        !widget.cashRecipients.any(
+          (item) => item.userId == cashRecipientId,
+        )) {
+      setState(() => validation = 'Select Cash Received By.');
       return null;
     }
     final staffOnDuty = int.tryParse(staffText);
-    if (staffText.isEmpty || staffOnDuty == null || staffOnDuty < 1) {
-      setState(() => validation = 'Staff on Duty is required and must be at least 1.');
+    if (staffText.isEmpty ||
+        staffOnDuty == null ||
+        staffOnDuty < 1 ||
+        staffOnDuty > 500) {
+      setState(() {
+        validation =
+            'Number of Staff on Duty must be between 1 and 500.';
+      });
       return null;
     }
     return (
@@ -2413,7 +2456,7 @@ class _SalesSheetState extends State<_SalesSheet> {
       foodDelivery: foodDelivery,
       ewallet: ewallet,
       staffOnDuty: staffOnDuty,
-      cashReceivedBy: cashReceivedBy,
+      cashReceivedByUserId: cashRecipientId,
     );
   }
 
@@ -2444,7 +2487,7 @@ class _SalesSheetState extends State<_SalesSheet> {
         final value = await widget.api.submitSalesReportDirect(
           reportDate: report.reportDate,
           cashTotalRm: input.cashTotal,
-          cashReceivedBy: input.cashReceivedBy,
+          cashReceivedByUserId: input.cashReceivedByUserId,
           foodDeliverySalesRm: input.foodDelivery,
           ewalletTotalRm: input.ewallet,
           staffOnDuty: input.staffOnDuty,
@@ -2475,6 +2518,8 @@ class _SalesSheetState extends State<_SalesSheet> {
         _MetricGrid(
           items: [
             _MetricData('Total Sales', 'RM ${_money(report.totalSalesRm)}', AppColours.blue),
+            _MetricData('Cash Total', 'RM ${_money(report.cashTotalRm)}', AppColours.green),
+            _MetricData('eWallet Total', 'RM ${_money(report.ewalletTotalRm)}', AppColours.purple),
             _MetricData('Net Delivery', 'RM ${_money(report.netFoodDeliverySalesRm)}', AppColours.green),
             _MetricData('Platform Commission', 'RM ${_money(report.estimatedPlatformCommissionRm)}', AppColours.red),
             _MetricData('Void Total', 'RM ${_money(report.voidTotalRm)}', AppColours.red),
@@ -2495,9 +2540,29 @@ class _SalesSheetState extends State<_SalesSheet> {
                 style: const TextStyle(color: AppColours.textMuted, fontSize: AppTextSize.s12, fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 14),
-              _AmountField(controller: cashTotalController, label: 'Cash Total', enabled: editable),
+              _AmountField(
+                controller: cashTotalController,
+                label: 'Cash Total',
+                enabled: editable,
+                useNumberPad: true,
+                onChanged: (_) => setState(() => validation = null),
+              ),
               const SizedBox(height: 10),
-              _AmountField(controller: foodDeliveryController, label: 'Gross Food Delivery Sales', enabled: editable),
+              _AmountField(
+                controller: ewalletController,
+                label: 'eWallet Total',
+                enabled: editable,
+                useNumberPad: true,
+                onChanged: (_) => setState(() => validation = null),
+              ),
+              const SizedBox(height: 10),
+              _AmountField(
+                controller: foodDeliveryController,
+                label: 'Gross Food Delivery Sales',
+                enabled: editable,
+                useNumberPad: true,
+                onChanged: (_) => setState(() => validation = null),
+              ),
               const SizedBox(height: 5),
               Text(
                 text.t('Enter the full platform amount. EastApp includes 60% in Total Sales and estimates 40% as platform commission.'),
@@ -2508,27 +2573,52 @@ class _SalesSheetState extends State<_SalesSheet> {
                 ),
               ),
               const SizedBox(height: 10),
-              _AmountField(controller: ewalletController, label: 'eWallet Total', enabled: editable),
-              const SizedBox(height: 10),
-              TextField(
-                controller: cashReceivedByController,
-                enabled: editable,
-                textCapitalization: TextCapitalization.words,
-                textInputAction: TextInputAction.next,
+              DropdownButtonFormField<String>(
+                key: ValueKey(
+                  'cash-recipient-${report.reportDate.toIso8601String()}-${cashReceivedByUserId ?? 'none'}',
+                ),
+                initialValue: cashReceivedByUserId,
+                isExpanded: true,
+                items: widget.cashRecipients
+                    .map(
+                      (recipient) => DropdownMenuItem<String>(
+                        value: recipient.userId,
+                        child: Text(
+                          '${text.content(recipient.fullName)} · ${recipient.employeeId} (${text.t(_titleCase(recipient.role))})',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    )
+                    .toList(growable: false),
+                onChanged: editable
+                    ? (value) {
+                        if (value == null) return;
+                        AppFeedback.select();
+                        setState(() {
+                          cashReceivedByUserId = value;
+                          validation = null;
+                        });
+                      }
+                    : null,
                 decoration: AppInputStyle.decoration(text.t('Cash Received By')).copyWith(
+                  labelText: text.t('Cash Received By'),
                   prefixIcon: const Icon(Icons.person_outline_rounded),
                 ),
               ),
               const SizedBox(height: 10),
-              TextField(
+              AppNumberPadField(
                 controller: staffOnDutyController,
+                label: 'Number of Staff on Duty',
                 enabled: editable,
-                keyboardType: TextInputType.number,
-                textInputAction: TextInputAction.done,
-                onSubmitted: (_) => FocusScope.of(context).unfocus(),
-                decoration: AppInputStyle.decoration(text.t('Staff on Duty')).copyWith(
-                  prefixIcon: const Icon(Icons.groups_2_outlined),
-                ),
+                prefixIcon: Icons.groups_2_outlined,
+                decimalPlaces: 0,
+                maxIntegerDigits: 3,
+                minimum: 1,
+                maximum: 500,
+                validationMessage:
+                    'Number of Staff on Duty must be between 1 and 500.',
+                onChanged: (_) => setState(() => validation = null),
               ),
               if (validation != null) ...[
                 const SizedBox(height: 10),
@@ -4183,13 +4273,13 @@ class _ApprovalEvidenceView extends StatelessWidget {
         if (salesReport != null) ...[
           _MetricGrid(
             items: [
-              _MetricData('Cash Total', 'RM ${_money(salesReport.cashTotalRm)}', AppColours.green),
-              _MetricData('Gross Delivery', 'RM ${_money(salesReport.foodDeliverySalesRm)}', AppColours.orange),
-              _MetricData('Net Delivery (60%)', 'RM ${_money(salesReport.netFoodDeliverySalesRm)}', AppColours.green),
-              _MetricData('Platform Commission', 'RM ${_money(salesReport.estimatedPlatformCommissionRm)}', AppColours.red),
-              _MetricData('eWallet Total', 'RM ${_money(salesReport.ewalletTotalRm)}', AppColours.purple),
               _MetricData('Total Sales', 'RM ${_money(salesReport.totalSalesRm)}', AppColours.blue),
-              _MetricData('Staff on Duty', '${salesReport.staffOnDuty}', AppColours.purple),
+              _MetricData('Cash Total', 'RM ${_money(salesReport.cashTotalRm)}', AppColours.green),
+              _MetricData('eWallet Total', 'RM ${_money(salesReport.ewalletTotalRm)}', AppColours.purple),
+              _MetricData('Net Delivery (60%)', 'RM ${_money(salesReport.netFoodDeliverySalesRm)}', AppColours.green),
+              _MetricData('Gross Delivery', 'RM ${_money(salesReport.foodDeliverySalesRm)}', AppColours.orange),
+              _MetricData('Platform Commission', 'RM ${_money(salesReport.estimatedPlatformCommissionRm)}', AppColours.red),
+              _MetricData('Number of Staff on Duty', '${salesReport.staffOnDuty}', AppColours.purple),
               _MetricData('Sales / Staff-Day', 'RM ${_money(salesReport.salesPerStaffRm)}', AppColours.blue),
               _MetricData('Void Total', 'RM ${_money(salesReport.voidTotalRm)}', AppColours.red),
               _MetricData('Void Exposure', '${salesReport.voidExposurePercent.toStringAsFixed(1)}%', AppColours.orange),
@@ -4557,24 +4647,49 @@ class _AmountField extends StatelessWidget {
   final TextEditingController controller;
   final String label;
   final bool enabled;
+  final bool useNumberPad;
+  final double minimum;
+  final String? validationMessage;
+  final ValueChanged<String>? onChanged;
 
   const _AmountField({
     required this.controller,
     required this.label,
     this.enabled = true,
+    this.useNumberPad = false,
+    this.minimum = 0,
+    this.validationMessage,
+    this.onChanged,
   });
 
   @override
   Widget build(BuildContext context) {
-    final text = AppTextScope.of(context);
-    return TextField(
+    if (!useNumberPad) {
+      final text = AppTextScope.of(context);
+      return TextField(
+        controller: controller,
+        enabled: enabled,
+        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        onChanged: onChanged,
+        decoration: AppInputStyle.decoration(
+          '0.00',
+          prefixText: 'RM ',
+        ).copyWith(
+          labelText: text.t(label),
+          prefixIcon: const Icon(Icons.payments_outlined),
+        ),
+      );
+    }
+    return AppNumberPadField(
       controller: controller,
+      label: label,
       enabled: enabled,
-      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-      decoration: AppInputStyle.decoration('0.00', prefixText: 'RM ').copyWith(
-        labelText: text.t(label),
-        prefixIcon: const Icon(Icons.payments_outlined),
-      ),
+      hintText: '0.00',
+      prefixText: 'RM ',
+      prefixIcon: Icons.payments_outlined,
+      minimum: minimum,
+      validationMessage: validationMessage,
+      onChanged: onChanged,
     );
   }
 }

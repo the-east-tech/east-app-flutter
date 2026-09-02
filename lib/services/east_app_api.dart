@@ -155,6 +155,8 @@ class EastAppApi {
     DateTime to,
   ) =>
       'tenant:$tenantId:report:sales-history:${formatApiDate(from)}:${formatApiDate(to)}';
+  static String salesCashRecipientsCacheKey(String tenantId) =>
+      '${usersCachePrefix(tenantId)}sales-cash-recipients';
   static String wasteHistoryCacheKey(
     String tenantId,
     DateTime from,
@@ -774,10 +776,27 @@ class EastAppApi {
     return SalesReport.fromJson(body);
   }
 
+  Future<List<SalesCashRecipient>> salesCashRecipients({
+    required String tenantId,
+    bool forceRefresh = false,
+  }) async {
+    const path = '/api/v1/reports/sales/cash-recipients';
+    final body = await _requestCachedJson(
+      path,
+      cacheKey: salesCashRecipientsCacheKey(tenantId),
+      forceRefresh: forceRefresh,
+    ) as List<dynamic>;
+    return body
+        .map(
+          (item) => SalesCashRecipient.fromJson(item as Map<String, dynamic>),
+        )
+        .toList(growable: false);
+  }
+
   Future<SalesReport> upsertSalesReport({
     required DateTime reportDate,
     required double cashTotalRm,
-    required String cashReceivedBy,
+    required String cashReceivedByUserId,
     required double foodDeliverySalesRm,
     required double ewalletTotalRm,
     required int staffOnDuty,
@@ -788,7 +807,7 @@ class EastAppApi {
       body: {
         'reportDate': formatApiDate(reportDate),
         'cashTotalRm': cashTotalRm,
-        'cashReceivedBy': cashReceivedBy.trim(),
+        'cashReceivedByUserId': cashReceivedByUserId,
         'foodDeliverySalesRm': foodDeliverySalesRm,
         'ewalletTotalRm': ewalletTotalRm,
         'staffOnDuty': staffOnDuty,
@@ -821,7 +840,7 @@ class EastAppApi {
   Future<SalesReport> submitSalesReportDirect({
     required DateTime reportDate,
     required double cashTotalRm,
-    required String cashReceivedBy,
+    required String cashReceivedByUserId,
     required double foodDeliverySalesRm,
     required double ewalletTotalRm,
     required int staffOnDuty,
@@ -832,7 +851,7 @@ class EastAppApi {
       body: {
         'reportDate': formatApiDate(reportDate),
         'cashTotalRm': cashTotalRm,
-        'cashReceivedBy': cashReceivedBy.trim(),
+        'cashReceivedByUserId': cashReceivedByUserId,
         'foodDeliverySalesRm': foodDeliverySalesRm,
         'ewalletTotalRm': ewalletTotalRm,
         'staffOnDuty': staffOnDuty,

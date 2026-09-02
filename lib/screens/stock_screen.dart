@@ -6,6 +6,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../data/sample_data.dart';
 import '../localization/app_text_scope.dart';
@@ -19,6 +20,7 @@ import '../theme/app_theme.dart';
 import '../utils/app_diagnostics.dart';
 import '../widgets/app_components.dart';
 import '../widgets/app_feedback.dart';
+import '../widgets/app_number_pad.dart';
 
 List<SupplierProfile> _sortSuppliersAlphabetically(Iterable<SupplierProfile> source) {
   final items = source.toList();
@@ -1207,154 +1209,28 @@ class _DailyStockCountPageState extends State<_DailyStockCountPage> {
     );
   }
 
-  void openSkuBalanceKeypad(StockSku sku) {
+  Future<void> openSkuBalanceKeypad(StockSku sku) async {
     final text = AppTextScope.of(context);
     if (!canEditCountSku(sku)) {
       showWarningSnackBar(context, text.t('Submitted counts cannot be edited.'));
       return;
     }
-    var enteredText = controllers[sku.id]!.text;
-    var firstTap = true;
-    String? keypadError;
-
-    void addKey(String key, void Function(void Function()) setSheetState) {
-      setSheetState(() {
-        keypadError = null;
-        if (key == 'back') {
-          if (enteredText.isNotEmpty) {
-            enteredText = enteredText.substring(0, enteredText.length - 1);
-          }
-          firstTap = false;
-          return;
-        }
-        if (key == 'clear') {
-          enteredText = '';
-          firstTap = false;
-          return;
-        }
-        if (key == '.' && enteredText.contains('.') && !firstTap) return;
-        final base = firstTap ? '' : enteredText;
-        final next = base == '0' && key != '.' ? key : base + key;
-        if (RegExp(r'^\d*\.?\d{0,2}$').hasMatch(next)) {
-          enteredText = next;
-          firstTap = false;
-        }
-      });
-    }
-
-    showStockBottomSheet<void>(
+    final enteredText = await showAppNumberPad(
       context,
-      maxHeightFactor: 0.88,
-      builder: (sheetContext) {
-        return StatefulBuilder(
-          builder: (context, setSheetState) {
-            final enteredBalance = double.tryParse(enteredText.trim()) ?? 0;
-            final keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', 'back'];
-
-            return SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(18, 10, 18, 22),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  stockBottomSheetHandle(),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          text.content(sku.name),
-                          style: const TextStyle(fontSize: AppTextSize.s24, fontWeight: FontWeight.w700),
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: () => Navigator.of(sheetContext).pop(),
-                        icon: const Icon(Icons.close_rounded),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    '${formatStockNumber(enteredBalance)} ${sku.unit}',
-                    style: const TextStyle(
-                      fontSize: AppTextSize.s34,
-                      fontWeight: FontWeight.w700,
-                      color: AppColours.textMain,
-                    ),
-                  ),
-                  if (keypadError != null) ...[
-                    const SizedBox(height: 6),
-                    Text(
-                      keypadError!,
-                      style: const TextStyle(
-                        color: AppColours.red,
-                        fontSize: AppTextSize.s13,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 4),
-                  _SkuBalanceSummary(sku: sku, currentBalance: enteredBalance),
-                  const SizedBox(height: 14),
-                  GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: keys.length,
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 3,
-                      crossAxisSpacing: 10,
-                      mainAxisSpacing: 10,
-                      childAspectRatio: 2.0,
-                    ),
-                    itemBuilder: (context, index) {
-                      final key = keys[index];
-                      return _NumberPadButton(
-                        label: key == 'back' ? '' : key,
-                        icon: key == 'back' ? Icons.backspace_outlined : null,
-                        onTap: () => addKey(key, setSheetState),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: PrimaryButton(
-                          text: text.t('Clear'),
-                          icon: Icons.clear_rounded,
-                          outlined: true,
-                          onPressed: () => addKey('clear', setSheetState),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: PrimaryButton(
-                          text: text.t('Save'),
-                          icon: Icons.check_rounded,
-                          onPressed: () {
-                            final parsedBalance = double.tryParse(enteredText.trim());
-                            if (parsedBalance == null) {
-                              AppFeedback.warning();
-                              setSheetState(() => keypadError = text.t('Valid number required'));
-                              return;
-                            }
-                            controllers[sku.id]!.text = formatStockNumber(parsedBalance);
-                            setState(() {
-                              completedBySku[sku.id] = true;
-                              showCountErrors = false;
-                            });
-                            Navigator.of(sheetContext).pop();
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
+      title: text.content(sku.name),
+      initialText: controllers[sku.id]!.text,
+      suffixText: ' ${sku.unit}',
+      minimum: 0,
+      valueFormatter: formatStockNumber,
+      previewBuilder: (_, value) =>
+          _SkuBalanceSummary(sku: sku, currentBalance: value),
     );
+    if (!mounted || enteredText == null) return;
+    controllers[sku.id]!.text = enteredText;
+    setState(() {
+      completedBySku[sku.id] = true;
+      showCountErrors = false;
+    });
   }
 
   Future<void> submit() async {
@@ -1499,7 +1375,7 @@ class _DailyStockCountPageState extends State<_DailyStockCountPage> {
                     autoSaved: autoSaved,
                     editable: editable,
                     onPhotoTap: () => openSkuPhotoPreview(sku),
-                    onBalanceTap: () => openSkuBalanceKeypad(sku),
+                    onBalanceTap: () => unawaited(openSkuBalanceKeypad(sku)),
                   ),
                 );
               }).toList(),
@@ -1582,44 +1458,6 @@ class _CountTagFilterChips extends StatelessWidget {
             ),
           );
         }).toList(),
-      ),
-    );
-  }
-}
-
-class _NumberPadButton extends StatelessWidget {
-  final String label;
-  final IconData? icon;
-  final VoidCallback onTap;
-
-  const _NumberPadButton({
-    required this.label,
-    required this.onTap,
-    this.icon,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Pressable(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
-      child: Container(
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: AppColours.background,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppColours.border),
-        ),
-        child: icon == null
-            ? Text(
-                label,
-                style: const TextStyle(
-                  fontSize: AppTextSize.s26,
-                  fontWeight: FontWeight.w700,
-                  color: AppColours.textMain,
-                ),
-              )
-            : Icon(icon, size: 24, color: AppColours.textMain),
       ),
     );
   }
@@ -5371,6 +5209,7 @@ class _SkuSetupPageState extends State<_SkuSetupPage> {
   String tag1Filter = 'All';
   String tag2Filter = 'All';
   String assignedFilter = 'All';
+  bool exportingSkus = false;
 
   @override
   void dispose() {
@@ -5475,22 +5314,34 @@ class _SkuSetupPageState extends State<_SkuSetupPage> {
   }
 
   Future<void> exportSkus() async {
+    if (exportingSkus) return;
     AppFeedback.tap();
+    setState(() => exportingSkus = true);
     try {
       final csv = await widget.api.exportStockSkusCsv();
       if (!mounted) return;
-      final saved = await FilePicker.saveFile(
-        dialogTitle: AppTextScope.of(context).t('Export SKUs'),
-        fileName: csv.fileName,
-        bytes: csv.bytes,
+      final renderBox = context.findRenderObject() as RenderBox?;
+      final shareOrigin = renderBox == null || !renderBox.hasSize
+          ? null
+          : renderBox.localToGlobal(Offset.zero) & renderBox.size;
+      final result = await SharePlus.instance.share(
+        ShareParams(
+          title: AppTextScope.of(context).t('Share SKU Export'),
+          files: [XFile.fromData(csv.bytes, mimeType: 'text/csv')],
+          fileNameOverrides: [csv.fileName],
+          sharePositionOrigin: shareOrigin,
+          downloadFallbackEnabled: true,
+        ),
       );
-      if (saved == null || !mounted) return;
+      if (!mounted || result.status != ShareResultStatus.success) return;
       showSuccessSnackBar(context, 'Exported');
     } on EastAppApiException {
       // The global API error handler already shows the failure.
     } catch (_) {
       if (!mounted) return;
-      showErrorSnackBar(context, 'Unable to save the SKU CSV file.');
+      showErrorSnackBar(context, 'Unable to share the SKU CSV file.');
+    } finally {
+      if (mounted) setState(() => exportingSkus = false);
     }
   }
 
@@ -5628,6 +5479,7 @@ class _SkuSetupPageState extends State<_SkuSetupPage> {
           if (widget.isOwner) ...[
             const SizedBox(width: 2),
             PopupMenuButton<String>(
+              enabled: !exportingSkus,
               tooltip: text.t('More SKU actions'),
               icon: const Icon(Icons.more_vert_rounded),
               onSelected: (value) {
@@ -5652,7 +5504,7 @@ class _SkuSetupPageState extends State<_SkuSetupPage> {
                   child: ListTile(
                     dense: true,
                     contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.file_download_outlined),
+                    leading: const Icon(Icons.ios_share_rounded),
                     title: Text(text.t('Export SKUs')),
                   ),
                 ),
