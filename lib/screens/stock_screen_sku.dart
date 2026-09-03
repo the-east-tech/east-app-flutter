@@ -210,12 +210,31 @@ class _SkuSetupPageState extends State<_SkuSetupPage> {
     final lowCount = widget.skus.where((sku) => sku.isBelowMinimumBalance).length;
     return _PageScaffold(
       title: text.t('SKU'),
-      subtitle: text.t('Search, filter and edit SKU.'),
+      subtitle: text.t('Search, filter & edit SKUs.'),
       onBack: widget.onBack,
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          SizedBox(width: 140, child: PrimaryButton(text: text.t('Add SKU'), icon: Icons.add_rounded, onPressed: () => showAddSkuDialog(context, tags: widget.tags, suppliers: widget.suppliers, onCreateSku: widget.onCreateSku))),
+          Tooltip(
+            message: text.t('Add SKU'),
+            child: SizedBox(
+              width: 52,
+              height: 48,
+              child: FilledButton(
+                style: FilledButton.styleFrom(
+                  padding: EdgeInsets.zero,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+                onPressed: () => showAddSkuDialog(
+                  context,
+                  tags: widget.tags,
+                  suppliers: widget.suppliers,
+                  onCreateSku: widget.onCreateSku,
+                ),
+                child: const Icon(Icons.add_rounded, size: 28),
+              ),
+            ),
+          ),
           if (widget.isOwner) ...[
             const SizedBox(width: 2),
             PopupMenuButton<String>(
