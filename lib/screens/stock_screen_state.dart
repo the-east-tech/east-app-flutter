@@ -1,7 +1,7 @@
 part of 'stock_screen.dart';
 
 class _StockScreenState extends State<StockScreen> {
-  static const _lazyPages = <StockPage>{
+  static const _directLoadPages = <StockPage>{
     StockPage.dailyCount,
     StockPage.receiving,
     StockPage.restockMessage,
@@ -10,7 +10,6 @@ class _StockScreenState extends State<StockScreen> {
 
   final Map<String, Future<Uint8List>> _thumbnailCache = {};
   final Map<String, Future<Uint8List>> _receivingPhotoCache = {};
-  final Set<StockPage> _loadedPages = <StockPage>{};
   final Map<StockPage, DateTime> _loadedAt = <StockPage, DateTime>{};
   StockPage page = StockPage.home;
   StockPage? dataLoadingPage;
@@ -20,8 +19,9 @@ class _StockScreenState extends State<StockScreen> {
   double stockSwipeStartX = 0;
   double stockSwipeDeltaX = 0;
   bool returnToMainHomeOnBack = false;
+
   void resetCountTimers(List<String> skuIds) {
-    // SKU reset is now based on each SKU's daily reset time, not a countdown timer.
+    // SKU reset is based on each SKU's daily reset time, not a countdown timer.
   }
 
   Future<Uint8List> loadThumbnail(String storageKey) {
@@ -64,7 +64,6 @@ class _StockScreenState extends State<StockScreen> {
   void didUpdateWidget(covariant StockScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.currentTenantId != oldWidget.currentTenantId) {
-      _loadedPages.clear();
       _loadedAt.clear();
       dataLoadingPage = null;
     }
@@ -80,11 +79,14 @@ class _StockScreenState extends State<StockScreen> {
   }
 
   bool get isHead => widget.role == UserRole.head;
-  bool get isManager => widget.role == UserRole.manager;
-  bool get isStaff => widget.role == UserRole.staff;
-  bool get canReceiveStock => isManager || isHead;
-  bool get canReviewStock => isManager || isHead;
+  bool get canApproveStock => widget.isOwner || isHead;
   bool get canAccessAuditTrail => widget.isOwner || isHead;
+
+  StockPage _dataPageFor(StockPage value) {
+    // Keep the former Review deep-link compatible while the visible Review page
+    // is removed. Home review links now land in Count, where approval lives.
+    return value == StockPage.review ? StockPage.dailyCount : value;
+  }
 
   Future<void> openPage(StockPage nextPage) async {
     if (nextPage == StockPage.auditTrail && !canAccessAuditTrail) {
@@ -97,14 +99,22 @@ class _StockScreenState extends State<StockScreen> {
     if (page == nextPage || pageLoading) return;
     AppFeedback.select();
 
-    if (!_lazyPages.contains(nextPage)) {
-      setState(() => pageLoading = true);
-      final error = await widget.onLoadPageData(nextPage, false);
-      if (!mounted) return;
-      if (error != null) {
-        setState(() => pageLoading = false);
-        return;
-      }
+    final dataPage = _dataPageFor(nextPage);
+    if (_directLoadPages.contains(dataPage)) {
+      setState(() {
+        stockPageSlideDirection = 1;
+        page = nextPage;
+      });
+      unawaited(_loadData(dataPage));
+      return;
+    }
+
+    setState(() => pageLoading = true);
+    final error = await widget.onLoadPageData(dataPage, false);
+    if (!mounted) return;
+    if (error != null) {
+      setState(() => pageLoading = false);
+      return;
     }
 
     setState(() {
@@ -115,14 +125,12 @@ class _StockScreenState extends State<StockScreen> {
   }
 
   bool get canLoadMoreCurrentPage {
-    switch (page) {
+    switch (_dataPageFor(page)) {
       case StockPage.dailyCount:
         return widget.canLoadMoreSkus || widget.canLoadMoreCounts;
       case StockPage.receiving:
       case StockPage.restockMessage:
         return widget.canLoadMoreSuppliers || widget.canLoadMoreSkus;
-      case StockPage.review:
-        return false;
       case StockPage.skuSetup:
         return widget.canLoadMoreTags ||
             widget.canLoadMoreSuppliers ||
@@ -132,9 +140,9 @@ class _StockScreenState extends State<StockScreen> {
       case StockPage.tagSetup:
         return widget.canLoadMoreTags;
       case StockPage.assigneeSetup:
-        return false;
       case StockPage.auditTrail:
       case StockPage.home:
+      case StockPage.review:
         return false;
     }
   }
@@ -143,7 +151,7 @@ class _StockScreenState extends State<StockScreen> {
     if (loadingMore || !canLoadMoreCurrentPage) return;
     setState(() => loadingMore = true);
     try {
-      switch (page) {
+      switch (_dataPageFor(page)) {
         case StockPage.dailyCount:
           await Future.wait([
             if (widget.canLoadMoreSkus) widget.onLoadMoreSkus(),
@@ -164,8 +172,6 @@ class _StockScreenState extends State<StockScreen> {
             if (widget.canLoadMoreSkus) widget.onLoadMoreSkus(),
           ]);
           break;
-        case StockPage.review:
-          break;
         case StockPage.supplierSetup:
           await widget.onLoadMoreSuppliers();
           break;
@@ -173,9 +179,9 @@ class _StockScreenState extends State<StockScreen> {
           await widget.onLoadMoreTags();
           break;
         case StockPage.assigneeSetup:
-          break;
         case StockPage.auditTrail:
         case StockPage.home:
+        case StockPage.review:
           break;
       }
     } on EastAppApiException catch (_) {
@@ -204,10 +210,7 @@ class _StockScreenState extends State<StockScreen> {
   }
 
   Future<bool> handleBackNavigation() async {
-    if (page != StockPage.home) {
-      goHome();
-    }
-
+    if (page != StockPage.home) goHome();
     return false;
   }
 
@@ -222,54 +225,32 @@ class _StockScreenState extends State<StockScreen> {
 
   void handleStockSwipeEnd(DragEndDetails details) {
     if (page == StockPage.home) return;
-
-    final isRightSwipe = stockSwipeDeltaX > 72 || details.primaryVelocity != null && details.primaryVelocity! > 380;
-    final isLeftEdgeSwipe = stockSwipeStartX <= 48 && (stockSwipeDeltaX > 32 || details.primaryVelocity != null && details.primaryVelocity! > 180);
-
-    if (isRightSwipe || isLeftEdgeSwipe) {
-      goHome(fromSwipe: true);
-    }
+    final isRightSwipe = stockSwipeDeltaX > 72 ||
+        details.primaryVelocity != null && details.primaryVelocity! > 380;
+    final isLeftEdgeSwipe = stockSwipeStartX <= 48 &&
+        (stockSwipeDeltaX > 32 ||
+            details.primaryVelocity != null && details.primaryVelocity! > 180);
+    if (isRightSwipe || isLeftEdgeSwipe) goHome(fromSwipe: true);
   }
 
-  Future<void> _loadData(StockPage target, {bool forceRefresh = false}) async {
+  Future<void> _loadData(
+    StockPage target, {
+    bool forceRefresh = false,
+  }) async {
     if (dataLoadingPage != null) return;
     setState(() => dataLoadingPage = target);
     final error = await widget.onLoadPageData(target, forceRefresh);
     if (!mounted) return;
     setState(() {
       dataLoadingPage = null;
-      if (error == null) {
-        _loadedPages.add(target);
-        _loadedAt[target] = DateTime.now();
-      }
+      if (error == null) _loadedAt[target] = DateTime.now();
     });
   }
 
-  Widget _lazyDataPage({
+  Widget _dataPage({
     required StockPage target,
-    required String title,
-    required String subtitle,
     required Widget child,
   }) {
-    if (!_loadedPages.contains(target)) {
-      final text = AppTextScope.of(context);
-      final loading = dataLoadingPage == target;
-      return _PageScaffold(
-        title: text.t(title),
-        subtitle: text.t(subtitle),
-        onBack: goHome,
-        children: [
-          WhiteCard(
-            child: PrimaryButton(
-              text: text.t(loading ? 'Loading...' : 'Load'),
-              icon: loading ? null : Icons.download_rounded,
-              onPressed: loading ? null : () => _loadData(target),
-            ),
-          ),
-        ],
-      );
-    }
-
     return _DataRefreshShell(
       updatedAt: _loadedAt[target],
       onRefresh: () => _loadData(target, forceRefresh: true),
@@ -277,56 +258,69 @@ class _StockScreenState extends State<StockScreen> {
     );
   }
 
+  Widget _withApproval({
+    required _StockApprovalKind kind,
+    required Widget child,
+  }) {
+    if (!canApproveStock) return child;
+    return _StockApprovalScope(
+      section: _StockApprovalLauncher(
+        kind: kind,
+        api: widget.api,
+        onReviewReceiving: widget.onReviewReceiving,
+        onReviewStockCount: widget.onReviewStockCount,
+        onBulkReviewStockCounts: widget.onBulkReviewStockCounts,
+      ),
+      child: child,
+    );
+  }
+
+  Widget _countPage() {
+    return _dataPage(
+      target: StockPage.dailyCount,
+      child: _withApproval(
+        kind: _StockApprovalKind.count,
+        child: _DailyStockCountPage(
+          role: widget.role,
+          skus: widget.stockSkus,
+          submissions: widget.submissions,
+          onBack: goHome,
+          onSubmitStockCheck: widget.onSubmitStockCheck,
+          onUpdateSkuBalance: widget.onUpdateSkuBalance,
+          onResetCountTimers: resetCountTimers,
+        ),
+      ),
+    );
+  }
+
   Widget buildCurrentPage() {
     switch (page) {
       case StockPage.dailyCount:
-        return _lazyDataPage(
-          target: StockPage.dailyCount,
-          title: 'Count',
-          subtitle: 'Load Count data only when needed.',
-          child: _DailyStockCountPage(
-            role: widget.role,
-            skus: widget.stockSkus,
-            submissions: widget.submissions,
-            onBack: goHome,
-            onSubmitStockCheck: widget.onSubmitStockCheck,
-            onUpdateSkuBalance: widget.onUpdateSkuBalance,
-            onResetCountTimers: resetCountTimers,
-          ),
-        );
+      case StockPage.review:
+        return _countPage();
       case StockPage.receiving:
-        return _lazyDataPage(
+        return _dataPage(
           target: StockPage.receiving,
-          title: 'Receiving',
-          subtitle: 'Load supplier and SKU data only when needed.',
-          child: _StockReceivingPage(
-            role: widget.role,
-            suppliers: widget.suppliers,
-            skus: widget.stockSkus,
-            onBack: goHome,
-            onSubmitReceiving: widget.onSubmitReceiving,
-            onUpdateSkuBalance: widget.onUpdateSkuBalance,
+          child: _withApproval(
+            kind: _StockApprovalKind.receiving,
+            child: _StockReceivingPage(
+              role: widget.role,
+              suppliers: widget.suppliers,
+              skus: widget.stockSkus,
+              onBack: goHome,
+              onSubmitReceiving: widget.onSubmitReceiving,
+              onUpdateSkuBalance: widget.onUpdateSkuBalance,
+            ),
           ),
         );
       case StockPage.restockMessage:
-        return _lazyDataPage(
+        return _dataPage(
           target: StockPage.restockMessage,
-          title: 'Purchase',
-          subtitle: 'Load supplier and SKU data only when needed.',
           child: _RestockMessagePage(
             suppliers: widget.suppliers,
             skus: widget.stockSkus,
             onBack: goHome,
           ),
-        );
-      case StockPage.review:
-        return _StockReviewPage(
-          api: widget.api,
-          role: widget.role,
-          onBack: goHome,
-          onReviewReceiving: widget.onReviewReceiving,
-          onReviewStockCount: widget.onReviewStockCount,
-          onBulkReviewStockCounts: widget.onBulkReviewStockCounts,
         );
       case StockPage.skuSetup:
         return _DataRefreshShell(
@@ -346,10 +340,8 @@ class _StockScreenState extends State<StockScreen> {
           ),
         );
       case StockPage.supplierSetup:
-        return _lazyDataPage(
+        return _dataPage(
           target: StockPage.supplierSetup,
-          title: 'Supplier',
-          subtitle: 'Load Supplier data only when needed.',
           child: _SupplierSetupPage(
             suppliers: widget.suppliers,
             onBack: goHome,
@@ -395,9 +387,7 @@ class _StockScreenState extends State<StockScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (pageLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
+    if (pageLoading) return const Center(child: CircularProgressIndicator());
     return _StockMediaScope(
       api: widget.api,
       loadThumbnail: loadThumbnail,

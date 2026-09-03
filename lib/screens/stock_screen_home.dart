@@ -15,7 +15,7 @@ class _StockHomePage extends StatelessWidget {
   bool get isManager => role == UserRole.manager;
   bool get isStaff => role == UserRole.staff;
   bool get canReceiveStock => isManager || isHead;
-  bool get canReviewStock => isManager || isHead;
+  bool get canPurchaseStock => isManager || isHead;
   bool get canManageSetup => isOwner || isHead;
   bool get canAccessAuditTrail => isOwner || isHead;
 
@@ -48,19 +48,12 @@ class _StockHomePage extends StatelessWidget {
                 icon: Icons.assignment_turned_in_outlined,
                 onTap: () => onOpenPage(StockPage.receiving),
               ),
-            if (canReviewStock)
+            if (canPurchaseStock)
               _StockMenuCard(
                 title: text.t('Purchase'),
                 subtitle: text.t('Restock'),
                 icon: Icons.content_copy_rounded,
                 onTap: () => onOpenPage(StockPage.restockMessage),
-              ),
-            if (canReviewStock)
-              _StockMenuCard(
-                title: text.t('Review'),
-                subtitle: text.t('Audit Inbound'),
-                icon: Icons.manage_search_rounded,
-                onTap: () => onOpenPage(StockPage.review),
               ),
           ],
         ),
@@ -297,6 +290,7 @@ class _PageScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final contextualApproval = _StockApprovalScope.maybeSectionOf(context);
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(14, 0, 14, 24),
@@ -319,6 +313,10 @@ class _PageScaffold extends StatelessWidget {
               ),
           ],
         ),
+        if (contextualApproval != null) ...[
+          contextualApproval,
+          const SizedBox(height: 12),
+        ],
         ...children,
       ],
     );
