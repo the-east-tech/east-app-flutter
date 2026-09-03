@@ -48,9 +48,10 @@ class AppFeedback {
   }
 
   static Future<void> success() async {
-    // Keep success feedback light: the button tap already gives one haptic.
-    // Success burst adds the custom pop sound only, so it does not feel like double submission.
-    await _playSuccessPop();
+    await Future.wait([
+      HapticFeedback.heavyImpact(),
+      _playSuccessPop(),
+    ]);
   }
 
   static Future<void> warning() async {
