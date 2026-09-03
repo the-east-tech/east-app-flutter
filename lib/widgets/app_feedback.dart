@@ -40,7 +40,7 @@ class AppFeedback {
   static Future<void> _playSuccessPop() async {
     try {
       await _successPlayer.stop();
-      await _successPlayer.play(AssetSource('sounds/01_success_pop.wav'));
+      await _successPlayer.play(AssetSource('sounds/02_success_pop.wav'));
     } catch (_) {
       // Fallback keeps success feedback available if the asset/package is not ready.
       await _playClick();

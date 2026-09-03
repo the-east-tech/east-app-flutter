@@ -37,7 +37,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/app_icon.png
-    - assets/sounds/01_success_pop.wav
+    - assets/sounds/02_success_pop.wav
 
 flutter_launcher_icons:
   android: true
