@@ -13,6 +13,7 @@ import '../models/stock_api_models.dart';
 import '../services/east_app_api.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_components.dart';
+import '../widgets/east_brand_gradient.dart';
 import 'career_path_screen.dart';
 import 'notification_screen.dart';
 
@@ -267,16 +268,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             children: [
               Row(
                 children: [
-                  Container(
+                  EastAnimatedGradientSurface(
                     width: 34,
                     height: 34,
-                    decoration: BoxDecoration(
-                      color: AppColours.background,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                    borderRadius: BorderRadius.circular(12),
                     child: const Icon(
                       Icons.access_time_rounded,
-                      color: AppColours.blue,
+                      color: Colors.white,
                       size: 22,
                     ),
                   ),
@@ -322,7 +320,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 ],
               ),
               const SizedBox(height: 8),
-              _IntelligenceProgressBar(
+              _ReviewProgressBar(
                 value: isManagement
                     ? (totalReviewCount == 0
                         ? 0
@@ -428,16 +426,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 padding: const EdgeInsets.fromLTRB(12, 10, 12, 9),
                 child: Row(
                   children: [
-                    Container(
+                    EastAnimatedGradientSurface(
                       width: 34,
                       height: 34,
-                      decoration: BoxDecoration(
-                        color: AppColours.background,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                      borderRadius: BorderRadius.circular(12),
                       child: const Icon(
                         Icons.star_border_rounded,
-                        color: AppColours.blue,
+                        color: Colors.white,
                         size: 22,
                       ),
                     ),
@@ -855,66 +850,28 @@ class _GoogleRatingCardState extends State<_GoogleRatingCard> {
   }
 }
 
-class _IntelligenceProgressBar extends StatefulWidget {
+class _ReviewProgressBar extends StatelessWidget {
   final double value;
 
-  const _IntelligenceProgressBar({required this.value});
-
-  @override
-  State<_IntelligenceProgressBar> createState() =>
-      _IntelligenceProgressBarState();
-}
-
-class _IntelligenceProgressBarState extends State<_IntelligenceProgressBar>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 3400),
-    )..repeat(reverse: true);
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
+  const _ReviewProgressBar({required this.value});
 
   @override
   Widget build(BuildContext context) {
-    final progress = widget.value.clamp(0.0, 1.0);
+    final progress = value.clamp(0.0, 1.0);
     return ClipRRect(
       borderRadius: BorderRadius.circular(999),
       child: Container(
         height: 8,
-        color: const Color(0xFF1237B8).withValues(alpha: .12),
+        color: const Color(0xFFF7F8FC),
         alignment: Alignment.centerLeft,
         child: FractionallySizedBox(
           widthFactor: progress,
           heightFactor: 1,
           alignment: Alignment.centerLeft,
-          child: AnimatedBuilder(
-            animation: _controller,
-            builder: (context, _) {
-              final shift = _controller.value;
-              return DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment(-1 + shift * .35, -1),
-                    end: Alignment(1, 1 - shift * .25),
-                    colors: const [
-                      Color(0xFF07011D),
-                      Color(0xFF1237B8),
-                      Color(0xFF7B2CFF),
-                    ],
-                  ),
-                ),
-              );
-            },
+          child: const DecoratedBox(
+            decoration: BoxDecoration(
+              color: Color(0xFFE8EDFF),
+            ),
           ),
         ),
       ),
@@ -1012,6 +969,25 @@ class _ActionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final usesBrandGradient =
+        colour == AppColours.blue || colour == AppColours.blueSoft;
+    final iconBox = usesBrandGradient
+        ? EastAnimatedGradientSurface(
+            width: 34,
+            height: 34,
+            borderRadius: BorderRadius.circular(12),
+            child: Icon(icon, color: Colors.white, size: 22),
+          )
+        : Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: colour,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: Colors.white, size: 22),
+          );
+
     return WhiteCard(
       padding: EdgeInsets.zero,
       child: Pressable(
@@ -1024,15 +1000,7 @@ class _ActionTile extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Container(
-                    width: 34,
-                    height: 34,
-                    decoration: BoxDecoration(
-                      color: colour,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(icon, color: Colors.white, size: 22),
-                  ),
+                  iconBox,
                   const Spacer(),
                   const Icon(
                     Icons.chevron_right_rounded,
