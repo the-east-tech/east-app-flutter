@@ -129,8 +129,11 @@ class _RestockMessagePageState extends State<_RestockMessagePage> {
           duration: const Duration(milliseconds: 1400),
           content: Row(
             children: [
-              const Icon(Icons.check_circle_outline_rounded,
-                  color: Colors.white, size: 20),
+              const Icon(
+                Icons.check_circle_outline_rounded,
+                color: Colors.white,
+                size: 20,
+              ),
               const SizedBox(width: 8),
               Text(AppTextScope.of(context).t('Message copied')),
             ],
@@ -165,6 +168,48 @@ class _RestockMessagePageState extends State<_RestockMessagePage> {
         builder: (sheetContext) => StatefulBuilder(
           builder: (sheetContext, setSheetState) {
             final activeOrder = state?.hasActiveOrder == true;
+            final savedTemplate = state?.messageTemplate.trim().isNotEmpty == true
+                ? state!.messageTemplate
+                : initialTemplate;
+
+            Future<void> saveTemplate() async {
+              final value = templateController.text.trim();
+              if (value.isEmpty) {
+                showWarningSnackBar(
+                  context,
+                  text.t('Message template cannot be empty.'),
+                );
+                return;
+              }
+              setSheetState(() => savingTemplate = true);
+              try {
+                final saved = await gateway.saveTemplate(supplier.id, value);
+                if (!mounted) return;
+                setState(() {
+                  purchaseStates = {
+                    ...purchaseStates,
+                    supplier.id: saved,
+                  };
+                });
+                if (!sheetContext.mounted) return;
+                setSheetState(() {
+                  state = saved;
+                  messageController.text = generatedMessage(value, skus);
+                  editingTemplate = false;
+                });
+                showSuccessSnackBar(
+                  context,
+                  text.t('Supplier template saved'),
+                );
+              } on EastAppApiException {
+                // Global API error UI handles this.
+              } finally {
+                if (sheetContext.mounted) {
+                  setSheetState(() => savingTemplate = false);
+                }
+              }
+            }
+
             return Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
               child: SingleChildScrollView(
@@ -205,220 +250,183 @@ class _RestockMessagePageState extends State<_RestockMessagePage> {
                         ),
                       ],
                     ),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton.icon(
-                        style: TextButton.styleFrom(
-                          visualDensity: VisualDensity.compact,
-                          minimumSize: Size.zero,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 7,
-                            vertical: 3,
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            text.t(
+                              editingTemplate
+                                  ? 'Message Template'
+                                  : 'Order Message',
+                            ),
+                            style: AppTextStyles.formLabel,
                           ),
                         ),
-                        onPressed: () => setSheetState(
-                          () => editingTemplate = !editingTemplate,
-                        ),
-                        icon: Icon(
-                          editingTemplate
-                              ? Icons.expand_less_rounded
-                              : Icons.edit_outlined,
-                          size: 15,
-                        ),
-                        label: Text(
-                          text.t(editingTemplate
-                              ? 'Hide template'
-                              : 'Edit template'),
-                          style: const TextStyle(
-                            fontSize: AppTextSize.s12,
-                            fontWeight: FontWeight.w700,
+                        if (!editingTemplate)
+                          TextButton.icon(
+                            style: TextButton.styleFrom(
+                              visualDensity: VisualDensity.compact,
+                              minimumSize: Size.zero,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 7,
+                                vertical: 3,
+                              ),
+                            ),
+                            onPressed: () {
+                              templateController.text = savedTemplate;
+                              setSheetState(() => editingTemplate = true);
+                            },
+                            icon: const Icon(Icons.edit_outlined, size: 15),
+                            label: Text(
+                              text.t('Edit template'),
+                              style: const TextStyle(
+                                fontSize: AppTextSize.s12,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
+                      ],
                     ),
+                    const SizedBox(height: 7),
                     if (editingTemplate) ...[
-                      const SizedBox(height: 5),
-                      Text(
-                        text.t('Message Template'),
-                        style: AppTextStyles.formLabel,
-                      ),
-                      const SizedBox(height: 7),
                       TextField(
                         controller: templateController,
-                        minLines: 5,
-                        maxLines: 10,
+                        minLines: 8,
+                        maxLines: 16,
                         decoration: const InputDecoration(
                           hintText: 'Use {items} and {date} where needed.',
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 9),
                       Row(
                         children: [
                           Expanded(
-                            child: OutlinedButton.icon(
+                            child: OutlinedButton(
                               onPressed: savingTemplate
                                   ? null
-                                  : () async {
-                                      final value =
-                                          templateController.text.trim();
-                                      if (value.isEmpty) {
-                                        showWarningSnackBar(
-                                          context,
-                                          text.t(
-                                            'Message template cannot be empty.',
-                                          ),
-                                        );
-                                        return;
-                                      }
+                                  : () {
+                                      templateController.text = savedTemplate;
                                       setSheetState(
-                                        () => savingTemplate = true,
+                                        () => editingTemplate = false,
                                       );
-                                      try {
-                                        final saved = await gateway.saveTemplate(
-                                          supplier.id,
-                                          value,
-                                        );
-                                        if (!mounted) return;
-                                        setState(() {
-                                          purchaseStates = {
-                                            ...purchaseStates,
-                                            supplier.id: saved,
-                                          };
-                                        });
-                                        setSheetState(() => state = saved);
-                                        showSuccessSnackBar(
-                                          context,
-                                          text.t('Supplier template saved'),
-                                        );
-                                      } on EastAppApiException {
-                                        // Global API error UI handles this.
-                                      } finally {
-                                        if (sheetContext.mounted) {
-                                          setSheetState(
-                                            () => savingTemplate = false,
-                                          );
-                                        }
-                                      }
                                     },
-                              icon: const Icon(Icons.save_outlined),
-                              label: Text(text.t('Save Template')),
+                              child: Text(text.t('Cancel')),
                             ),
                           ),
                           const SizedBox(width: 8),
                           Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: () {
-                                messageController.text = generatedMessage(
-                                  templateController.text,
-                                  skus,
-                                );
-                              },
-                              icon: const Icon(Icons.auto_fix_high_rounded),
-                              label: Text(text.t('Apply Template')),
+                            child: FilledButton.icon(
+                              onPressed: savingTemplate ? null : saveTemplate,
+                              icon: const Icon(Icons.save_outlined),
+                              label: Text(
+                                text.t(
+                                  savingTemplate ? 'Saving...' : 'Save',
+                                ),
+                              ),
                             ),
                           ),
                         ],
                       ),
-                    ],
-                    const SizedBox(height: 12),
-                    Text(
-                      text.t('Order Message'),
-                      style: AppTextStyles.formLabel,
-                    ),
-                    const SizedBox(height: 7),
-                    TextField(
-                      controller: messageController,
-                      minLines: 8,
-                      maxLines: 16,
-                      decoration: InputDecoration(
-                        helperText: text.t(
-                          'This final message can still be edited before copying.',
+                    ] else ...[
+                      TextField(
+                        controller: messageController,
+                        minLines: 8,
+                        maxLines: 16,
+                        decoration: InputDecoration(
+                          helperText: text.t(
+                            'This final message can still be edited before copying.',
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    PrimaryButton(
-                      text: activeOrder
-                          ? text.t('Order Already Marked Done')
-                          : text.t('Ordered Done'),
-                      icon: activeOrder
-                          ? Icons.check_circle_rounded
-                          : Icons.task_alt_rounded,
-                      onPressed: activeOrder || markingOrdered
-                          ? null
-                          : () async {
-                              final message = messageController.text.trim();
-                              if (message.isEmpty) {
-                                showWarningSnackBar(
+                      const SizedBox(height: 16),
+                      PrimaryButton(
+                        text: activeOrder
+                            ? text.t('Order Already Marked Done')
+                            : text.t('Ordered Done'),
+                        icon: activeOrder
+                            ? Icons.check_circle_rounded
+                            : Icons.task_alt_rounded,
+                        onPressed: activeOrder || markingOrdered
+                            ? null
+                            : () async {
+                                final message = messageController.text.trim();
+                                if (message.isEmpty) {
+                                  showWarningSnackBar(
+                                    context,
+                                    text.t('Order message cannot be empty.'),
+                                  );
+                                  return;
+                                }
+                                final confirmed = await confirmDataChange(
                                   context,
-                                  text.t('Order message cannot be empty.'),
-                                );
-                                return;
-                              }
-                              final confirmed = await confirmDataChange(
-                                context,
-                                action: text.t('Confirm Ordered Done?'),
-                                details: text.t(
-                                  'This will enable this supplier in Receiving. '
-                                  'Only confirm after the order has actually been placed.',
-                                ),
-                              );
-                              if (!confirmed || !sheetContext.mounted) return;
-                              setSheetState(() => markingOrdered = true);
-                              try {
-                                final saved = await gateway.markOrdered(
-                                  supplier.id,
-                                  message,
-                                );
-                                if (!mounted) return;
-                                setState(() {
-                                  purchaseStates = {
-                                    ...purchaseStates,
-                                    supplier.id: saved,
-                                  };
-                                });
-                                setSheetState(() => state = saved);
-                                showSuccessSnackBar(
-                                  context,
-                                  text.t(
-                                    'Order marked done. Receiving is now enabled.',
+                                  action: text.t('Confirm Ordered Done?'),
+                                  details: text.t(
+                                    'This will enable this supplier in Receiving. '
+                                    'Only confirm after the order has actually been placed.',
                                   ),
                                 );
-                              } on EastAppApiException {
-                                // Global API error UI handles this.
-                              } finally {
-                                if (sheetContext.mounted) {
-                                  setSheetState(() => markingOrdered = false);
+                                if (!confirmed || !sheetContext.mounted) return;
+                                setSheetState(() => markingOrdered = true);
+                                try {
+                                  final saved = await gateway.markOrdered(
+                                    supplier.id,
+                                    message,
+                                  );
+                                  if (!mounted) return;
+                                  setState(() {
+                                    purchaseStates = {
+                                      ...purchaseStates,
+                                      supplier.id: saved,
+                                    };
+                                  });
+                                  if (sheetContext.mounted) {
+                                    setSheetState(() => state = saved);
+                                  }
+                                  showSuccessSnackBar(
+                                    context,
+                                    text.t(
+                                      'Order marked done. Receiving is now enabled.',
+                                    ),
+                                  );
+                                } on EastAppApiException {
+                                  // Global API error UI handles this.
+                                } finally {
+                                  if (sheetContext.mounted) {
+                                    setSheetState(
+                                      () => markingOrdered = false,
+                                    );
+                                  }
                                 }
-                              }
-                            },
-                    ),
-                    const SizedBox(height: 9),
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        onPressed: () async {
-                          await Clipboard.setData(
-                            ClipboardData(text: messageController.text),
-                          );
-                          if (!mounted) return;
-                          showCopiedFeedback();
-                        },
-                        icon: const Icon(Icons.copy_rounded),
-                        label: Text(text.t('Copy Message')),
+                              },
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      text.t(
-                        'Copy Message never changes the order status and can be used multiple times.',
+                      const SizedBox(height: 9),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: () async {
+                            await Clipboard.setData(
+                              ClipboardData(text: messageController.text),
+                            );
+                            if (!mounted) return;
+                            showCopiedFeedback();
+                          },
+                          icon: const Icon(Icons.copy_rounded),
+                          label: Text(text.t('Copy Message')),
+                        ),
                       ),
-                      style: const TextStyle(
-                        color: AppColours.textMuted,
-                        fontSize: AppTextSize.s12,
-                        fontWeight: FontWeight.w600,
+                      const SizedBox(height: 8),
+                      Text(
+                        text.t(
+                          'Copy Message never changes the order status and can be used multiple times.',
+                        ),
+                        style: const TextStyle(
+                          color: AppColours.textMuted,
+                          fontSize: AppTextSize.s12,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                    ),
+                    ],
                   ],
                 ),
               ),
