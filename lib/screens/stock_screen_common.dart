@@ -131,7 +131,7 @@ class _DataRefreshBarState extends State<_DataRefreshBar> {
                 text.t(updatedText),
                 style: const TextStyle(
                   color: AppColours.textMuted,
-                  fontSize: AppTextSize.s11,
+                  fontSize: AppTextSize.s12,
                   fontWeight: FontWeight.w700,
                 ),
               ),
