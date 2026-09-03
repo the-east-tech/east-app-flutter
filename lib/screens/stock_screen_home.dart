@@ -30,10 +30,7 @@ class _StockHomePage extends StatelessWidget {
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 24),
       children: [
-        PageTitle(
-          title: text.t('Stock Dashboard'),
-          subtitle: todaySubtitle,
-        ),
+        PageTitle(title: text.t('Stock Dashboard'), subtitle: todaySubtitle),
         const SizedBox(height: 8),
         _SectionTitle(text.t('Operation')),
         _StockMenuGrid(
@@ -196,7 +193,6 @@ class _StockMenuGrid extends StatelessWidget {
         final cardWidth = useTwoColumns
             ? (constraints.maxWidth - 10) / 2
             : constraints.maxWidth;
-
         return Wrap(
           spacing: 10,
           runSpacing: 10,
@@ -226,7 +222,7 @@ class _StockMenuCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return WhiteCard(
       padding: EdgeInsets.zero,
-      child: Pressable(
+      child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(18),
         child: Padding(
@@ -315,9 +311,7 @@ class _PageScaffold extends StatelessWidget {
                 icon: const Icon(Icons.arrow_back_rounded),
               ),
             ),
-            Expanded(
-              child: PageTitle(title: title, subtitle: subtitle),
-            ),
+            Expanded(child: PageTitle(title: title, subtitle: subtitle)),
             if (trailing != null)
               Padding(
                 padding: const EdgeInsets.only(top: 12),

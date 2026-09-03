@@ -26,7 +26,9 @@ class _RestockMessagePageState extends State<_RestockMessagePage> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => unawaited(loadPurchaseStates()));
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => unawaited(loadPurchaseStates()),
+    );
   }
 
   Future<void> loadPurchaseStates() async {
@@ -36,7 +38,9 @@ class _RestockMessagePageState extends State<_RestockMessagePage> {
       final values = await gateway.suppliers();
       if (!mounted) return;
       setState(() {
-        purchaseStates = {for (final value in values) value.supplierId: value};
+        purchaseStates = {
+          for (final value in values) value.supplierId: value,
+        };
         loadingStates = false;
       });
     } on EastAppApiException {
@@ -44,13 +48,11 @@ class _RestockMessagePageState extends State<_RestockMessagePage> {
     }
   }
 
-  List<StockSku> get visibleSkus {
-    return widget.skus.where((sku) {
-      if (!sku.active) return false;
-      if (!lowStockOnly) return true;
-      return sku.currentBalanceValue <= sku.minimumBalanceValue;
-    }).toList(growable: false);
-  }
+  List<StockSku> get visibleSkus => widget.skus.where((sku) {
+        if (!sku.active) return false;
+        return !lowStockOnly ||
+            sku.currentBalanceValue <= sku.minimumBalanceValue;
+      }).toList(growable: false);
 
   List<({SupplierProfile supplier, List<StockSku> skus})> get supplierGroups {
     final result = <({SupplierProfile supplier, List<StockSku> skus})>[];
@@ -61,40 +63,40 @@ class _RestockMessagePageState extends State<_RestockMessagePage> {
         ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
       if (skus.isNotEmpty) result.add((supplier: supplier, skus: skus));
     }
-    result.sort((a, b) => a.supplier.supplierName
-        .toLowerCase()
-        .compareTo(b.supplier.supplierName.toLowerCase()));
+    result.sort(
+      (a, b) => a.supplier.supplierName
+          .toLowerCase()
+          .compareTo(b.supplier.supplierName.toLowerCase()),
+    );
     return result;
   }
 
   double suggestedAmount(StockSku sku) {
-    final target = sku.maximumBalanceValue;
-    final shortage = target - sku.currentBalanceValue;
+    final shortage = sku.maximumBalanceValue - sku.currentBalanceValue;
     return shortage <= 0 ? 0 : shortage;
   }
 
   String itemLines(List<StockSku> skus) {
-    final lines = <String>[];
-    for (var i = 0; i < skus.length; i++) {
-      final sku = skus[i];
-      lines.add(
-        '${i + 1}. ${sku.name} — ${formatStockNumber(suggestedAmount(sku))} ${sku.unit}',
-      );
-    }
-    return lines.join('\n');
+    return List.generate(
+      skus.length,
+      (index) {
+        final sku = skus[index];
+        return '${index + 1}. ${sku.name} — '
+            '${formatStockNumber(suggestedAmount(sku))} ${sku.unit}';
+      },
+    ).join('\n');
   }
 
   String generatedMessage(String template, List<StockSku> skus) {
     final now = DateTime.now();
     final date =
-        '${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year}';
+        '${now.day.toString().padLeft(2, '0')}/'
+        '${now.month.toString().padLeft(2, '0')}/${now.year}';
     final items = itemLines(skus);
     var result = template.trim();
-    if (!result.contains('{items}')) {
-      result = '$result\n\n$items';
-    } else {
-      result = result.replaceAll('{items}', items);
-    }
+    result = result.contains('{items}')
+        ? result.replaceAll('{items}', items)
+        : '$result\n\n$items';
     return result.replaceAll('{date}', date).trim();
   }
 
@@ -102,15 +104,39 @@ class _RestockMessagePageState extends State<_RestockMessagePage> {
     if (state == null || state.orderState == 'NONE') return 'Not ordered';
     if (state.orderState == 'ORDERED') return 'Ordered · Ready to receive';
     if (state.orderState == 'SUBMITTED') return 'Receiving · Awaiting review';
-    if (state.orderState == 'CORRECTION_REQUIRED') return 'Receiving · Needs correction';
+    if (state.orderState == 'CORRECTION_REQUIRED') {
+      return 'Receiving · Needs correction';
+    }
     return state.orderState;
   }
 
   Color stateColour(StockPurchaseSupplierState? state) {
-    if (state == null || state.orderState == 'NONE') return AppColours.textMuted;
+    if (state == null || state.orderState == 'NONE') {
+      return AppColours.textMuted;
+    }
     if (state.orderState == 'ORDERED') return AppColours.green;
     if (state.orderState == 'SUBMITTED') return AppColours.blue;
     return AppColours.orange;
+  }
+
+  void showCopiedFeedback() {
+    AppFeedback.select();
+    final messenger = ScaffoldMessenger.of(context);
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          duration: const Duration(milliseconds: 1400),
+          content: Row(
+            children: [
+              const Icon(Icons.check_circle_outline_rounded,
+                  color: Colors.white, size: 20),
+              const SizedBox(width: 8),
+              Text(AppTextScope.of(context).t('Message copied')),
+            ],
+          ),
+        ),
+      );
   }
 
   Future<void> openSupplierOrder(
@@ -121,12 +147,14 @@ class _RestockMessagePageState extends State<_RestockMessagePage> {
     final currentState = purchaseStates[supplier.id];
     final initialTemplate = currentState?.messageTemplate.trim().isNotEmpty == true
         ? currentState!.messageTemplate
-        : 'Hi, please prepare the following items:\n\n{items}\n\n{date}\nPlease confirm availability and delivery time. Thank u.';
+        : 'Hi, please prepare the following items:\n\n{items}\n\n{date}\n'
+            'Please confirm availability and delivery time. Thank u.';
     final templateController = TextEditingController(text: initialTemplate);
     final messageController = TextEditingController(
       text: generatedMessage(initialTemplate, skus),
     );
     var state = currentState;
+    var editingTemplate = false;
     var savingTemplate = false;
     var markingOrdered = false;
 
@@ -161,7 +189,8 @@ class _RestockMessagePageState extends State<_RestockMessagePage> {
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                '${skus.length} ${text.t('SKU')} · ${stateLabel(state)}',
+                                '${skus.length} ${text.t('SKU')} · '
+                                '${stateLabel(state)}',
                                 style: TextStyle(
                                   color: stateColour(state),
                                   fontWeight: FontWeight.w800,
@@ -176,90 +205,135 @@ class _RestockMessagePageState extends State<_RestockMessagePage> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 14),
-                    Text(
-                      text.t('Message Template'),
-                      style: AppTextStyles.formLabel,
-                    ),
-                    const SizedBox(height: 7),
-                    TextField(
-                      controller: templateController,
-                      minLines: 5,
-                      maxLines: 10,
-                      decoration: const InputDecoration(
-                        hintText: 'Use {items} and {date} where needed.',
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton.icon(
+                        style: TextButton.styleFrom(
+                          visualDensity: VisualDensity.compact,
+                          minimumSize: Size.zero,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 7,
+                            vertical: 3,
+                          ),
+                        ),
+                        onPressed: () => setSheetState(
+                          () => editingTemplate = !editingTemplate,
+                        ),
+                        icon: Icon(
+                          editingTemplate
+                              ? Icons.expand_less_rounded
+                              : Icons.edit_outlined,
+                          size: 15,
+                        ),
+                        label: Text(
+                          text.t(editingTemplate
+                              ? 'Hide template'
+                              : 'Edit template'),
+                          style: const TextStyle(
+                            fontSize: AppTextSize.s12,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: savingTemplate
-                                ? null
-                                : () async {
-                                    final value = templateController.text.trim();
-                                    if (value.isEmpty) {
-                                      showWarningSnackBar(
-                                        context,
-                                        text.t('Message template cannot be empty.'),
-                                      );
-                                      return;
-                                    }
-                                    setSheetState(() => savingTemplate = true);
-                                    try {
-                                      final saved = await gateway.saveTemplate(
-                                        supplier.id,
-                                        value,
-                                      );
-                                      if (!mounted) return;
-                                      setState(() {
-                                        purchaseStates = {
-                                          ...purchaseStates,
-                                          supplier.id: saved,
-                                        };
-                                      });
-                                      setSheetState(() => state = saved);
-                                      showSuccessSnackBar(
-                                        context,
-                                        text.t('Supplier template saved'),
-                                      );
-                                    } on EastAppApiException {
-                                      // Global API error UI already shows the failure.
-                                    } finally {
-                                      if (sheetContext.mounted) {
-                                        setSheetState(() => savingTemplate = false);
+                    if (editingTemplate) ...[
+                      const SizedBox(height: 5),
+                      Text(
+                        text.t('Message Template'),
+                        style: AppTextStyles.formLabel,
+                      ),
+                      const SizedBox(height: 7),
+                      TextField(
+                        controller: templateController,
+                        minLines: 5,
+                        maxLines: 10,
+                        decoration: const InputDecoration(
+                          hintText: 'Use {items} and {date} where needed.',
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: savingTemplate
+                                  ? null
+                                  : () async {
+                                      final value =
+                                          templateController.text.trim();
+                                      if (value.isEmpty) {
+                                        showWarningSnackBar(
+                                          context,
+                                          text.t(
+                                            'Message template cannot be empty.',
+                                          ),
+                                        );
+                                        return;
                                       }
-                                    }
-                                  },
-                            icon: const Icon(Icons.save_outlined),
-                            label: Text(text.t('Save Template')),
+                                      setSheetState(
+                                        () => savingTemplate = true,
+                                      );
+                                      try {
+                                        final saved = await gateway.saveTemplate(
+                                          supplier.id,
+                                          value,
+                                        );
+                                        if (!mounted) return;
+                                        setState(() {
+                                          purchaseStates = {
+                                            ...purchaseStates,
+                                            supplier.id: saved,
+                                          };
+                                        });
+                                        setSheetState(() => state = saved);
+                                        showSuccessSnackBar(
+                                          context,
+                                          text.t('Supplier template saved'),
+                                        );
+                                      } on EastAppApiException {
+                                        // Global API error UI handles this.
+                                      } finally {
+                                        if (sheetContext.mounted) {
+                                          setSheetState(
+                                            () => savingTemplate = false,
+                                          );
+                                        }
+                                      }
+                                    },
+                              icon: const Icon(Icons.save_outlined),
+                              label: Text(text.t('Save Template')),
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: () {
-                              messageController.text = generatedMessage(
-                                templateController.text,
-                                skus,
-                              );
-                            },
-                            icon: const Icon(Icons.auto_fix_high_rounded),
-                            label: Text(text.t('Apply Template')),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: () {
+                                messageController.text = generatedMessage(
+                                  templateController.text,
+                                  skus,
+                                );
+                              },
+                              icon: const Icon(Icons.auto_fix_high_rounded),
+                              label: Text(text.t('Apply Template')),
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
+                    ],
+                    const SizedBox(height: 12),
+                    Text(
+                      text.t('Order Message'),
+                      style: AppTextStyles.formLabel,
                     ),
-                    const SizedBox(height: 16),
-                    Text(text.t('Order Message'), style: AppTextStyles.formLabel),
                     const SizedBox(height: 7),
                     TextField(
                       controller: messageController,
                       minLines: 8,
                       maxLines: 16,
                       decoration: InputDecoration(
-                        helperText: text.t('This final message can still be edited before copying.'),
+                        helperText: text.t(
+                          'This final message can still be edited before copying.',
+                        ),
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -285,7 +359,8 @@ class _RestockMessagePageState extends State<_RestockMessagePage> {
                                 context,
                                 action: text.t('Confirm Ordered Done?'),
                                 details: text.t(
-                                  'This will enable this supplier in Receiving. Only confirm after the order has actually been placed.',
+                                  'This will enable this supplier in Receiving. '
+                                  'Only confirm after the order has actually been placed.',
                                 ),
                               );
                               if (!confirmed || !sheetContext.mounted) return;
@@ -305,10 +380,12 @@ class _RestockMessagePageState extends State<_RestockMessagePage> {
                                 setSheetState(() => state = saved);
                                 showSuccessSnackBar(
                                   context,
-                                  text.t('Order marked done. Receiving is now enabled.'),
+                                  text.t(
+                                    'Order marked done. Receiving is now enabled.',
+                                  ),
                                 );
                               } on EastAppApiException {
-                                // Global API error UI already shows the failure.
+                                // Global API error UI handles this.
                               } finally {
                                 if (sheetContext.mounted) {
                                   setSheetState(() => markingOrdered = false);
@@ -325,7 +402,7 @@ class _RestockMessagePageState extends State<_RestockMessagePage> {
                             ClipboardData(text: messageController.text),
                           );
                           if (!mounted) return;
-                          showSuccessSnackBar(context, text.t('Message copied'));
+                          showCopiedFeedback();
                         },
                         icon: const Icon(Icons.copy_rounded),
                         label: Text(text.t('Copy Message')),
@@ -333,7 +410,9 @@ class _RestockMessagePageState extends State<_RestockMessagePage> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      text.t('Copy Message never changes the order status and can be used multiple times.'),
+                      text.t(
+                        'Copy Message never changes the order status and can be used multiple times.',
+                      ),
                       style: const TextStyle(
                         color: AppColours.textMuted,
                         fontSize: AppTextSize.s12,
@@ -359,7 +438,9 @@ class _RestockMessagePageState extends State<_RestockMessagePage> {
     final groups = supplierGroups;
     return _PageScaffold(
       title: text.t('Purchase'),
-      subtitle: text.t('Prepare supplier messages, then confirm only when the order is actually placed.'),
+      subtitle: text.t(
+        'Prepare supplier messages, then confirm only when the order is actually placed.',
+      ),
       onBack: widget.onBack,
       children: [
         WhiteCard(
@@ -412,8 +493,10 @@ class _RestockMessagePageState extends State<_RestockMessagePage> {
                 text.t('Low Stock Only'),
                 style: const TextStyle(fontWeight: FontWeight.w800),
               ),
-              subtitle: Text(text.t('Show only SKUs at or below minimum balance.')),
-              onChanged: (value) => setState(() => lowStockOnly = value ?? true),
+              subtitle:
+                  Text(text.t('Show only SKUs at or below minimum balance.')),
+              onChanged: (value) =>
+                  setState(() => lowStockOnly = value ?? true),
             ),
           ),
         ),
@@ -423,9 +506,11 @@ class _RestockMessagePageState extends State<_RestockMessagePage> {
               padding: const EdgeInsets.symmetric(vertical: 26),
               child: Center(
                 child: Text(
-                  text.t(lowStockOnly
-                      ? 'No low-stock supplier orders to prepare.'
-                      : 'No supplier SKUs available.'),
+                  text.t(
+                    lowStockOnly
+                        ? 'No low-stock supplier orders to prepare.'
+                        : 'No supplier SKUs available.',
+                  ),
                   style: const TextStyle(
                     color: AppColours.textMuted,
                     fontWeight: FontWeight.w700,
@@ -484,7 +569,10 @@ class _PurchaseSupplierCard extends StatelessWidget {
                   color: AppColours.blueSoft,
                   borderRadius: BorderRadius.circular(14),
                 ),
-                child: const Icon(Icons.local_shipping_outlined, color: AppColours.blue),
+                child: const Icon(
+                  Icons.local_shipping_outlined,
+                  color: AppColours.blue,
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -509,7 +597,10 @@ class _PurchaseSupplierCard extends StatelessWidget {
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right_rounded, color: AppColours.textMuted),
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: AppColours.textMuted,
+              ),
             ],
           ),
         ),

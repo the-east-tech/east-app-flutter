@@ -252,8 +252,8 @@ Map<String, Object?> stockSupplierToJson(SupplierProfile supplier) {
 Map<String, Object?> stockSkuToJson(StockSku sku) {
   return {
     'name': sku.name,
-    'tag1Id': sku.tag1Id,
-    'tag2Id': sku.tag2Id,
+    'tag1Id': sku.tag1Id.trim().isEmpty ? null : sku.tag1Id,
+    'tag2Id': sku.tag2Id.trim().isEmpty ? null : sku.tag2Id,
     'unit': sku.unit,
     'minimumBalanceValue': sku.minimumBalanceValue,
     'maximumBalanceValue': sku.maximumBalanceValue,
@@ -307,7 +307,6 @@ EastAppPage<StockAuditEntry> stockAuditPageFromJson(
 ) {
   return EastAppPage.fromJson(json, stockAuditEntryFromJson);
 }
-
 
 EastAppPage<StockTag> stockTagPageFromJson(Map<String, dynamic> json) {
   return EastAppPage.fromJson(json, stockTagFromJson);

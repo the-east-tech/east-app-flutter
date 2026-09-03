@@ -39,8 +39,7 @@ class _DailyStockCountPageState extends State<_DailyStockCountPage> {
   }
 
   void refreshProgressBars() {
-    if (!mounted) return;
-    setState(() {});
+    if (mounted) setState(() {});
   }
 
   @override
@@ -48,7 +47,9 @@ class _DailyStockCountPageState extends State<_DailyStockCountPage> {
     super.initState();
     controllers = {
       for (final sku in widget.skus)
-        sku.id: TextEditingController(text: formatStockNumber(sku.currentBalanceValue)),
+        sku.id: TextEditingController(
+          text: formatStockNumber(sku.currentBalanceValue),
+        ),
     };
     for (final controller in controllers.values) {
       controller.addListener(refreshProgressBars);
@@ -68,15 +69,32 @@ class _DailyStockCountPageState extends State<_DailyStockCountPage> {
   void didUpdateWidget(covariant _DailyStockCountPage oldWidget) {
     super.didUpdateWidget(oldWidget);
     for (final sku in widget.skus) {
-      if (controllers.containsKey(sku.id)) continue;
-      final controller = TextEditingController(
-        text: formatStockNumber(sku.currentBalanceValue),
-      )..addListener(refreshProgressBars);
-      controllers[sku.id] = controller;
-      notes[sku.id] = TextEditingController();
+      final existingController = controllers[sku.id];
       final editable = canEditCountSku(sku);
-      autoSavedBySku[sku.id] = !editable;
-      completedBySku[sku.id] = !editable;
+      if (existingController == null) {
+        final controller = TextEditingController(
+          text: formatStockNumber(sku.currentBalanceValue),
+        )..addListener(refreshProgressBars);
+        controllers[sku.id] = controller;
+        notes[sku.id] = TextEditingController();
+        autoSavedBySku[sku.id] = !editable;
+        completedBySku[sku.id] = !editable;
+        continue;
+      }
+
+      final wasEditable = canEditCountSku(
+        sku,
+        submissions: oldWidget.submissions,
+      );
+      if (!wasEditable && editable) {
+        existingController.text = formatStockNumber(sku.currentBalanceValue);
+        notes[sku.id]?.clear();
+        autoSavedBySku[sku.id] = false;
+        completedBySku[sku.id] = false;
+      } else if (wasEditable && !editable) {
+        autoSavedBySku[sku.id] = true;
+        completedBySku[sku.id] = true;
+      }
     }
   }
 
@@ -115,11 +133,20 @@ class _DailyStockCountPageState extends State<_DailyStockCountPage> {
     return start;
   }
 
-  StockSubmission? latestSubmissionFor(StockSku sku) {
+  bool submissionBlocksCount(StockSubmission submission) {
+    final status = submission.reviewStatus.trim().toUpperCase();
+    return status != 'REJECTED' && status != 'PENDING';
+  }
+
+  StockSubmission? latestSubmissionFor(
+    StockSku sku, {
+    List<StockSubmission>? submissions,
+  }) {
     final start = countCycleStart(sku, DateTime.now());
     final end = start.add(const Duration(days: 1));
-    for (final submission in widget.submissions) {
+    for (final submission in submissions ?? widget.submissions) {
       if (submission.stockTaskId == sku.id &&
+          submissionBlocksCount(submission) &&
           !submission.capturedAt.isBefore(start) &&
           submission.capturedAt.isBefore(end)) {
         return submission;
@@ -128,8 +155,15 @@ class _DailyStockCountPageState extends State<_DailyStockCountPage> {
     return null;
   }
 
-  bool canEditCountSku(StockSku sku) {
-    final alreadySubmitted = latestSubmissionFor(sku) != null;
+  bool canEditCountSku(
+    StockSku sku, {
+    List<StockSubmission>? submissions,
+  }) {
+    final alreadySubmitted = latestSubmissionFor(
+          sku,
+          submissions: submissions,
+        ) !=
+        null;
     return sku.active && sku.coolingPeriod && !alreadySubmitted;
   }
 
@@ -137,37 +171,38 @@ class _DailyStockCountPageState extends State<_DailyStockCountPage> {
     showStockBottomSheet<void>(
       context,
       maxHeightFactor: 0.7,
-      builder: (sheetContext) {
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(16, 10, 16, 22),
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                stockBottomSheetHandle(),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        AppTextScope.of(context).content(sku.name),
-                        style: const TextStyle(fontSize: AppTextSize.s24, fontWeight: FontWeight.w700),
+      builder: (sheetContext) => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 22),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              stockBottomSheetHandle(),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      AppTextScope.of(context).content(sku.name),
+                      style: const TextStyle(
+                        fontSize: AppTextSize.s24,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
-                    IconButton(
-                      onPressed: () => Navigator.of(sheetContext).pop(),
-                      icon: const Icon(Icons.close_rounded),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Center(child: _SkuPhotoThumb(sku: sku, size: 260)),
-              ],
-            ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.of(sheetContext).pop(),
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Center(child: _SkuPhotoThumb(sku: sku, size: 260)),
+            ],
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 
@@ -198,22 +233,18 @@ class _DailyStockCountPageState extends State<_DailyStockCountPage> {
   Future<void> submit() async {
     final text = AppTextScope.of(context);
     var hasInvalid = false;
-    var missingPhoto = false;
-
+    var incomplete = false;
     final skusToSubmit = widget.skus.where(canEditCountSku).toList();
 
     for (final sku in skusToSubmit) {
-      final entered = double.tryParse(controllers[sku.id]!.text.trim());
-      if (entered == null) {
+      if (double.tryParse(controllers[sku.id]!.text.trim()) == null) {
         hasInvalid = true;
         break;
       }
-      if (completedBySku[sku.id] != true) {
-        missingPhoto = true;
-      }
+      if (completedBySku[sku.id] != true) incomplete = true;
     }
 
-    if (hasInvalid || missingPhoto) {
+    if (hasInvalid || incomplete) {
       AppFeedback.warning();
       setState(() => showCountErrors = true);
       return;
@@ -230,7 +261,6 @@ class _DailyStockCountPageState extends State<_DailyStockCountPage> {
     for (final sku in skusToSubmit) {
       final currentBalance = double.parse(controllers[sku.id]!.text.trim());
       final note = notes[sku.id]!.text.trim();
-      final belowMinimum = currentBalance < sku.minimumBalanceValue;
       final capturedAt = DateTime.now();
       final submitted = await runStockRequest(
         context,
@@ -245,7 +275,7 @@ class _DailyStockCountPageState extends State<_DailyStockCountPage> {
             invoicePhotoName: 'Not required for daily count',
             previousBalanceValue: sku.currentBalanceValue,
             currentBalanceValue: currentBalance,
-            belowMinimumBalance: belowMinimum,
+            belowMinimumBalance: currentBalance < sku.minimumBalanceValue,
             checkedItems: const {'daily_count': true},
             remarks: {'note': note.isEmpty ? 'No remark provided.' : note},
           ),
@@ -263,15 +293,18 @@ class _DailyStockCountPageState extends State<_DailyStockCountPage> {
   Widget build(BuildContext context) {
     final text = AppTextScope.of(context);
     final tagOptions = countTagOptions;
-    final activeTagFilter = tagOptions.contains(countTagFilter) ? countTagFilter : 'All';
+    final activeTagFilter =
+        tagOptions.contains(countTagFilter) ? countTagFilter : 'All';
     final visibleSkus = filteredCountSkus(activeTagFilter);
     final completedCount = widget.skus.where((sku) {
-      final hasNumber = double.tryParse(controllers[sku.id]!.text.trim()) != null;
+      final hasNumber =
+          double.tryParse(controllers[sku.id]!.text.trim()) != null;
       return hasNumber && completedBySku[sku.id] == true;
     }).length;
     final requiredSkus = widget.skus.where(canEditCountSku).toList();
     final requiredCompleted = requiredSkus.every((sku) {
-      final hasNumber = double.tryParse(controllers[sku.id]!.text.trim()) != null;
+      final hasNumber =
+          double.tryParse(controllers[sku.id]!.text.trim()) != null;
       return hasNumber && completedBySku[sku.id] == true;
     });
     final canSubmit = requiredSkus.isNotEmpty && requiredCompleted;
@@ -298,12 +331,9 @@ class _DailyStockCountPageState extends State<_DailyStockCountPage> {
               ),
               SmallStatusPill(
                 text: canSubmit ? text.t('Ready') : text.t('Pending'),
-                textColour: canSubmit
-                    ? AppColours.green
-                    : AppColours.red,
-                backgroundColour: canSubmit
-                    ? AppColours.greenSoft
-                    : AppColours.redSoft,
+                textColour: canSubmit ? AppColours.green : AppColours.red,
+                backgroundColour:
+                    canSubmit ? AppColours.greenSoft : AppColours.redSoft,
               ),
             ],
           ),
@@ -317,17 +347,16 @@ class _DailyStockCountPageState extends State<_DailyStockCountPage> {
         LayoutBuilder(
           builder: (context, constraints) {
             final cardWidth = (constraints.maxWidth - 10) / 2;
-
             return Wrap(
               spacing: 10,
               runSpacing: 10,
               children: visibleSkus.map((sku) {
-                final enteredBalance = double.tryParse(controllers[sku.id]!.text.trim()) ??
-                    sku.currentBalanceValue;
+                final enteredBalance =
+                    double.tryParse(controllers[sku.id]!.text.trim()) ??
+                        sku.currentBalanceValue;
                 final completed = completedBySku[sku.id] ?? false;
                 final autoSaved = autoSavedBySku[sku.id] ?? false;
                 final editable = canEditCountSku(sku);
-
                 return SizedBox(
                   width: cardWidth,
                   child: _DailyStockMiniCard(
@@ -393,11 +422,14 @@ class _CountTagFilterChips extends StatelessWidget {
               borderRadius: BorderRadius.circular(999),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 160),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
                   color: selected ? AppColours.blue : Colors.white,
                   borderRadius: BorderRadius.circular(999),
-                  border: Border.all(color: selected ? AppColours.blue : AppColours.border),
+                  border: Border.all(
+                    color: selected ? AppColours.blue : AppColours.border,
+                  ),
                   boxShadow: selected
                       ? [
                           BoxShadow(
@@ -459,7 +491,8 @@ class _SkuPhotoThumb extends StatelessWidget {
       ),
     );
     final storageKey = sku.photoPath.trim();
-    final storedThumbnail = storageKey.endsWith('.jpg') || storageKey.endsWith('.png');
+    final storedThumbnail =
+        storageKey.endsWith('.jpg') || storageKey.endsWith('.png');
     final Widget photo;
     final localBytes = overrideBytes;
     if (localBytes != null && localBytes.isNotEmpty) {
@@ -500,11 +533,20 @@ class _SkuPhotoThumb extends StatelessWidget {
         ),
         if (showCountTick)
           Positioned(
-            right: 0, bottom: 0,
+            right: 0,
+            bottom: 0,
             child: Container(
-              width: size * 0.34, height: size * 0.34,
-              decoration: const BoxDecoration(color: AppColours.green, shape: BoxShape.circle),
-              child: Icon(Icons.check_rounded, size: size * 0.24, color: Colors.white),
+              width: size * 0.34,
+              height: size * 0.34,
+              decoration: const BoxDecoration(
+                color: AppColours.green,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.check_rounded,
+                size: size * 0.24,
+                color: Colors.white,
+              ),
             ),
           ),
       ],
@@ -585,7 +627,8 @@ class _DailyStockMiniCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = AppTextScope.of(context);
-    final maximum = sku.maximumBalanceValue <= 0 ? 1.0 : sku.maximumBalanceValue;
+    final maximum =
+        sku.maximumBalanceValue <= 0 ? 1.0 : sku.maximumBalanceValue;
     final ratio = (currentBalance / maximum).clamp(0.0, 1.0).toDouble();
     final belowMinimum = currentBalance < sku.minimumBalanceValue;
     final statusColour = belowMinimum ? AppColours.red : AppColours.green;
@@ -629,11 +672,17 @@ class _DailyStockMiniCard extends StatelessWidget {
                         width: 48,
                         height: 48,
                         decoration: BoxDecoration(
-                          color: countedNow ? AppColours.greenSoft : AppColours.background,
+                          color: countedNow
+                              ? AppColours.greenSoft
+                              : AppColours.background,
                           borderRadius: BorderRadius.circular(15),
                         ),
                         clipBehavior: Clip.antiAlias,
-                        child: _SkuPhotoThumb(sku: sku, size: 48, showCountTick: countedNow),
+                        child: _SkuPhotoThumb(
+                          sku: sku,
+                          size: 48,
+                          showCountTick: countedNow,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 9),
@@ -661,23 +710,24 @@ class _DailyStockMiniCard extends StatelessWidget {
                                   decoration: BoxDecoration(
                                     color: Colors.white,
                                     borderRadius: BorderRadius.circular(99),
-                                    border: Border.all(color: AppColours.border),
+                                    border:
+                                        Border.all(color: AppColours.border),
                                   ),
                                   child: LayoutBuilder(
-                                    builder: (context, constraints) {
-                                      return Align(
-                                        alignment: Alignment.centerLeft,
-                                        child: AnimatedContainer(
-                                          duration: const Duration(milliseconds: 450),
-                                          curve: Curves.easeOutCubic,
-                                          width: constraints.maxWidth * ratio,
-                                          decoration: BoxDecoration(
-                                            color: statusColour,
-                                            borderRadius: BorderRadius.circular(99),
-                                          ),
+                                    builder: (context, constraints) => Align(
+                                      alignment: Alignment.centerLeft,
+                                      child: AnimatedContainer(
+                                        duration:
+                                            const Duration(milliseconds: 450),
+                                        curve: Curves.easeOutCubic,
+                                        width: constraints.maxWidth * ratio,
+                                        decoration: BoxDecoration(
+                                          color: statusColour,
+                                          borderRadius:
+                                              BorderRadius.circular(99),
                                         ),
-                                      );
-                                    },
+                                      ),
+                                    ),
                                   ),
                                 ),
                               ),
@@ -704,10 +754,18 @@ class _DailyStockMiniCard extends StatelessWidget {
                       decoration: BoxDecoration(
                         color: statusIconBackground,
                         shape: BoxShape.circle,
-                        border: Border.all(color: statusIconColour.withValues(alpha: countedNow ? 0.50 : 0.35)),
+                        border: Border.all(
+                          color: statusIconColour.withValues(
+                            alpha: countedNow ? 0.50 : 0.35,
+                          ),
+                        ),
                       ),
                       alignment: Alignment.center,
-                      child: Icon(statusIcon, size: 17, color: statusIconColour),
+                      child: Icon(
+                        statusIcon,
+                        size: 17,
+                        color: statusIconColour,
+                      ),
                     ),
                   ],
                 ),
@@ -716,7 +774,11 @@ class _DailyStockMiniCard extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
-                      const Icon(Icons.edit_outlined, size: 14, color: AppColours.blue),
+                      const Icon(
+                        Icons.edit_outlined,
+                        size: 14,
+                        color: AppColours.blue,
+                      ),
                       const SizedBox(width: 4),
                       Text(
                         text.t('Tap to edit'),

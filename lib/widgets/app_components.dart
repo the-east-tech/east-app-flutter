@@ -224,8 +224,6 @@ bool _shouldShowSuccessBurst(String message) {
     'invalid',
     'valid stock',
     'complete every',
-    'reject',
-    'rejected',
     'error',
     'warning',
     'copied',
@@ -241,6 +239,8 @@ bool _shouldShowSuccessBurst(String message) {
   final successWords = [
     'approve',
     'approved',
+    'reject',
+    'rejected',
     'save',
     'saved',
     'submit',
@@ -257,12 +257,12 @@ bool _shouldShowSuccessBurst(String message) {
 
   return successWords.any(value.contains);
 }
-
 String _successBurstMessage(String message) {
   final trimmed = message.trim();
   final value = trimmed.toLowerCase();
 
   if (value == 'saved') return 'Saved';
+  if (value.contains('rejected') || value.contains('reject')) return 'Rejected';
   if (value.contains('approved')) return 'Approved';
   if (value.contains('submitted')) return 'Submitted';
   if (value.contains('updated')) return 'Updated';
