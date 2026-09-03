@@ -8,6 +8,7 @@ class _ReceivingDraft {
 }
 
 class _StockReceivingPage extends StatefulWidget {
+  final String tenantId;
   final UserRole role;
   final List<SupplierProfile> suppliers;
   final List<StockSku> skus;
@@ -17,6 +18,7 @@ class _StockReceivingPage extends StatefulWidget {
       onUpdateSkuBalance;
 
   const _StockReceivingPage({
+    required this.tenantId,
     required this.role,
     required this.suppliers,
     required this.skus,
@@ -45,8 +47,10 @@ class _StockReceivingPageState extends State<_StockReceivingPage> {
     return staffId;
   }
 
-  StockPurchaseGateway get gateway =>
-      StockPurchaseGateway(_StockMediaScope.of(context).api);
+  StockPurchaseGateway get gateway => StockPurchaseGateway(
+        _StockMediaScope.of(context).api,
+        tenantId: widget.tenantId,
+      );
 
   @override
   void initState() {
@@ -69,11 +73,11 @@ class _StockReceivingPageState extends State<_StockReceivingPage> {
     if (mounted) setState(() {});
   }
 
-  Future<void> loadPurchaseStates() async {
+  Future<void> loadPurchaseStates({bool forceRefresh = false}) async {
     if (!mounted) return;
     setState(() => loadingStates = true);
     try {
-      final values = await gateway.suppliers();
+      final values = await gateway.suppliers(forceRefresh: forceRefresh);
       if (!mounted) return;
       setState(() {
         purchaseStates = {

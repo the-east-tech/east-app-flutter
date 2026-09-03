@@ -82,6 +82,29 @@ class _StockScreenState extends State<StockScreen> {
   bool get canApproveStock => widget.isOwner || isHead;
   bool get canAccessAuditTrail => widget.isOwner || isHead;
 
+  StockPurchaseGateway get purchaseGateway => StockPurchaseGateway(
+        widget.api,
+        tenantId: widget.currentTenantId,
+      );
+
+  Future<void> invalidatePurchaseStateCache() async {
+    try {
+      await purchaseGateway.invalidateCache();
+    } on Object {
+      // Cache maintenance must never turn a successful stock mutation into an error.
+    }
+  }
+
+  Future<void> submitReceiving(StockReceivingRecord record) async {
+    await widget.onSubmitReceiving(record);
+    await invalidatePurchaseStateCache();
+  }
+
+  Future<void> reviewReceiving(StockReceivingRecord record) async {
+    await widget.onReviewReceiving(record);
+    await invalidatePurchaseStateCache();
+  }
+
   StockPage _dataPageFor(StockPage value) {
     // Keep the former Review deep-link compatible while the visible Review page
     // is removed. Home review links now land in Count, where approval lives.
@@ -267,7 +290,7 @@ class _StockScreenState extends State<StockScreen> {
       section: _StockApprovalLauncher(
         kind: kind,
         api: widget.api,
-        onReviewReceiving: widget.onReviewReceiving,
+        onReviewReceiving: reviewReceiving,
         onReviewStockCount: widget.onReviewStockCount,
         onBulkReviewStockCounts: widget.onBulkReviewStockCounts,
       ),
@@ -304,11 +327,12 @@ class _StockScreenState extends State<StockScreen> {
           child: _withApproval(
             kind: _StockApprovalKind.receiving,
             child: _StockReceivingPage(
+              tenantId: widget.currentTenantId,
               role: widget.role,
               suppliers: widget.suppliers,
               skus: widget.stockSkus,
               onBack: goHome,
-              onSubmitReceiving: widget.onSubmitReceiving,
+              onSubmitReceiving: submitReceiving,
               onUpdateSkuBalance: widget.onUpdateSkuBalance,
             ),
           ),
@@ -317,6 +341,7 @@ class _StockScreenState extends State<StockScreen> {
         return _dataPage(
           target: StockPage.restockMessage,
           child: _RestockMessagePage(
+            tenantId: widget.currentTenantId,
             suppliers: widget.suppliers,
             skus: widget.stockSkus,
             onBack: goHome,

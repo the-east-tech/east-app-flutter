@@ -133,7 +133,6 @@ class _TenantSetupScreenState extends State<TenantSetupScreen> {
     );
   }
 
-
   String? employeeIdFor(String tenantId) {
     for (final item in ownerContexts) {
       if (item.tenant.id == tenantId) return item.user.employeeId;
@@ -443,7 +442,12 @@ class _BusinessFormSheetState extends State<_BusinessFormSheet> {
       initialQuery: businessNameController.text.trim(),
     );
     if (result == null || !mounted) return;
-    setState(() => selectedPlace = result);
+    setState(() {
+      selectedPlace = result;
+      if (!isEditing) {
+        businessNameController.text = result.displayName.trim();
+      }
+    });
   }
 
   Future<void> save() async {
@@ -540,7 +544,10 @@ class _BusinessFormSheetState extends State<_BusinessFormSheet> {
             _BusinessInput(
               label: 'Business Name',
               controller: businessNameController,
-              hint: 'Example: June Coffee',
+              hint: isEditing
+                  ? 'Example: June Coffee'
+                  : 'Auto-filled from Google business location',
+              enabled: isEditing,
               errorText: businessNameError,
               textCapitalization: TextCapitalization.words,
               onChanged: (_) {
