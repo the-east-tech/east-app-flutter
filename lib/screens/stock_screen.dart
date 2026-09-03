@@ -10,6 +10,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../data/sample_data.dart';
 import '../localization/app_text_scope.dart';
+import '../localization/app_text.dart';
 import '../models/app_models.dart';
 import '../models/api_models.dart';
 import '../models/people_models.dart';

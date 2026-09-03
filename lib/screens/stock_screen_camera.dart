@@ -1,5 +1,20 @@
 part of 'stock_screen.dart';
 
+Future<void> showCameraOnlyCaptureDialog(
+  BuildContext context, {
+  required String title,
+  required String subtitle,
+  required Future<void> Function(String filePath) onCaptured,
+}) async {
+  final filePath = await Navigator.of(context).push<String>(
+    MaterialPageRoute(
+      builder: (_) => _StockCameraPage(title: title, subtitle: subtitle),
+    ),
+  );
+  if (filePath == null || filePath.isEmpty || !context.mounted) return;
+  await onCaptured(filePath);
+}
+
 class _StockCameraPage extends StatefulWidget {
   final String title;
   final String subtitle;
