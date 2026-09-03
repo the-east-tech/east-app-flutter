@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../localization/app_text_scope.dart';
 import '../theme/app_theme.dart';
+import 'east_brand_gradient.dart';
 
 class AppHeader extends StatelessWidget {
   final String businessName;
@@ -29,8 +30,7 @@ class AppHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final text = AppTextScope.of(context);
 
-    return Container(
-      color: AppColours.blue,
+    return EastAnimatedGradientSurface(
       child: SafeArea(
         bottom: false,
         child: Padding(
