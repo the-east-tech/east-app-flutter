@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import 'east_app_api.dart';
+import 'feature_data_cache.dart';
 
 class StockPurchaseSupplierState {
   final String supplierId;
@@ -42,20 +43,81 @@ class StockPurchaseSupplierState {
       orderedMessage: (json['orderedMessage'] as String? ?? '').trim(),
     );
   }
+
+  Map<String, dynamic> toJson() => {
+        'supplierId': supplierId,
+        'messageTemplate': messageTemplate,
+        'orderState': orderState,
+        'receivingEnabled': receivingEnabled,
+        'currentOrderReference': currentOrderReference,
+        'orderedAt': orderedAt?.toIso8601String(),
+        'orderedBy': orderedBy,
+        'orderedMessage': orderedMessage,
+      };
 }
 
 class StockPurchaseGateway {
+  static final Map<String, Future<List<StockPurchaseSupplierState>>>
+      _supplierRequests = <String, Future<List<StockPurchaseSupplierState>>>{};
+  static final Map<String, int> _cacheRevisions = <String, int>{};
+
   final EastAppApi api;
+  final String tenantId;
 
-  const StockPurchaseGateway(this.api);
+  const StockPurchaseGateway(
+    this.api, {
+    required this.tenantId,
+  });
 
-  Future<List<StockPurchaseSupplierState>> suppliers() async {
-    final body = await _request('GET', '/api/v1/stock/purchases/suppliers');
-    return (body as List<dynamic>)
-        .map((item) => StockPurchaseSupplierState.fromJson(
-              item as Map<String, dynamic>,
-            ))
-        .toList(growable: false);
+  String get _cacheKey =>
+      'tenant:${tenantId.trim()}:stock:purchase-suppliers:v1';
+
+  Future<List<StockPurchaseSupplierState>> suppliers({
+    bool forceRefresh = false,
+  }) async {
+    final cacheKey = _cacheKey;
+    if (forceRefresh) {
+      await invalidateCache();
+    } else {
+      final cached = await FeatureDataCache.instance.read(cacheKey);
+      if (cached != null) {
+        final parsed = _tryParseSuppliers(cached.data);
+        if (parsed != null) return parsed;
+        await FeatureDataCache.instance.remove(cacheKey);
+      }
+    }
+
+    final existing = _supplierRequests[cacheKey];
+    if (existing != null) return existing;
+
+    final revision = _cacheRevisions[cacheKey] ?? 0;
+    late final Future<List<StockPurchaseSupplierState>> request;
+    request = (() async {
+      final body = await _request('GET', '/api/v1/stock/purchases/suppliers');
+      final values = _parseSuppliers(body);
+      if (revision == (_cacheRevisions[cacheKey] ?? 0)) {
+        await FeatureDataCache.instance.write(
+          cacheKey,
+          values.map((value) => value.toJson()).toList(growable: false),
+        );
+      }
+      return values;
+    })();
+    _supplierRequests[cacheKey] = request;
+    try {
+      return await request;
+    } finally {
+      if (identical(_supplierRequests[cacheKey], request)) {
+        _supplierRequests.remove(cacheKey);
+      }
+    }
+  }
+
+  Future<void> invalidateCache() async {
+    final cacheKey = _cacheKey;
+    _cacheRevisions[cacheKey] = (_cacheRevisions[cacheKey] ?? 0) + 1;
+    _supplierRequests.remove(cacheKey);
+    await FeatureDataCache.instance.remove(cacheKey);
   }
 
   Future<StockPurchaseSupplierState> saveTemplate(
@@ -67,7 +129,11 @@ class StockPurchaseGateway {
       '/api/v1/stock/purchases/suppliers/$supplierId/template',
       body: {'messageTemplate': messageTemplate},
     );
-    return StockPurchaseSupplierState.fromJson(body as Map<String, dynamic>);
+    final saved = StockPurchaseSupplierState.fromJson(
+      body as Map<String, dynamic>,
+    );
+    await _replaceCachedSupplier(saved);
+    return saved;
   }
 
   Future<StockPurchaseSupplierState> markOrdered(
@@ -79,7 +145,56 @@ class StockPurchaseGateway {
       '/api/v1/stock/purchases/suppliers/$supplierId/ordered',
       body: {'message': message},
     );
-    return StockPurchaseSupplierState.fromJson(body as Map<String, dynamic>);
+    final saved = StockPurchaseSupplierState.fromJson(
+      body as Map<String, dynamic>,
+    );
+    await _replaceCachedSupplier(saved);
+    return saved;
+  }
+
+  Future<void> _replaceCachedSupplier(
+    StockPurchaseSupplierState supplier,
+  ) async {
+    final cacheKey = _cacheKey;
+    _cacheRevisions[cacheKey] = (_cacheRevisions[cacheKey] ?? 0) + 1;
+    _supplierRequests.remove(cacheKey);
+
+    final cached = await FeatureDataCache.instance.read(cacheKey);
+    final values = cached == null ? null : _tryParseSuppliers(cached.data);
+    if (values == null) return;
+
+    var replaced = false;
+    final updated = values.map((value) {
+      if (value.supplierId != supplier.supplierId) return value;
+      replaced = true;
+      return supplier;
+    }).toList(growable: true);
+    if (!replaced) updated.add(supplier);
+    await FeatureDataCache.instance.write(
+      cacheKey,
+      updated.map((value) => value.toJson()).toList(growable: false),
+    );
+  }
+
+  List<StockPurchaseSupplierState>? _tryParseSuppliers(Object? body) {
+    try {
+      return _parseSuppliers(body);
+    } on Object {
+      return null;
+    }
+  }
+
+  List<StockPurchaseSupplierState> _parseSuppliers(Object? body) {
+    if (body is! List<dynamic>) {
+      throw const FormatException('Invalid purchase supplier response.');
+    }
+    return body
+        .map(
+          (item) => StockPurchaseSupplierState.fromJson(
+            Map<String, dynamic>.from(item as Map),
+          ),
+        )
+        .toList(growable: false);
   }
 
   Future<Object?> _request(

@@ -1,11 +1,13 @@
 part of 'stock_screen.dart';
 
 class _RestockMessagePage extends StatefulWidget {
+  final String tenantId;
   final List<SupplierProfile> suppliers;
   final List<StockSku> skus;
   final VoidCallback onBack;
 
   const _RestockMessagePage({
+    required this.tenantId,
     required this.suppliers,
     required this.skus,
     required this.onBack,
@@ -20,8 +22,10 @@ class _RestockMessagePageState extends State<_RestockMessagePage> {
   bool loadingStates = true;
   Map<String, StockPurchaseSupplierState> purchaseStates = const {};
 
-  StockPurchaseGateway get gateway =>
-      StockPurchaseGateway(_StockMediaScope.of(context).api);
+  StockPurchaseGateway get gateway => StockPurchaseGateway(
+        _StockMediaScope.of(context).api,
+        tenantId: widget.tenantId,
+      );
 
   @override
   void initState() {
@@ -31,11 +35,11 @@ class _RestockMessagePageState extends State<_RestockMessagePage> {
     );
   }
 
-  Future<void> loadPurchaseStates() async {
+  Future<void> loadPurchaseStates({bool forceRefresh = false}) async {
     if (!mounted) return;
     setState(() => loadingStates = true);
     try {
-      final values = await gateway.suppliers();
+      final values = await gateway.suppliers(forceRefresh: forceRefresh);
       if (!mounted) return;
       setState(() {
         purchaseStates = {
@@ -478,7 +482,9 @@ class _RestockMessagePageState extends State<_RestockMessagePage> {
                 ),
               ),
               IconButton(
-                onPressed: loadingStates ? null : loadPurchaseStates,
+                onPressed: loadingStates
+                    ? null
+                    : () => loadPurchaseStates(forceRefresh: true),
                 icon: loadingStates
                     ? const SizedBox(
                         width: 20,
