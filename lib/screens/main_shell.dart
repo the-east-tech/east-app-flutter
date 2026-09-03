@@ -1179,6 +1179,18 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     widget.api.invalidateTaskTemplates(tenantId);
   }
 
+  Future<void> invalidateStockSupplierCaches() async {
+    final tenantId = widget.session.tenant.id;
+    try {
+      await Future.wait([
+        invalidateSetupCache(EastAppApi.stockSuppliersCachePrefix(tenantId)),
+        widget.api.invalidateStockPurchaseSupplierStates(tenantId),
+      ]);
+    } on Object {
+      // Cache cleanup must not turn a successful supplier mutation into an error.
+    }
+  }
+
   Future<void> createStockTagRemote(StockTag tag) async {
     final saved = await widget.api.createStockTag(
       tag.tag,
@@ -1224,7 +1236,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
 
   Future<void> createSupplierRemote(SupplierProfile supplier) async {
     final saved = await widget.api.createStockSupplier(supplier);
-    await invalidateSetupCache(EastAppApi.stockSuppliersCachePrefix(widget.session.tenant.id));
+    await invalidateStockSupplierCaches();
     if (!mounted) return;
     setState(() {
       suppliers = [saved, ...suppliers];
@@ -1234,7 +1246,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
 
   Future<void> updateSupplierRemote(SupplierProfile supplier) async {
     final saved = await widget.api.updateStockSupplier(supplier);
-    await invalidateSetupCache(EastAppApi.stockSuppliersCachePrefix(widget.session.tenant.id));
+    await invalidateStockSupplierCaches();
     if (!mounted) return;
     setState(() {
       stockSuppliersUpdatedAt = DateTime.now();
@@ -1248,7 +1260,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     for (final supplierId in supplierIds) {
       await widget.api.deleteStockSupplier(supplierId);
     }
-    await invalidateSetupCache(EastAppApi.stockSuppliersCachePrefix(widget.session.tenant.id));
+    await invalidateStockSupplierCaches();
     if (!mounted) return true;
     setState(() {
       stockSuppliersUpdatedAt = DateTime.now();

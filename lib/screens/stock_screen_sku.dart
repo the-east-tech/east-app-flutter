@@ -78,32 +78,66 @@ class _SkuSetupPageState extends State<_SkuSetupPage> {
     }).toList();
   }
 
-  Widget filterDropdown({
+  Widget compactFilter({
     required String label,
     required String value,
     required List<String> options,
     required ValueChanged<String> onChanged,
   }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(left: 2, bottom: 6),
-          child: Text(label, style: const TextStyle(fontSize: AppTextSize.s13, fontWeight: FontWeight.w500, color: AppColours.textMuted)),
+    final active = value != 'All';
+    return PopupMenuButton<String>(
+      initialValue: value,
+      position: PopupMenuPosition.under,
+      tooltip: '$label: $value',
+      onSelected: onChanged,
+      itemBuilder: (_) => options.map((option) {
+        return PopupMenuItem<String>(
+          value: option,
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(option, overflow: TextOverflow.ellipsis),
+              ),
+              if (option == value)
+                const Icon(Icons.check_rounded, size: 18, color: AppColours.blue),
+            ],
+          ),
+        );
+      }).toList(growable: false),
+      child: Container(
+        height: 40,
+        padding: const EdgeInsets.symmetric(horizontal: 7),
+        decoration: BoxDecoration(
+          color: active
+              ? AppColours.blue.withValues(alpha: 0.08)
+              : AppColours.card,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: active ? AppColours.blue : AppColours.border,
+          ),
         ),
-        DropdownButtonFormField<String>(
-          initialValue: value,
-          isExpanded: true,
-          isDense: true,
-          style: AppTextStyles.formValue.copyWith(fontSize: AppTextSize.s13),
-          selectedItemBuilder: (context) => options.map((option) => Align(alignment: Alignment.centerLeft, child: Text(option, overflow: TextOverflow.ellipsis, style: AppTextStyles.formValue.copyWith(fontSize: AppTextSize.s13)))).toList(),
-          items: options.map((option) => DropdownMenuItem<String>(value: option, child: Text(option, overflow: TextOverflow.ellipsis, style: AppTextStyles.formValue.copyWith(fontSize: AppTextSize.s13, fontWeight: FontWeight.w500)))).toList(),
-          onChanged: (newValue) {
-            if (newValue != null) onChanged(newValue);
-          },
-          decoration: _inputDecoration('').copyWith(isDense: true, hintText: null, contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 11)),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                active ? value : label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: AppTextSize.s13,
+                  fontWeight: FontWeight.w600,
+                  color: active ? AppColours.blue : AppColours.textMain,
+                ),
+              ),
+            ),
+            Icon(
+              Icons.arrow_drop_down_rounded,
+              size: 17,
+              color: active ? AppColours.blue : AppColours.textMuted,
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 
@@ -264,15 +298,15 @@ class _SkuSetupPageState extends State<_SkuSetupPage> {
         const SizedBox(height: 12),
         TextField(controller: searchController, style: AppTextStyles.formValue, onChanged: (_) => setState(() {}), decoration: _inputDecoration(text.t('Search')).copyWith(prefixIcon: const Icon(Icons.search_rounded))),
         const SizedBox(height: 12),
-        LayoutBuilder(builder: (context, constraints) {
-          final filterWidth = (constraints.maxWidth - 10) / 2;
-          return Wrap(spacing: 10, runSpacing: 10, crossAxisAlignment: WrapCrossAlignment.center, children: [
-            SizedBox(width: filterWidth, child: filterDropdown(label: text.t('Status'), value: warningFilter, options: const ['All', 'Low', 'Normal'], onChanged: (value) => setState(() => warningFilter = value))),
-            SizedBox(width: filterWidth, child: filterDropdown(label: text.t('Tag 1'), value: tag1Options.contains(tag1Filter) ? tag1Filter : 'All', options: tag1Options, onChanged: (value) => setState(() => tag1Filter = value))),
-            SizedBox(width: filterWidth, child: filterDropdown(label: text.t('Assigned'), value: assignedStaff.contains(assignedFilter) ? assignedFilter : 'All', options: assignedStaff, onChanged: (value) => setState(() => assignedFilter = value))),
-            SizedBox(width: filterWidth, child: filterDropdown(label: text.t('Tag 2'), value: tag2Options.contains(tag2Filter) ? tag2Filter : 'All', options: tag2Options, onChanged: (value) => setState(() => tag2Filter = value))),
-          ]);
-        }),
+        Row(children: [
+          Expanded(child: compactFilter(label: text.t('Status'), value: warningFilter, options: const ['All', 'Low', 'Normal'], onChanged: (value) => setState(() => warningFilter = value))),
+          const SizedBox(width: 6),
+          Expanded(child: compactFilter(label: text.t('Tag 1'), value: tag1Options.contains(tag1Filter) ? tag1Filter : 'All', options: tag1Options, onChanged: (value) => setState(() => tag1Filter = value))),
+          const SizedBox(width: 6),
+          Expanded(child: compactFilter(label: text.t('Assigned'), value: assignedStaff.contains(assignedFilter) ? assignedFilter : 'All', options: assignedStaff, onChanged: (value) => setState(() => assignedFilter = value))),
+          const SizedBox(width: 6),
+          Expanded(child: compactFilter(label: text.t('Tag 2'), value: tag2Options.contains(tag2Filter) ? tag2Filter : 'All', options: tag2Options, onChanged: (value) => setState(() => tag2Filter = value))),
+        ]),
         const SizedBox(height: 14),
         if (skus.isEmpty)
           WhiteCard(child: Text(text.t('No SKU matches the selected filters.'), style: const TextStyle(fontSize: AppTextSize.s16, fontWeight: FontWeight.w700)))

@@ -175,6 +175,8 @@ class EastAppApi {
       'tenant:$tenantId:setup:stock-suppliers:';
   static String stockSkusCachePrefix(String tenantId) =>
       'tenant:$tenantId:setup:stock-skus:';
+  static String stockPurchaseSupplierStatesCacheKey(String tenantId) =>
+      'tenant:${tenantId.trim()}:stock:purchase-suppliers:v1';
   static String usersCachePrefix(String tenantId) =>
       'tenant:$tenantId:setup:users:';
   static String rolesCachePrefix(String tenantId) =>
@@ -1876,6 +1878,45 @@ class EastAppApi {
             forceRefresh: forceRefresh,
           );
     return stockSupplierPageFromJson(body as Map<String, dynamic>);
+  }
+
+  Future<Object?> loadStockPurchaseSupplierStates({
+    required String tenantId,
+    bool forceRefresh = false,
+  }) {
+    return _requestCachedJson(
+      '/api/v1/stock/purchases/suppliers',
+      cacheKey: stockPurchaseSupplierStatesCacheKey(tenantId),
+      forceRefresh: forceRefresh,
+    );
+  }
+
+  Future<Object?> saveStockPurchaseTemplate({
+    required String supplierId,
+    required String messageTemplate,
+  }) {
+    return _requestJson(
+      'PATCH',
+      '/api/v1/stock/purchases/suppliers/$supplierId/template',
+      body: {'messageTemplate': messageTemplate},
+    );
+  }
+
+  Future<Object?> markStockPurchaseSupplierOrdered({
+    required String supplierId,
+    required String message,
+  }) {
+    return _requestJson(
+      'POST',
+      '/api/v1/stock/purchases/suppliers/$supplierId/ordered',
+      body: {'message': message},
+    );
+  }
+
+  Future<void> invalidateStockPurchaseSupplierStates(String tenantId) {
+    return invalidateFeatureCache(
+      stockPurchaseSupplierStatesCacheKey(tenantId),
+    );
   }
 
   Future<EastAppPage<StockSku>> stockSkus({
