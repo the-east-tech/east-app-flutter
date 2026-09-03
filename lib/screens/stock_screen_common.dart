@@ -121,27 +121,36 @@ class _DataRefreshBarState extends State<_DataRefreshBar> {
     return Material(
       color: const Color(0xFFF6F8FC),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 8, 14, 6),
+        padding: const EdgeInsets.fromLTRB(14, 3, 14, 3),
         child: Row(
           children: [
-            const Icon(Icons.storage_rounded, size: 18, color: AppColours.textMuted),
-            const SizedBox(width: 8),
+            const Icon(Icons.storage_rounded, size: 16, color: AppColours.textMuted),
+            const SizedBox(width: 6),
             Expanded(
               child: Text(
                 text.t(updatedText),
                 style: const TextStyle(
                   color: AppColours.textMuted,
-                  fontSize: AppTextSize.s12,
+                  fontSize: AppTextSize.s11,
                   fontWeight: FontWeight.w700,
                 ),
               ),
             ),
             TextButton.icon(
+              style: TextButton.styleFrom(
+                minimumSize: const Size(0, 30),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                visualDensity: VisualDensity.compact,
+              ),
               onPressed: refreshing ? null : refresh,
               icon: refreshing
-                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Icon(Icons.refresh_rounded),
-              label: Text(text.t('Refresh')),
+                  ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.refresh_rounded, size: 17),
+              label: Text(
+                text.t('Refresh'),
+                style: const TextStyle(fontSize: AppTextSize.s12, fontWeight: FontWeight.w700),
+              ),
             ),
           ],
         ),
