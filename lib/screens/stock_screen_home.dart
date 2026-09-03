@@ -303,13 +303,13 @@ class _PageScaffold extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 24),
+      padding: const EdgeInsets.fromLTRB(14, 0, 14, 24),
       children: [
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
-              padding: const EdgeInsets.only(top: 16),
+              padding: const EdgeInsets.only(top: 12),
               child: IconButton(
                 onPressed: onBack,
                 icon: const Icon(Icons.arrow_back_rounded),
@@ -320,7 +320,7 @@ class _PageScaffold extends StatelessWidget {
             ),
             if (trailing != null)
               Padding(
-                padding: const EdgeInsets.only(top: 16),
+                padding: const EdgeInsets.only(top: 12),
                 child: trailing!,
               ),
           ],
