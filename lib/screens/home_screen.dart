@@ -13,7 +13,6 @@ import '../models/stock_api_models.dart';
 import '../services/east_app_api.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_components.dart';
-import '../widgets/east_brand_gradient.dart';
 import 'career_path_screen.dart';
 import 'notification_screen.dart';
 
@@ -268,13 +267,16 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             children: [
               Row(
                 children: [
-                  EastAnimatedGradientSurface(
+                  Container(
                     width: 34,
                     height: 34,
-                    borderRadius: BorderRadius.circular(12),
+                    decoration: BoxDecoration(
+                      color: AppColours.background,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                     child: const Icon(
                       Icons.access_time_rounded,
-                      color: Colors.white,
+                      color: AppColours.blue,
                       size: 22,
                     ),
                   ),
@@ -338,8 +340,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       value: isManagement
                           ? '$pendingReviewCount'
                           : '$taskPending',
-                      colour: AppColours.green,
-                      background: AppColours.greenSoft,
+                      colour: const Color(0xFFC73500),
+                      background: AppColours.orangeSoft,
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -351,8 +353,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       value: isManagement
                           ? '$doneReviewCount'
                           : '$taskSubmitted',
-                      colour: const Color(0xFFC73500),
-                      background: AppColours.orangeSoft,
+                      colour: AppColours.green,
+                      background: AppColours.greenSoft,
                     ),
                   ),
                 ],
@@ -426,13 +428,16 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 padding: const EdgeInsets.fromLTRB(12, 10, 12, 9),
                 child: Row(
                   children: [
-                    EastAnimatedGradientSurface(
+                    Container(
                       width: 34,
                       height: 34,
-                      borderRadius: BorderRadius.circular(12),
+                      decoration: BoxDecoration(
+                        color: AppColours.background,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                       child: const Icon(
                         Icons.star_border_rounded,
-                        color: Colors.white,
+                        color: AppColours.blue,
                         size: 22,
                       ),
                     ),
@@ -862,7 +867,7 @@ class _ReviewProgressBar extends StatelessWidget {
       borderRadius: BorderRadius.circular(999),
       child: Container(
         height: 8,
-        color: const Color(0xFFF7F8FC),
+        color: AppColours.orangeSoft,
         alignment: Alignment.centerLeft,
         child: FractionallySizedBox(
           widthFactor: progress,
@@ -870,7 +875,7 @@ class _ReviewProgressBar extends StatelessWidget {
           alignment: Alignment.centerLeft,
           child: const DecoratedBox(
             decoration: BoxDecoration(
-              color: Color(0xFFE8EDFF),
+              color: AppColours.greenSoft,
             ),
           ),
         ),
@@ -969,25 +974,6 @@ class _ActionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final usesBrandGradient =
-        colour == AppColours.blue || colour == AppColours.blueSoft;
-    final iconBox = usesBrandGradient
-        ? EastAnimatedGradientSurface(
-            width: 34,
-            height: 34,
-            borderRadius: BorderRadius.circular(12),
-            child: Icon(icon, color: Colors.white, size: 22),
-          )
-        : Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(
-              color: colour,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, color: Colors.white, size: 22),
-          );
-
     return WhiteCard(
       padding: EdgeInsets.zero,
       child: Pressable(
@@ -1000,7 +986,15 @@ class _ActionTile extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  iconBox,
+                  Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(
+                      color: colour,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(icon, color: Colors.white, size: 22),
+                  ),
                   const Spacer(),
                   const Icon(
                     Icons.chevron_right_rounded,
