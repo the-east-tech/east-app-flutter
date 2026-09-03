@@ -17,424 +17,503 @@ class _RestockMessagePage extends StatefulWidget {
 
 class _RestockMessagePageState extends State<_RestockMessagePage> {
   bool lowStockOnly = true;
+  bool loadingStates = true;
+  Map<String, StockPurchaseSupplierState> purchaseStates = const {};
 
-  SupplierProfile? supplierFor(String supplierId) {
+  StockPurchaseGateway get gateway =>
+      StockPurchaseGateway(_StockMediaScope.of(context).api);
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => unawaited(loadPurchaseStates()));
+  }
+
+  Future<void> loadPurchaseStates() async {
+    if (!mounted) return;
+    setState(() => loadingStates = true);
+    try {
+      final values = await gateway.suppliers();
+      if (!mounted) return;
+      setState(() {
+        purchaseStates = {for (final value in values) value.supplierId: value};
+        loadingStates = false;
+      });
+    } on EastAppApiException {
+      if (mounted) setState(() => loadingStates = false);
+    }
+  }
+
+  List<StockSku> get visibleSkus {
+    return widget.skus.where((sku) {
+      if (!sku.active) return false;
+      if (!lowStockOnly) return true;
+      return sku.currentBalanceValue <= sku.minimumBalanceValue;
+    }).toList(growable: false);
+  }
+
+  List<({SupplierProfile supplier, List<StockSku> skus})> get supplierGroups {
+    final result = <({SupplierProfile supplier, List<StockSku> skus})>[];
     for (final supplier in widget.suppliers) {
-      if (supplier.id == supplierId) return supplier;
+      final skus = visibleSkus
+          .where((sku) => sku.supplierIds.contains(supplier.id))
+          .toList(growable: false)
+        ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+      if (skus.isNotEmpty) result.add((supplier: supplier, skus: skus));
     }
-    return null;
+    result.sort((a, b) => a.supplier.supplierName
+        .toLowerCase()
+        .compareTo(b.supplier.supplierName.toLowerCase()));
+    return result;
   }
 
-  List<StockSku> get lowSkus =>
-      widget.skus.where((sku) => sku.isBelowMinimumBalance).toList();
-
-  SupplierProfile? preferredSupplierFor(StockSku sku) {
-    if (sku.supplierIds.isEmpty) return null;
-    return supplierFor(sku.supplierIds.first);
+  double suggestedAmount(StockSku sku) {
+    final target = sku.maximumBalanceValue;
+    final shortage = target - sku.currentBalanceValue;
+    return shortage <= 0 ? 0 : shortage;
   }
 
-  List<StockSku> get visibleSkus => lowStockOnly ? lowSkus : widget.skus;
-
-  List<_RestockSupplierGroup> supplierGroups({List<StockSku>? source}) {
-    final grouped = <String, _RestockSupplierGroup>{};
-    for (final sku in source ?? visibleSkus) {
-      if (sku.supplierIds.isEmpty) {
-        grouped.putIfAbsent(
-          'UNASSIGNED',
-          () => const _RestockSupplierGroup(supplier: null, skus: <StockSku>[]),
-        );
-        grouped['UNASSIGNED']!.skus.add(sku);
-        continue;
-      }
-
-      for (final supplierId in sku.supplierIds) {
-        final supplier = supplierFor(supplierId);
-        final key = supplier?.id ?? 'UNASSIGNED';
-        grouped.putIfAbsent(
-          key,
-          () => _RestockSupplierGroup(supplier: supplier, skus: <StockSku>[]),
-        );
-        grouped[key]!.skus.add(sku);
-      }
-    }
-    final groups = grouped.values.toList();
-    groups.sort((a, b) => a.supplierName.compareTo(b.supplierName));
-    return groups;
-  }
-
-  String purchaseDateTime() {
-    final now = DateTime.now();
-    String two(int value) => value.toString().padLeft(2, '0');
-    final hour12 = now.hour == 0 ? 12 : (now.hour > 12 ? now.hour - 12 : now.hour);
-    final suffix = now.hour >= 12 ? 'pm' : 'am';
-    return '${two(now.day)}/${two(now.month)}/${now.year} ${two(hour12)}:${two(now.minute)}$suffix';
-  }
-
-  String buildSupplierMessage(
-    _RestockSupplierGroup group, [
-    String Function(String value)? translate,
-  ]) {
+  String itemLines(List<StockSku> skus) {
     final lines = <String>[];
-    for (var i = 0; i < group.skus.length; i++) {
-      final sku = group.skus[i];
+    for (var i = 0; i < skus.length; i++) {
+      final sku = skus[i];
       lines.add(
-        '${i + 1}. ${translate?.call(sku.name) ?? sku.name} - ${formatStockNumber(sku.suggestedRestockAmount)} ${sku.unit}',
+        '${i + 1}. ${sku.name} — ${formatStockNumber(suggestedAmount(sku))} ${sku.unit}',
       );
     }
-    lines.add('');
-    lines.add(purchaseDateTime());
-    lines.add('Please confirm availability and delivery time. Thank u.');
     return lines.join('\n');
   }
 
-  String buildAllSupplierMessages([String Function(String value)? translate]) {
-    final groups = supplierGroups();
-    if (groups.isEmpty) return 'No restock needed today.';
-    return groups
-        .map((group) => buildSupplierMessage(group, translate))
-        .join('\n\n---\n\n');
+  String generatedMessage(String template, List<StockSku> skus) {
+    final now = DateTime.now();
+    final date =
+        '${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year}';
+    final items = itemLines(skus);
+    var result = template.trim();
+    if (!result.contains('{items}')) {
+      result = '$result\n\n$items';
+    } else {
+      result = result.replaceAll('{items}', items);
+    }
+    return result.replaceAll('{date}', date).trim();
   }
 
-  void copySupplierMessage(BuildContext context, _RestockSupplierGroup group) {
+  String stateLabel(StockPurchaseSupplierState? state) {
+    if (state == null || state.orderState == 'NONE') return 'Not ordered';
+    if (state.orderState == 'ORDERED') return 'Ordered · Ready to receive';
+    if (state.orderState == 'SUBMITTED') return 'Receiving · Awaiting review';
+    if (state.orderState == 'CORRECTION_REQUIRED') return 'Receiving · Needs correction';
+    return state.orderState;
+  }
+
+  Color stateColour(StockPurchaseSupplierState? state) {
+    if (state == null || state.orderState == 'NONE') return AppColours.textMuted;
+    if (state.orderState == 'ORDERED') return AppColours.green;
+    if (state.orderState == 'SUBMITTED') return AppColours.blue;
+    return AppColours.orange;
+  }
+
+  Future<void> openSupplierOrder(
+    SupplierProfile supplier,
+    List<StockSku> skus,
+  ) async {
     final text = AppTextScope.of(context);
-    Clipboard.setData(
-      ClipboardData(text: buildSupplierMessage(group, text.content)),
+    final currentState = purchaseStates[supplier.id];
+    final initialTemplate = currentState?.messageTemplate.trim().isNotEmpty == true
+        ? currentState!.messageTemplate
+        : 'Hi, please prepare the following items:\n\n{items}\n\n{date}\nPlease confirm availability and delivery time. Thank u.';
+    final templateController = TextEditingController(text: initialTemplate);
+    final messageController = TextEditingController(
+      text: generatedMessage(initialTemplate, skus),
     );
-    showSuccessSnackBar(context, text.t('Supplier restock message copied'));
-  }
+    var state = currentState;
+    var savingTemplate = false;
+    var markingOrdered = false;
 
-  void copyAllSupplierMessages(BuildContext context) {
-    final text = AppTextScope.of(context);
-    Clipboard.setData(
-      ClipboardData(text: buildAllSupplierMessages(text.content)),
-    );
-    showSuccessSnackBar(context, text.t('All supplier messages copied'));
-  }
-
-  _RestockSupplierGroup supplierGroupForSku(StockSku sku) {
-    final supplier = preferredSupplierFor(sku);
-    final skus = visibleSkus.where((candidate) {
-      final candidateSupplier = preferredSupplierFor(candidate);
-      return candidateSupplier?.id == supplier?.id;
-    }).toList();
-
-    return _RestockSupplierGroup(supplier: supplier, skus: skus);
-  }
-
-  Widget restockSupplierGridCard(BuildContext context, _RestockSupplierGroup group) {
-    final text = AppTextScope.of(context);
-    final message = buildSupplierMessage(group, text.content);
-    return WhiteCard(
-      padding: EdgeInsets.zero,
-      child: Pressable(
-        onTap: () => showRestockMessageDialog(context, message),
-        borderRadius: BorderRadius.circular(18),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Container(
-                width: 34,
-                height: 34,
-                decoration: BoxDecoration(
-                  color: AppColours.blueSoft,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(
-                  Icons.local_shipping_outlined,
-                  color: AppColours.blue,
-                  size: 20,
+    try {
+      await showStockBottomSheet<void>(
+        context,
+        maxHeightFactor: 0.94,
+        builder: (sheetContext) => StatefulBuilder(
+          builder: (sheetContext, setSheetState) {
+            final activeOrder = state?.hasActiveOrder == true;
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    stockBottomSheetHandle(),
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                text.content(supplier.supplierName),
+                                style: const TextStyle(
+                                  fontSize: AppTextSize.s24,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '${skus.length} ${text.t('SKU')} · ${stateLabel(state)}',
+                                style: TextStyle(
+                                  color: stateColour(state),
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () => Navigator.of(sheetContext).pop(),
+                          icon: const Icon(Icons.close_rounded),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    Text(
+                      text.t('Message Template'),
+                      style: AppTextStyles.formLabel,
+                    ),
+                    const SizedBox(height: 7),
+                    TextField(
+                      controller: templateController,
+                      minLines: 5,
+                      maxLines: 10,
+                      decoration: const InputDecoration(
+                        hintText: 'Use {items} and {date} where needed.',
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: savingTemplate
+                                ? null
+                                : () async {
+                                    final value = templateController.text.trim();
+                                    if (value.isEmpty) {
+                                      showWarningSnackBar(
+                                        context,
+                                        text.t('Message template cannot be empty.'),
+                                      );
+                                      return;
+                                    }
+                                    setSheetState(() => savingTemplate = true);
+                                    try {
+                                      final saved = await gateway.saveTemplate(
+                                        supplier.id,
+                                        value,
+                                      );
+                                      if (!mounted) return;
+                                      setState(() {
+                                        purchaseStates = {
+                                          ...purchaseStates,
+                                          supplier.id: saved,
+                                        };
+                                      });
+                                      setSheetState(() => state = saved);
+                                      showSuccessSnackBar(
+                                        context,
+                                        text.t('Supplier template saved'),
+                                      );
+                                    } on EastAppApiException {
+                                      // Global API error UI already shows the failure.
+                                    } finally {
+                                      if (sheetContext.mounted) {
+                                        setSheetState(() => savingTemplate = false);
+                                      }
+                                    }
+                                  },
+                            icon: const Icon(Icons.save_outlined),
+                            label: Text(text.t('Save Template')),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () {
+                              messageController.text = generatedMessage(
+                                templateController.text,
+                                skus,
+                              );
+                            },
+                            icon: const Icon(Icons.auto_fix_high_rounded),
+                            label: Text(text.t('Apply Template')),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Text(text.t('Order Message'), style: AppTextStyles.formLabel),
+                    const SizedBox(height: 7),
+                    TextField(
+                      controller: messageController,
+                      minLines: 8,
+                      maxLines: 16,
+                      decoration: InputDecoration(
+                        helperText: text.t('This final message can still be edited before copying.'),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    PrimaryButton(
+                      text: activeOrder
+                          ? text.t('Order Already Marked Done')
+                          : text.t('Ordered Done'),
+                      icon: activeOrder
+                          ? Icons.check_circle_rounded
+                          : Icons.task_alt_rounded,
+                      onPressed: activeOrder || markingOrdered
+                          ? null
+                          : () async {
+                              final message = messageController.text.trim();
+                              if (message.isEmpty) {
+                                showWarningSnackBar(
+                                  context,
+                                  text.t('Order message cannot be empty.'),
+                                );
+                                return;
+                              }
+                              final confirmed = await confirmDataChange(
+                                context,
+                                action: text.t('Confirm Ordered Done?'),
+                                details: text.t(
+                                  'This will enable this supplier in Receiving. Only confirm after the order has actually been placed.',
+                                ),
+                              );
+                              if (!confirmed || !sheetContext.mounted) return;
+                              setSheetState(() => markingOrdered = true);
+                              try {
+                                final saved = await gateway.markOrdered(
+                                  supplier.id,
+                                  message,
+                                );
+                                if (!mounted) return;
+                                setState(() {
+                                  purchaseStates = {
+                                    ...purchaseStates,
+                                    supplier.id: saved,
+                                  };
+                                });
+                                setSheetState(() => state = saved);
+                                showSuccessSnackBar(
+                                  context,
+                                  text.t('Order marked done. Receiving is now enabled.'),
+                                );
+                              } on EastAppApiException {
+                                // Global API error UI already shows the failure.
+                              } finally {
+                                if (sheetContext.mounted) {
+                                  setSheetState(() => markingOrdered = false);
+                                }
+                              }
+                            },
+                    ),
+                    const SizedBox(height: 9),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () async {
+                          await Clipboard.setData(
+                            ClipboardData(text: messageController.text),
+                          );
+                          if (!mounted) return;
+                          showSuccessSnackBar(context, text.t('Message copied'));
+                        },
+                        icon: const Icon(Icons.copy_rounded),
+                        label: Text(text.t('Copy Message')),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      text.t('Copy Message never changes the order status and can be used multiple times.'),
+                      style: const TextStyle(
+                        color: AppColours.textMuted,
+                        fontSize: AppTextSize.s12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(width: 8),
+            );
+          },
+        ),
+      );
+    } finally {
+      templateController.dispose();
+      messageController.dispose();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
+    final groups = supplierGroups;
+    return _PageScaffold(
+      title: text.t('Purchase'),
+      subtitle: text.t('Prepare supplier messages, then confirm only when the order is actually placed.'),
+      onBack: widget.onBack,
+      children: [
+        WhiteCard(
+          margin: const EdgeInsets.only(bottom: 12),
+          child: Row(
+            children: [
               Expanded(
                 child: Column(
-                  mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      group.supplierName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                      text.t('Supplier Orders'),
                       style: const TextStyle(
-                        fontSize: AppTextSize.s16,
-                        fontWeight: FontWeight.w700,
+                        fontSize: AppTextSize.s18,
+                        fontWeight: FontWeight.w900,
                       ),
                     ),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 3),
                     Text(
-                      '${group.skus.length} ${text.t('items')}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                      text.t('Copying a message does not mark an order as done.'),
                       style: const TextStyle(
-                        fontSize: AppTextSize.s12,
                         color: AppColours.textMuted,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                onPressed: loadingStates ? null : loadPurchaseStates,
+                icon: loadingStates
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.refresh_rounded),
+              ),
+            ],
+          ),
+        ),
+        WhiteCard(
+          margin: const EdgeInsets.only(bottom: 12),
+          child: Material(
+            color: Colors.transparent,
+            child: CheckboxListTile(
+              contentPadding: EdgeInsets.zero,
+              value: lowStockOnly,
+              title: Text(
+                text.t('Low Stock Only'),
+                style: const TextStyle(fontWeight: FontWeight.w800),
+              ),
+              subtitle: Text(text.t('Show only SKUs at or below minimum balance.')),
+              onChanged: (value) => setState(() => lowStockOnly = value ?? true),
+            ),
+          ),
+        ),
+        if (groups.isEmpty)
+          WhiteCard(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 26),
+              child: Center(
+                child: Text(
+                  text.t(lowStockOnly
+                      ? 'No low-stock supplier orders to prepare.'
+                      : 'No supplier SKUs available.'),
+                  style: const TextStyle(
+                    color: AppColours.textMuted,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+          )
+        else
+          for (final group in groups) ...[
+            _PurchaseSupplierCard(
+              supplier: group.supplier,
+              skuCount: group.skus.length,
+              stateLabel: stateLabel(purchaseStates[group.supplier.id]),
+              stateColour: stateColour(purchaseStates[group.supplier.id]),
+              onTap: () => openSupplierOrder(group.supplier, group.skus),
+            ),
+            const SizedBox(height: 10),
+          ],
+      ],
+    );
+  }
+}
+
+class _PurchaseSupplierCard extends StatelessWidget {
+  final SupplierProfile supplier;
+  final int skuCount;
+  final String stateLabel;
+  final Color stateColour;
+  final VoidCallback onTap;
+
+  const _PurchaseSupplierCard({
+    required this.supplier,
+    required this.skuCount,
+    required this.stateLabel,
+    required this.stateColour,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
+    return WhiteCard(
+      padding: EdgeInsets.zero,
+      child: Pressable(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: AppColours.blueSoft,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Icon(Icons.local_shipping_outlined, color: AppColours.blue),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      text.content(supplier.supplierName),
+                      style: const TextStyle(
+                        fontSize: AppTextSize.s16,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '$skuCount ${text.t('SKU')} · $stateLabel',
+                      style: TextStyle(
+                        color: stateColour,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
                   ],
                 ),
               ),
+              const Icon(Icons.chevron_right_rounded, color: AppColours.textMuted),
             ],
           ),
         ),
       ),
     );
   }
-
-  Widget lowStockGridCard(BuildContext context, StockSku sku) {
-    final text = AppTextScope.of(context);
-    final group = supplierGroupForSku(sku);
-    final supplier = preferredSupplierFor(sku);
-    final message = buildSupplierMessage(group, text.content);
-
-    return WhiteCard(
-      padding: EdgeInsets.zero,
-      child: Pressable(
-        onTap: () => showRestockMessageDialog(context, message),
-        borderRadius: BorderRadius.circular(18),
-        child: Padding(
-          padding: const EdgeInsets.all(8),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 34,
-                    height: 34,
-                    decoration: BoxDecoration(
-                      color: AppColours.redSoft,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Icon(
-                      Icons.priority_high_rounded,
-                      color: AppColours.red,
-                      size: 20,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      text.content(sku.name),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: AppTextSize.s16,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text(
-                '${formatStockNumber(sku.suggestedRestockAmount)} ${sku.unit}',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: AppTextSize.s15,
-                  color: AppColours.red,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                supplier?.supplierName ?? text.t('Unassigned Supplier'),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: AppTextSize.s13,
-                  color: AppColours.textMuted,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                '${text.t('Current')}: ${formatStockNumber(sku.currentBalanceValue)} ${sku.unit}',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: AppTextSize.s13,
-                  color: AppColours.textMuted,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget compactCardGrid({
-    required List<Widget> children,
-  }) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final useTwoColumns = constraints.maxWidth >= 330;
-        final cardWidth = useTwoColumns
-            ? (constraints.maxWidth - 10) / 2
-            : constraints.maxWidth;
-
-        return Wrap(
-          spacing: 10,
-          runSpacing: 10,
-          children: children
-              .map((child) => SizedBox(width: cardWidth, height: 62, child: child))
-              .toList(),
-        );
-      },
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final text = AppTextScope.of(context);
-    final skus = visibleSkus;
-
-    final groups = supplierGroups(source: skus);
-
-    return _PageScaffold(
-      title: text.t('Purchase'),
-      subtitle: text.t('Tap supplier to preview message.'),
-      onBack: widget.onBack,
-      children: [
-        WhiteCard(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-          child: Material(
-            color: Colors.transparent,
-            child: CheckboxListTile(
-              value: lowStockOnly,
-              onChanged: (value) => setState(() => lowStockOnly = value ?? false),
-              controlAffinity: ListTileControlAffinity.leading,
-              dense: true,
-              contentPadding: EdgeInsets.zero,
-              title: Text(
-                text.t('Low Stock Only'),
-                style: const TextStyle(fontSize: AppTextSize.s18, fontWeight: FontWeight.w700),
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 12),
-        if (groups.isEmpty)
-          WhiteCard(
-            padding: const EdgeInsets.all(22),
-            child: Text(
-              lowStockOnly ? text.t('No low-stock SKU today.') : text.t('No SKU found.'),
-              style: const TextStyle(fontSize: AppTextSize.s20, fontWeight: FontWeight.w700),
-            ),
-          )
-        else
-          compactCardGrid(
-            children: groups.map((group) => restockSupplierGridCard(context, group)).toList(),
-          ),
-      ],
-    );
-  }
-}
-
-class _RestockSupplierGroup {
-  final SupplierProfile? supplier;
-  final List<StockSku> skus;
-
-  const _RestockSupplierGroup({
-    required this.supplier,
-    required this.skus,
-  });
-
-  String get supplierName => supplier?.supplierName ?? 'Unassigned Supplier';
-}
-
-void showRestockMessageDialog(BuildContext context, String message) {
-  final text = AppTextScope.of(context);
-
-  showStockBottomSheet<void>(
-    context,
-    maxHeightFactor: 0.86,
-    builder: (sheetContext) {
-      return SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(16, 10, 16, 22),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            stockBottomSheetHandle(),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    text.t('Message'),
-                    style: const TextStyle(fontSize: AppTextSize.s26, fontWeight: FontWeight.w700),
-                  ),
-                ),
-                IconButton(
-                  onPressed: () => Navigator.of(sheetContext).pop(),
-                  icon: const Icon(Icons.close_rounded),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppColours.background,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColours.border),
-              ),
-              child: SelectableText(
-                message,
-                style: const TextStyle(
-                  fontSize: AppTextSize.s18,
-                  height: 1.35,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-            const SizedBox(height: 14),
-            Text(
-              text.t('Review the message, then copy and paste it to supplier chat.'),
-              style: const TextStyle(
-                fontSize: AppTextSize.s16,
-                color: AppColours.textMuted,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 18),
-            PrimaryButton(
-              text: text.t('Copy Message'),
-              icon: Icons.content_copy_rounded,
-              onPressed: () {
-                Clipboard.setData(ClipboardData(text: message));
-                showSuccessSnackBar(context, text.t('Message copied to clipboard'));
-              },
-            ),
-          ],
-        ),
-      );
-    },
-  );
-}
-
-Future<void> showCameraOnlyCaptureDialog(
-  BuildContext context, {
-  required String title,
-  required String subtitle,
-  required Future<void> Function(String filePath) onCaptured,
-}) async {
-  final filePath = await Navigator.of(context).push<String>(
-    MaterialPageRoute(
-      fullscreenDialog: true,
-      builder: (_) => _StockCameraPage(
-        title: title,
-        subtitle: subtitle,
-      ),
-    ),
-  );
-  if (filePath == null || filePath.trim().isEmpty || !context.mounted) return;
-  await onCaptured(filePath);
 }
