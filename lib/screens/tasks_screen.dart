@@ -27,7 +27,7 @@ class _TaskTabState {
   DateTimeRange selectedRange;
   TaskStatus? selectedStatus;
   String? selectedTagId;
-  int loadLimit = 3;
+  int loadLimit = 1;
   List<TaskRecord> records = const [];
   TaskOverview overview = TaskOverview.empty;
   bool loadingRecords = false;
@@ -81,10 +81,11 @@ class _TasksScreenState extends State<TasksScreen> {
 
   bool get showingApprovals => widget.initialEntry == TasksEntry.approvals;
 
-  bool get showingActiveTasks => !showingSetup && selectedTab == 1;
+  bool get showingActiveTasks =>
+      !showingSetup && !showingApprovals && selectedTab == 0;
 
   bool get showingPersonalHistory =>
-      !showingSetup && !canViewAllTasks && selectedTab == 0;
+      !showingSetup && !showingApprovals && !canViewAllTasks && selectedTab == 1;
 
   @override
   void initState() {
@@ -95,8 +96,8 @@ class _TasksScreenState extends State<TasksScreen> {
       end: today,
     );
     taskTabStates = [
-      _TaskTabState(selectedRange: defaultRange),
       _TaskTabState(selectedRange: DateTimeRange(start: today, end: today)),
+      _TaskTabState(selectedRange: defaultRange),
     ];
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -104,7 +105,11 @@ class _TasksScreenState extends State<TasksScreen> {
         unawaited(loadRecords(tabIndex: 0));
       } else {
         unawaited(loadTags());
-        if (showingSetup) unawaited(loadTemplates());
+        if (showingSetup) {
+          unawaited(loadTemplates());
+        } else {
+          unawaited(loadRecords(tabIndex: 0));
+        }
       }
     });
   }
@@ -124,13 +129,13 @@ class _TasksScreenState extends State<TasksScreen> {
     final requestVersion = ++tab.requestVersion;
     final tagId = tab.selectedTagId;
     final status = tab.selectedStatus;
-    final submittedByMe = !canViewAllTasks && requestedTab == 0;
+    final submittedByMe = !canViewAllTasks && requestedTab == 1;
     setState(() => tab.loadingRecords = true);
     try {
       final TaskList result;
       if (showingApprovals) {
         result = await widget.api.taskApprovals();
-      } else if (requestedTab == 1) {
+      } else if (requestedTab == 0) {
         result = await widget.api.taskRecords(
           tenantId: widget.tenantId,
           upcoming: true,
@@ -153,7 +158,7 @@ class _TasksScreenState extends State<TasksScreen> {
       }
       if (!mounted || tab.requestVersion != requestVersion) return;
       setState(() {
-        tab.records = requestedTab == 1
+        tab.records = !showingApprovals && requestedTab == 0
             ? result.records.take(tab.loadLimit).toList(growable: false)
             : result.records;
         tab.overview = result.overview;
@@ -313,7 +318,7 @@ class _TasksScreenState extends State<TasksScreen> {
   @override
   Widget build(BuildContext context) {
     final text = AppTextScope.of(context);
-    final tabs = ['Task History', 'Active Task'];
+    final tabs = ['Active Task', 'Task History'];
     return Scaffold(
       backgroundColor: AppColours.background,
       appBar: AppBar(

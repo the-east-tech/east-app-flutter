@@ -284,7 +284,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     ),
                     child: const Icon(
                       Icons.access_time_rounded,
-                      color: AppColours.blue,
+                      color: AppColours.textMuted,
                       size: 22,
                     ),
                   ),
@@ -348,8 +348,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       value: isManagement
                           ? '$pendingReviewCount'
                           : '$taskPending',
-                      colour: const Color(0xFFC73500),
-                      background: AppColours.orangeSoft,
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -361,8 +359,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       value: isManagement
                           ? '$doneReviewCount'
                           : '$taskSubmitted',
-                      colour: AppColours.green,
-                      background: AppColours.greenSoft,
                     ),
                   ),
                 ],
@@ -431,7 +427,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       ),
                       child: const Icon(
                         Icons.star_border_rounded,
-                        color: AppColours.blue,
+                        color: AppColours.green,
                         size: 22,
                       ),
                     ),
@@ -718,23 +714,18 @@ class _ReviewProgressBar extends StatelessWidget {
       duration: const Duration(milliseconds: 700),
       curve: Curves.easeOutCubic,
       builder: (context, animatedProgress, _) {
-        final progressColour = Color.lerp(
-          const Color(0xFFC73500),
-          AppColours.green,
-          animatedProgress,
-        )!;
         return ClipRRect(
           borderRadius: BorderRadius.circular(999),
           child: Container(
-            height: 8,
-            color: AppColours.orangeSoft,
+            height: 7,
+            color: const Color(0xFFE5E7EB),
             alignment: Alignment.centerLeft,
             child: FractionallySizedBox(
               widthFactor: animatedProgress,
               heightFactor: 1,
               alignment: Alignment.centerLeft,
-              child: DecoratedBox(
-                decoration: BoxDecoration(color: progressColour),
+              child: const DecoratedBox(
+                decoration: BoxDecoration(color: Color(0xFF6B7280)),
               ),
             ),
           ),
@@ -747,14 +738,10 @@ class _ReviewProgressBar extends StatelessWidget {
 class _ProgressInfoCard extends StatelessWidget {
   final String title;
   final String value;
-  final Color colour;
-  final Color background;
 
   const _ProgressInfoCard({
     required this.title,
     required this.value,
-    required this.colour,
-    required this.background,
   });
 
   @override
@@ -762,7 +749,7 @@ class _ProgressInfoCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
       decoration: BoxDecoration(
-        color: background,
+        color: const Color(0xFFF3F4F6),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
@@ -772,8 +759,8 @@ class _ProgressInfoCard extends StatelessWidget {
             title,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: colour,
+            style: const TextStyle(
+              color: AppColours.textMuted,
               fontSize: AppTextSize.s12,
               fontWeight: FontWeight.w800,
             ),
@@ -781,8 +768,8 @@ class _ProgressInfoCard extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             value,
-            style: TextStyle(
-              color: colour,
+            style: const TextStyle(
+              color: AppColours.textMain,
               fontSize: AppTextSize.s18,
               fontWeight: FontWeight.w800,
             ),
@@ -907,13 +894,12 @@ class _RecentActivityRow extends StatelessWidget {
               width: 36,
               height: 36,
               decoration: BoxDecoration(
-                color: activityModuleColour(activity.module)
-                    .withValues(alpha: 0.12),
+                color: AppColours.green.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(
                 activityModuleIcon(activity.module),
-                color: activityModuleColour(activity.module),
+                color: AppColours.green,
                 size: 20,
               ),
             ),
