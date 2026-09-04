@@ -32,7 +32,7 @@ import 'knowledge_screen.dart';
 import 'notification_screen.dart';
 import 'ranking_screen.dart';
 import 'stock_screen.dart';
-import 'report_screen.dart';
+import 'task_hub_screen.dart';
 
 class MainShell extends StatefulWidget {
   final UserRole role;
@@ -1524,7 +1524,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     final text = AppTextScope.of(context);
     final labels = [
       text.t('Home'),
-      text.t('Report'),
+      text.t('Task'),
       text.t('Stock'),
       text.t('People'),
       text.t('Knowledge'),
@@ -1946,15 +1946,15 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
               businessName: widget.session.tenant.businessName,
               reviewSummary: homeReviewSummary,
               reportDashboard: homeReportDashboard,
+              onReportDashboardLoaded: handleReportDashboardLoaded,
               recentActivities: homeRecentActivities,
               onRefresh: loadHomeData,
               googleRatingRefreshSignal: homeRefreshSignal,
               onApprovals: openStockReviewFromHome,
-              onReports: () => goToTab(1),
               onRanking: showLeaderboardSheet,
               onKnowledge: () => goToTab(knowledgeTabIndex),
             ),
-            ReportScreen(
+            TaskHubScreen(
               api: widget.api,
               tenantId: widget.session.tenant.id,
               currentUser: widget.session.user,
@@ -2127,7 +2127,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
                     Icons.analytics_rounded,
                     color: AppColours.blue,
                   ),
-                  label: text.t('Report'),
+                  label: text.t('Task'),
                 ),
                 NavigationDestination(
                   icon: _BadgedNavIcon(
