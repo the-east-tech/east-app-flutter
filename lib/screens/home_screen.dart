@@ -863,23 +863,33 @@ class _ReviewProgressBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final progress = value.clamp(0.0, 1.0);
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(999),
-      child: Container(
-        height: 8,
-        color: AppColours.orangeSoft,
-        alignment: Alignment.centerLeft,
-        child: FractionallySizedBox(
-          widthFactor: progress,
-          heightFactor: 1,
-          alignment: Alignment.centerLeft,
-          child: const DecoratedBox(
-            decoration: BoxDecoration(
-              color: AppColours.greenSoft,
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: 0, end: progress),
+      duration: const Duration(milliseconds: 700),
+      curve: Curves.easeOutCubic,
+      builder: (context, animatedProgress, _) {
+        final progressColour = Color.lerp(
+          const Color(0xFFC73500),
+          AppColours.green,
+          animatedProgress,
+        )!;
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(999),
+          child: Container(
+            height: 8,
+            color: AppColours.orangeSoft,
+            alignment: Alignment.centerLeft,
+            child: FractionallySizedBox(
+              widthFactor: animatedProgress,
+              heightFactor: 1,
+              alignment: Alignment.centerLeft,
+              child: DecoratedBox(
+                decoration: BoxDecoration(color: progressColour),
+              ),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }
