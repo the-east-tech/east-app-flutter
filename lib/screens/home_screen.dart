@@ -15,6 +15,7 @@ import '../theme/app_theme.dart';
 import '../widgets/app_components.dart';
 import 'career_path_screen.dart';
 import 'notification_screen.dart';
+import 'report_intelligence_panel.dart';
 
 
 const Duration _googleRatingCacheDuration = Duration(hours: 1);
@@ -73,11 +74,11 @@ class HomeScreen extends StatefulWidget {
   final String businessName;
   final StockReviewSummary? reviewSummary;
   final ReportDashboard? reportDashboard;
+  final ValueChanged<ReportDashboard> onReportDashboardLoaded;
   final List<EastAppActivityEvent> recentActivities;
   final Future<void> Function({bool forceRefresh}) onRefresh;
   final int googleRatingRefreshSignal;
   final VoidCallback onApprovals;
-  final VoidCallback onReports;
   final VoidCallback onRanking;
   final VoidCallback onKnowledge;
 
@@ -93,11 +94,11 @@ class HomeScreen extends StatefulWidget {
     required this.businessName,
     required this.reviewSummary,
     required this.reportDashboard,
+    required this.onReportDashboardLoaded,
     required this.recentActivities,
     required this.onRefresh,
     required this.googleRatingRefreshSignal,
     required this.onApprovals,
-    required this.onReports,
     required this.onRanking,
     required this.onKnowledge,
   });
@@ -255,6 +256,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           businessName: widget.businessName,
           refreshSignal: widget.googleRatingRefreshSignal,
         ),
+        if (widget.canViewReportIntelligence) ...[
+          const SizedBox(height: 10),
+          ReportIntelligencePanel(
+            api: widget.api,
+            tenantId: widget.tenantId,
+            initialDashboard: widget.reportDashboard,
+            onDashboardLoaded: widget.onReportDashboardLoaded,
+          ),
+        ],
         const SizedBox(height: 10),
         if (activeAdvertisements.isNotEmpty) ...[
           _AdvertisementCarousel(api: widget.api, advertisements: activeAdvertisements),
@@ -362,13 +372,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             ],
           ),
         ),
-        if (widget.canViewReportIntelligence) ...[
-          const SizedBox(height: 10),
-          _ReportSnapshotCard(
-            dashboard: widget.reportDashboard,
-            onTap: widget.onReports,
-          ),
-        ],
         const SizedBox(height: 10),
         _HomeMenuGrid(
           children: [
@@ -478,150 +481,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
   }
 }
-
-class _ReportSnapshotCard extends StatelessWidget {
-  final ReportDashboard? dashboard;
-  final VoidCallback onTap;
-
-  const _ReportSnapshotCard({
-    required this.dashboard,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final text = AppTextScope.of(context);
-    final data = dashboard;
-    final firstValue = data == null
-        ? '—'
-        : 'RM ${(data.sales?.netSalesRm ?? 0).toStringAsFixed(2)}';
-    final secondValue = data == null
-        ? '—'
-        : '${data.inventory?.healthScorePercent.toStringAsFixed(0) ?? '0'}%';
-    final thirdValue = data == null ? '—' : '${data.tasks.submitted}';
-
-    return WhiteCard(
-      padding: EdgeInsets.zero,
-      child: Pressable(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(18),
-        child: Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Color(0xFF091B4D), Color(0xFF1557F2)],
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  const Icon(
-                    Icons.auto_graph_rounded,
-                    color: Colors.white,
-                    size: 21,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      text.t('Report Intelligence'),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: AppTextSize.s16,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ),
-                  const Icon(
-                    Icons.chevron_right_rounded,
-                    color: Colors.white70,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: _ReportSnapshotMetric(
-                      label: 'Total Sales Today',
-                      value: firstValue,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _ReportSnapshotMetric(
-                      label: 'Stock Health',
-                      value: secondValue,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _ReportSnapshotMetric(
-                      label: 'Tasks to Rate',
-                      value: thirdValue,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ReportSnapshotMetric extends StatelessWidget {
-  final String label;
-  final String value;
-
-  const _ReportSnapshotMetric({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    final text = AppTextScope.of(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 9),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: .11),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.centerLeft,
-            child: Text(
-              text.t(value),
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: AppTextSize.s16,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-          ),
-          const SizedBox(height: 3),
-          Text(
-            text.t(label),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: AppTextSize.s10,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 
 class _GoogleRatingCard extends StatefulWidget {
   final EastAppApi api;
