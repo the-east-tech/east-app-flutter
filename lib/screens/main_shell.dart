@@ -362,16 +362,6 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     setState(() => pointsLeaderboard = value);
   }
 
-  void openStockReviewFromHome() {
-    AppFeedback.select();
-    setState(() {
-      pageSlideDirection = 1;
-      requestedStockPage = StockPage.review;
-      requestedStockPageBackToHome = true;
-      selectedIndex = 2;
-    });
-  }
-
   void consumeRequestedStockPage() {
     if (requestedStockPage == null) return;
     setState(() => requestedStockPage = null);
@@ -1950,7 +1940,6 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
               recentActivities: homeRecentActivities,
               onRefresh: loadHomeData,
               googleRatingRefreshSignal: homeRefreshSignal,
-              onApprovals: openStockReviewFromHome,
               onRanking: showLeaderboardSheet,
               onKnowledge: () => goToTab(knowledgeTabIndex),
             ),
@@ -2097,9 +2086,35 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
                   onLogout: logoutToLogin,
                 ),
                 Expanded(
-                  child: KeyedSubtree(
-                    key: ValueKey<int>(selectedIndex),
-                    child: pages[selectedIndex],
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 220),
+                    switchInCurve: Curves.easeOutCubic,
+                    switchOutCurve: Curves.easeOutCubic,
+                    transitionBuilder: (child, animation) {
+                      final slide = Tween<Offset>(
+                        begin: Offset(
+                          pageSlideDirection >= 0 ? .018 : -.018,
+                          0,
+                        ),
+                        end: Offset.zero,
+                      ).animate(
+                        CurvedAnimation(
+                          parent: animation,
+                          curve: Curves.easeOutCubic,
+                        ),
+                      );
+                      return FadeTransition(
+                        opacity: animation,
+                        child: SlideTransition(
+                          position: slide,
+                          child: child,
+                        ),
+                      );
+                    },
+                    child: KeyedSubtree(
+                      key: ValueKey<int>(selectedIndex),
+                      child: pages[selectedIndex],
+                    ),
                   ),
                 ),
               ],

@@ -25,6 +25,7 @@ class _TaskTabState {
   DateTimeRange selectedRange;
   TaskStatus? selectedStatus;
   String? selectedTagId;
+  int loadLimit = 3;
   List<TaskRecord> records = const [];
   TaskOverview overview = TaskOverview.empty;
   bool loadingRecords = false;
@@ -130,9 +131,8 @@ class _TasksScreenState extends State<TasksScreen> {
       } else if (requestedTab == 1) {
         result = await widget.api.taskRecords(
           tenantId: widget.tenantId,
-          tagId: tagId,
           upcoming: true,
-          limit: 3,
+          limit: tab.loadLimit,
           forceRefresh: forceRefresh,
         );
       } else {
@@ -243,14 +243,7 @@ class _TasksScreenState extends State<TasksScreen> {
 
   Future<void> changeTab(int index) async {
     if (selectedTab == index) return;
-    var shouldAutomaticallyLoad = false;
-    setState(() {
-      selectedTab = index;
-      if (index == 1) {
-        shouldAutomaticallyLoad = true;
-      }
-    });
-    if (shouldAutomaticallyLoad) await loadRecords(tabIndex: index);
+    setState(() => selectedTab = index);
   }
 
   Future<void> openRecord(
@@ -374,6 +367,7 @@ class _TasksScreenState extends State<TasksScreen> {
           _TaskFilterCard(
             selectedRange: tab.selectedRange,
             activeTasks: showingActiveTasks,
+            loadLimit: tab.loadLimit,
             selectedStatus: tab.selectedStatus,
             selectedTagId: tab.selectedTagId,
             tags: tags,
@@ -381,6 +375,10 @@ class _TasksScreenState extends State<TasksScreen> {
             onDateRange: selectDateRange,
             onStatus: (value) => setState(() {
               tab.selectedStatus = value;
+              clearLoadedRecords(tab);
+            }),
+            onLoadLimit: (value) => setState(() {
+              tab.loadLimit = value;
               clearLoadedRecords(tab);
             }),
             onTag: (value) => setState(() {
@@ -414,7 +412,7 @@ class _TasksScreenState extends State<TasksScreen> {
                     Text(
                       text.t(
                         showingActiveTasks
-                            ? 'Tap Load Tasks to load the next 3 pending Tasks.'
+                            ? 'Choose how many Tasks to load, then tap Load.'
                             : 'Select a date range, then tap Load Tasks.',
                       ),
                       textAlign: TextAlign.center,
@@ -673,24 +671,28 @@ class _TasksScreenState extends State<TasksScreen> {
 class _TaskFilterCard extends StatefulWidget {
   final DateTimeRange selectedRange;
   final bool activeTasks;
+  final int loadLimit;
   final TaskStatus? selectedStatus;
   final String? selectedTagId;
   final List<StockTag> tags;
   final bool loadingTags;
   final VoidCallback onDateRange;
   final ValueChanged<TaskStatus?> onStatus;
+  final ValueChanged<int> onLoadLimit;
   final ValueChanged<String?> onTag;
   final Future<void> Function() onLoad;
 
   const _TaskFilterCard({
     required this.selectedRange,
     required this.activeTasks,
+    required this.loadLimit,
     required this.selectedStatus,
     required this.selectedTagId,
     required this.tags,
     required this.loadingTags,
     required this.onDateRange,
     required this.onStatus,
+    required this.onLoadLimit,
     required this.onTag,
     required this.onLoad,
   });
@@ -704,39 +706,55 @@ class _TaskFilterCardState extends State<_TaskFilterCard> {
   Widget build(BuildContext context) {
     final text = AppTextScope.of(context);
     return WhiteCard(
+      padding: const EdgeInsets.all(10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
             text.t('Filters'),
             style: const TextStyle(
-              fontSize: AppTextSize.s17,
+              fontSize: AppTextSize.s15,
               fontWeight: FontWeight.w800,
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           if (widget.activeTasks)
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppColours.greenSoft,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.event_available_rounded,
-                    color: AppColours.green,
-                  ),
-                  const SizedBox(width: 9),
-                  Expanded(
-                    child: Text(
-                      text.t('Only the next 3 pending active Tasks are loaded.'),
-                      style: const TextStyle(fontWeight: FontWeight.w700),
+            Row(
+              children: [
+                Expanded(
+                  child: DropdownButtonFormField<int>(
+                    value: widget.loadLimit,
+                    decoration: InputDecoration(
+                      labelText: text.t('Tasks'),
+                      border: const OutlineInputBorder(),
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
                     ),
+                    items: List.generate(10, (index) {
+                      final value = index + 1;
+                      return DropdownMenuItem<int>(
+                        value: value,
+                        child: Text('$value'),
+                      );
+                    }),
+                    onChanged: (value) {
+                      if (value != null) widget.onLoadLimit(value);
+                    },
                   ),
-                ],
-              ),
+                ),
+                const SizedBox(width: 8),
+                SizedBox(
+                  height: 44,
+                  child: FilledButton.icon(
+                    onPressed: widget.onLoad,
+                    icon: const Icon(Icons.refresh_rounded, size: 18),
+                    label: Text(text.t('Load')),
+                  ),
+                ),
+              ],
             )
           else ...[
             OutlinedButton.icon(
@@ -780,45 +798,47 @@ class _TaskFilterCardState extends State<_TaskFilterCard> {
               onChanged: widget.onStatus,
             ),
           ],
-          const SizedBox(height: 10),
-          DropdownButtonFormField<String?>(
-            value: widget.selectedTagId,
-            decoration: InputDecoration(
-              labelText: widget.loadingTags ? 'Loading Tags…' : 'Tag',
-              prefixIcon: widget.loadingTags
-                  ? const Padding(
-                      padding: EdgeInsets.all(13),
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.sell_outlined),
-              border: const OutlineInputBorder(),
-              isDense: true,
-            ),
-            items: [
-              const DropdownMenuItem<String?>(
-                value: null,
-                child: Text('All Tags'),
+          if (!widget.activeTasks) ...[
+            const SizedBox(height: 10),
+            DropdownButtonFormField<String?>(
+              value: widget.selectedTagId,
+              decoration: InputDecoration(
+                labelText: widget.loadingTags ? 'Loading Tags…' : 'Tag',
+                prefixIcon: widget.loadingTags
+                    ? const Padding(
+                        padding: EdgeInsets.all(13),
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.sell_outlined),
+                border: const OutlineInputBorder(),
+                isDense: true,
               ),
-              ...widget.tags.map(
-                (tag) => DropdownMenuItem<String?>(
-                  value: tag.id,
-                  child: Text(tag.tag),
+              items: [
+                const DropdownMenuItem<String?>(
+                  value: null,
+                  child: Text('All Tags'),
                 ),
-              ),
-            ],
-            onChanged: widget.loadingTags ? null : widget.onTag,
-          ),
-          const SizedBox(height: 12),
-          PrimaryButton(
-            text: 'Load Tasks',
-            icon: Icons.refresh_rounded,
-            onPressed: widget.onLoad,
-          ),
+                ...widget.tags.map(
+                  (tag) => DropdownMenuItem<String?>(
+                    value: tag.id,
+                    child: Text(tag.tag),
+                  ),
+                ),
+              ],
+              onChanged: widget.loadingTags ? null : widget.onTag,
+            ),
+            const SizedBox(height: 12),
+            PrimaryButton(
+              text: 'Load Tasks',
+              icon: Icons.refresh_rounded,
+              onPressed: widget.onLoad,
+            ),
+          ],
           const SizedBox(height: 5),
           Text(
             text.t(
               widget.activeTasks
-                  ? 'Change Tag, then tap Load Tasks.'
+                  ? 'Choose 1–10 Tasks, then tap Load.'
                   : 'Changing a filter does not reload until u tap Load Tasks.',
             ),
             textAlign: TextAlign.center,
