@@ -534,14 +534,11 @@ class _AnimatedSection extends StatelessWidget {
   Widget build(BuildContext context) {
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: 1),
-      duration: Duration(milliseconds: 480 + delay),
+      duration: Duration(milliseconds: 180 + delay ~/ 3),
       curve: Curves.easeOutCubic,
       builder: (_, value, child) => Opacity(
         opacity: value,
-        child: Transform.translate(
-          offset: Offset(0, 18 * (1 - value)),
-          child: child,
-        ),
+        child: child,
       ),
       child: child,
     );

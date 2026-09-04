@@ -78,7 +78,6 @@ class HomeScreen extends StatefulWidget {
   final List<EastAppActivityEvent> recentActivities;
   final Future<void> Function({bool forceRefresh}) onRefresh;
   final int googleRatingRefreshSignal;
-  final VoidCallback onApprovals;
   final VoidCallback onRanking;
   final VoidCallback onKnowledge;
 
@@ -98,7 +97,6 @@ class HomeScreen extends StatefulWidget {
     required this.recentActivities,
     required this.onRefresh,
     required this.googleRatingRefreshSignal,
-    required this.onApprovals,
     required this.onRanking,
     required this.onKnowledge,
   });
@@ -375,13 +373,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         const SizedBox(height: 10),
         _HomeMenuGrid(
           children: [
-            if (isManagement)
-              _ActionTile(
-                label: text.t('Approvals'),
-                icon: Icons.fact_check_outlined,
-                colour: AppColours.blueSoft,
-                onTap: widget.onApprovals,
-              ),
             if (isManagement)
               _ActionTile(
                 label: text.t('Knowledge'),
