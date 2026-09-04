@@ -148,7 +148,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     }
   }
 
-
   Future<void> loadUsers({
     bool reset = true,
     bool forceRefresh = false,
@@ -415,7 +414,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       ),
     );
   }
-
 
   bool get canGenerateAttendanceQr => isOwner || isHead || isManager;
 
@@ -1071,7 +1069,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   }
 }
 
-
 class _PeoplePageScaffold extends StatelessWidget {
   final String title;
   final String subtitle;
@@ -1268,6 +1265,81 @@ class _UserSetupPageState extends State<_UserSetupPage> {
     return 'All Roles';
   }
 
+  Widget compactFilter({
+    required String label,
+    required String value,
+    required String inactiveValue,
+    required List<String> options,
+    required ValueChanged<String> onChanged,
+  }) {
+    final text = AppTextScope.of(context);
+    final active = value != inactiveValue;
+    return PopupMenuButton<String>(
+      initialValue: value,
+      position: PopupMenuPosition.under,
+      tooltip: '${text.t(label)}: ${text.t(value)}',
+      onSelected: (nextValue) {
+        AppFeedback.select();
+        onChanged(nextValue);
+      },
+      itemBuilder: (_) => options.map((option) {
+        return PopupMenuItem<String>(
+          value: option,
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  text.t(option),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              if (option == value)
+                const Icon(
+                  Icons.check_rounded,
+                  size: 18,
+                  color: AppColours.blue,
+                ),
+            ],
+          ),
+        );
+      }).toList(growable: false),
+      child: Container(
+        height: 40,
+        padding: const EdgeInsets.symmetric(horizontal: 7),
+        decoration: BoxDecoration(
+          color: active
+              ? AppColours.blue.withValues(alpha: 0.08)
+              : AppColours.card,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: active ? AppColours.blue : AppColours.border,
+          ),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                active ? text.t(value) : text.t(label),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: AppTextSize.s13,
+                  fontWeight: FontWeight.w600,
+                  color: active ? AppColours.blue : AppColours.textMain,
+                ),
+              ),
+            ),
+            Icon(
+              Icons.arrow_drop_down_rounded,
+              size: 17,
+              color: active ? AppColours.blue : AppColours.textMuted,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final text = AppTextScope.of(context);
@@ -1346,40 +1418,52 @@ class _UserSetupPageState extends State<_UserSetupPage> {
           ),
         ),
         const SizedBox(height: 10),
-        _PeopleFilterDropdown(
-          label: text.t('Status'),
-          value: statusValue,
-          options: const ['All', 'Active', 'Inactive'],
-          onChanged: (value) {
-            widget.onActiveFilterChanged(
-              value == 'Active'
-                  ? true
-                  : value == 'Inactive'
-                      ? false
-                      : null,
-            );
-          },
-        ),
-        const SizedBox(height: 10),
-        _PeopleFilterDropdown(
-          label: text.t('Role'),
-          value: roleValue,
-          options: [
-            'All Roles',
-            ...widget.roles.where((role) => role.active).map((role) => role.name),
+        Row(
+          children: [
+            Expanded(
+              child: compactFilter(
+                label: 'Status',
+                value: statusValue,
+                inactiveValue: 'All',
+                options: const ['All', 'Active', 'Inactive'],
+                onChanged: (value) {
+                  widget.onActiveFilterChanged(
+                    value == 'Active'
+                        ? true
+                        : value == 'Inactive'
+                            ? false
+                            : null,
+                  );
+                },
+              ),
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              child: compactFilter(
+                label: 'Role',
+                value: roleValue,
+                inactiveValue: 'All Roles',
+                options: [
+                  'All Roles',
+                  ...widget.roles
+                      .where((role) => role.active)
+                      .map((role) => role.name),
+                ],
+                onChanged: (value) {
+                  if (value == 'All Roles') {
+                    widget.onRoleFilterChanged(null);
+                    return;
+                  }
+                  for (final role in widget.roles) {
+                    if (role.name == value) {
+                      widget.onRoleFilterChanged(role.systemKey);
+                      return;
+                    }
+                  }
+                },
+              ),
+            ),
           ],
-          onChanged: (value) {
-            if (value == 'All Roles') {
-              widget.onRoleFilterChanged(null);
-              return;
-            }
-            for (final role in widget.roles) {
-              if (role.name == value) {
-                widget.onRoleFilterChanged(role.systemKey);
-                return;
-              }
-            }
-          },
         ),
         const SizedBox(height: 14),
         PrimaryButton(
@@ -1551,55 +1635,6 @@ class _RoleSetupPage extends StatelessWidget {
             onRoleTap: null,
           ),
         ],
-      ],
-    );
-  }
-}
-
-class _PeopleFilterDropdown extends StatelessWidget {
-  final String label;
-  final String value;
-  final List<String> options;
-  final ValueChanged<String> onChanged;
-
-  const _PeopleFilterDropdown({
-    required this.label,
-    required this.value,
-    required this.options,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final text = AppTextScope.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(left: 2, bottom: 6),
-          child: Text(text.t(label), style: AppTextStyles.formLabel),
-        ),
-        DropdownButtonFormField<String>(
-          initialValue: value,
-          isExpanded: true,
-          items: options
-              .map((option) => DropdownMenuItem<String>(
-                    value: option,
-                    child: Text(text.t(option)),
-                  ))
-              .toList(),
-          onChanged: (nextValue) {
-            if (nextValue == null) return;
-            AppFeedback.select();
-            onChanged(nextValue);
-          },
-          decoration: AppInputStyle.decoration(
-            text.t(label),
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          ),
-          style: AppTextStyles.formValue,
-        ),
       ],
     );
   }
@@ -2427,7 +2462,6 @@ String _formatAttendanceQrTime(DateTime value) {
   return '$hour:$minute';
 }
 
-
 class _PeopleMiniMetric extends StatelessWidget {
   final String label;
   final String value;
@@ -2523,7 +2557,6 @@ class _PeopleMenuGrid extends StatelessWidget {
     );
   }
 }
-
 
 class _PeopleMenuCard extends StatelessWidget {
   final String title;
