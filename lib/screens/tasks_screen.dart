@@ -21,6 +21,8 @@ enum TasksEntry { tasks, setup, approvals }
 
 enum _SelectedPhotoAction { remove, retake }
 
+const int _activeTaskMaxLoad = 5;
+
 class _TaskTabState {
   DateTimeRange selectedRange;
   TaskStatus? selectedStatus;
@@ -132,7 +134,7 @@ class _TasksScreenState extends State<TasksScreen> {
         result = await widget.api.taskRecords(
           tenantId: widget.tenantId,
           upcoming: true,
-          limit: tab.loadLimit,
+          limit: _activeTaskMaxLoad,
           forceRefresh: forceRefresh,
         );
       } else {
@@ -151,7 +153,9 @@ class _TasksScreenState extends State<TasksScreen> {
       }
       if (!mounted || tab.requestVersion != requestVersion) return;
       setState(() {
-        tab.records = result.records;
+        tab.records = requestedTab == 1
+            ? result.records.take(tab.loadLimit).toList(growable: false)
+            : result.records;
         tab.overview = result.overview;
         tab.hasLoadedRecords = true;
         tab.loadingRecords = false;
@@ -733,7 +737,7 @@ class _TaskFilterCardState extends State<_TaskFilterCard> {
                         vertical: 10,
                       ),
                     ),
-                    items: List.generate(10, (index) {
+                    items: List.generate(_activeTaskMaxLoad, (index) {
                       final value = index + 1;
                       return DropdownMenuItem<int>(
                         value: value,
@@ -838,7 +842,7 @@ class _TaskFilterCardState extends State<_TaskFilterCard> {
           Text(
             text.t(
               widget.activeTasks
-                  ? 'Choose 1–10 Tasks, then tap Load.'
+                  ? 'Choose 1–5 Tasks, then tap Load.'
                   : 'Changing a filter does not reload until u tap Load Tasks.',
             ),
             textAlign: TextAlign.center,
