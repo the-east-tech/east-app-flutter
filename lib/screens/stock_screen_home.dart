@@ -260,18 +260,6 @@ class _StockMenuCard extends StatelessWidget {
           child: Stack(
             clipBehavior: Clip.antiAlias,
             children: [
-              Positioned(
-                right: -20,
-                top: -22,
-                child: Container(
-                  width: 72,
-                  height: 72,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: AppColours.blueSoft.withValues(alpha: 0.48),
-                  ),
-                ),
-              ),
               Padding(
                 padding: const EdgeInsets.all(11),
                 child: Column(
