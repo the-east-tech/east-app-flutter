@@ -80,7 +80,6 @@ class _StockScreenState extends State<StockScreen> {
 
   bool get isHead => widget.role == UserRole.head;
   bool get canApproveStock => widget.isOwner || isHead;
-  bool get canAccessAuditTrail => widget.isOwner || isHead;
 
   StockPurchaseGateway get purchaseGateway => StockPurchaseGateway(
         widget.api,
@@ -112,13 +111,6 @@ class _StockScreenState extends State<StockScreen> {
   }
 
   Future<void> openPage(StockPage nextPage) async {
-    if (nextPage == StockPage.auditTrail && !canAccessAuditTrail) {
-      showWarningSnackBar(
-        context,
-        'Only Owner and Head can view Stock Audit Trail.',
-      );
-      return;
-    }
     if (page == nextPage || pageLoading) return;
     AppFeedback.select();
 
@@ -163,7 +155,6 @@ class _StockScreenState extends State<StockScreen> {
       case StockPage.tagSetup:
         return widget.canLoadMoreTags;
       case StockPage.assigneeSetup:
-      case StockPage.auditTrail:
       case StockPage.home:
       case StockPage.review:
         return false;
@@ -202,7 +193,6 @@ class _StockScreenState extends State<StockScreen> {
           await widget.onLoadMoreTags();
           break;
         case StockPage.assigneeSetup:
-        case StockPage.auditTrail:
         case StockPage.home:
         case StockPage.review:
           break;
@@ -293,6 +283,8 @@ class _StockScreenState extends State<StockScreen> {
         onReviewReceiving: reviewReceiving,
         onReviewStockCount: widget.onReviewStockCount,
         onBulkReviewStockCounts: widget.onBulkReviewStockCounts,
+        canReviewSkuChanges: widget.isOwner,
+        onSkuChangeReviewed: widget.onSkuChangeReviewed,
       ),
       child: child,
     );
@@ -309,7 +301,6 @@ class _StockScreenState extends State<StockScreen> {
           submissions: widget.submissions,
           onBack: goHome,
           onSubmitStockCheck: widget.onSubmitStockCheck,
-          onUpdateSkuBalance: widget.onUpdateSkuBalance,
           onResetCountTimers: resetCountTimers,
         ),
       ),
@@ -333,7 +324,6 @@ class _StockScreenState extends State<StockScreen> {
               skus: widget.stockSkus,
               onBack: goHome,
               onSubmitReceiving: submitReceiving,
-              onUpdateSkuBalance: widget.onUpdateSkuBalance,
             ),
           ),
         );
@@ -351,17 +341,20 @@ class _StockScreenState extends State<StockScreen> {
         return _DataRefreshShell(
           updatedAt: widget.skusLastUpdatedAt,
           onRefresh: () => _loadData(StockPage.skuSetup, forceRefresh: true),
-          child: _SkuSetupPage(
-            api: widget.api,
-            isOwner: widget.isOwner,
-            onReloadAfterSkuImport: widget.onReloadAfterSkuImport,
-            tags: widget.tags,
-            suppliers: widget.suppliers,
-            skus: widget.stockSkus,
-            onBack: goHome,
-            onCreateSku: widget.onCreateSku,
-            onUpdateSku: widget.onUpdateSku,
-            onUpdateSkuBalance: widget.onUpdateSkuBalance,
+          child: _withApproval(
+            kind: _StockApprovalKind.sku,
+            child: _SkuSetupPage(
+              api: widget.api,
+              isOwner: widget.isOwner,
+              onReloadAfterSkuImport: widget.onReloadAfterSkuImport,
+              tags: widget.tags,
+              suppliers: widget.suppliers,
+              skus: widget.stockSkus,
+              onBack: goHome,
+              onCreateSku: widget.onCreateSku,
+              onUpdateSku: widget.onUpdateSku,
+              onDeleteSku: widget.onDeleteSku,
+            ),
           ),
         );
       case StockPage.supplierSetup:
@@ -395,11 +388,6 @@ class _StockScreenState extends State<StockScreen> {
           currentTenantId: widget.currentTenantId,
           onBack: goHome,
           onUpdateSku: widget.onUpdateSku,
-        );
-      case StockPage.auditTrail:
-        return _AuditTrailPage(
-          onLoadEntries: widget.onLoadAuditEntries,
-          onBack: goHome,
         );
       case StockPage.home:
         return _StockHomePage(

@@ -140,6 +140,52 @@ StockSku stockSkuFromJson(Map<String, dynamic> json) {
   );
 }
 
+class StockSkuChangeRequest {
+  final String id;
+  final String? skuId;
+  final String skuName;
+  final String changeType;
+  final String workflowStatus;
+  final Map<String, dynamic>? proposedData;
+  final String requestedByName;
+  final DateTime submittedAt;
+  final String reviewedByName;
+  final DateTime? reviewedAt;
+  final String reviewNote;
+
+  const StockSkuChangeRequest({
+    required this.id,
+    required this.skuId,
+    required this.skuName,
+    required this.changeType,
+    required this.workflowStatus,
+    required this.proposedData,
+    required this.requestedByName,
+    required this.submittedAt,
+    required this.reviewedByName,
+    required this.reviewedAt,
+    required this.reviewNote,
+  });
+
+  factory StockSkuChangeRequest.fromJson(Map<String, dynamic> json) {
+    return StockSkuChangeRequest(
+      id: json['id'] as String,
+      skuId: json['skuId'] as String?,
+      skuName: json['skuName'] as String? ?? '',
+      changeType: json['changeType'] as String? ?? '',
+      workflowStatus: json['workflowStatus'] as String? ?? 'PENDING',
+      proposedData: json['proposedData'] as Map<String, dynamic>?,
+      requestedByName: json['requestedByName'] as String? ?? '',
+      submittedAt: DateTime.parse(json['submittedAt'] as String).toLocal(),
+      reviewedByName: json['reviewedByName'] as String? ?? '',
+      reviewedAt: json['reviewedAt'] == null
+          ? null
+          : DateTime.parse(json['reviewedAt'] as String).toLocal(),
+      reviewNote: json['reviewNote'] as String? ?? '',
+    );
+  }
+}
+
 StockSubmission stockSubmissionFromJson(Map<String, dynamic> json) {
   return StockSubmission(
     id: json['id'] as String,
@@ -203,31 +249,6 @@ StockReceivingItem stockReceivingItemFromJson(Map<String, dynamic> json) {
     unit: json['unit'] as String,
     condition: json['condition'] as String? ?? '',
     note: json['note'] as String? ?? '',
-  );
-}
-
-StockAuditEntry stockAuditEntryFromJson(Map<String, dynamic> json) {
-  return StockAuditEntry(
-    id: json['id'] as String,
-    module: json['module'] as String,
-    action: json['action'] as String,
-    itemId: json['itemId'] as String? ?? '',
-    itemName: json['itemName'] as String,
-    actorName: json['actorName'] as String,
-    actorId: json['actorId'] as String,
-    actorRole: json['actorRole'] as String,
-    timestampText: json['timestampText'] as String,
-    capturedAt: DateTime.parse(json['capturedAt'] as String).toLocal(),
-    changes: _list(json['changes'], stockAuditChangeFromJson),
-    note: json['note'] as String? ?? '',
-  );
-}
-
-StockAuditChange stockAuditChangeFromJson(Map<String, dynamic> json) {
-  return StockAuditChange(
-    field: json['field'] as String,
-    oldValue: json['oldValue'] as String,
-    newValue: json['newValue'] as String,
   );
 }
 
@@ -300,12 +321,6 @@ Map<String, Object?> stockReceivingToJson(StockReceivingRecord record) {
             })
         .toList(growable: false),
   };
-}
-
-EastAppPage<StockAuditEntry> stockAuditPageFromJson(
-  Map<String, dynamic> json,
-) {
-  return EastAppPage.fromJson(json, stockAuditEntryFromJson);
 }
 
 EastAppPage<StockTag> stockTagPageFromJson(Map<String, dynamic> json) {

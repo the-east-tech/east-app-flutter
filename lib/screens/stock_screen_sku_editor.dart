@@ -24,8 +24,7 @@ class _SkuDetailContent extends StatelessWidget {
   final List<StockTag> tags;
   final List<SupplierProfile> suppliers;
   final Future<void> Function(StockSku sku) onUpdateSku;
-  final Future<void> Function(String skuId, double balance, String updatedBy)
-      onUpdateSkuBalance;
+  final Future<void> Function(String skuId) onDeleteSku;
   final VoidCallback onClose;
 
   const _SkuDetailContent({
@@ -33,7 +32,7 @@ class _SkuDetailContent extends StatelessWidget {
     required this.tags,
     required this.suppliers,
     required this.onUpdateSku,
-    required this.onUpdateSkuBalance,
+    required this.onDeleteSku,
     required this.onClose,
   });
 
@@ -44,6 +43,7 @@ class _SkuDetailContent extends StatelessWidget {
         suppliers: suppliers,
         initialSku: sku,
         onSave: onUpdateSku,
+        onDelete: () => onDeleteSku(sku.id),
         onClose: onClose,
       );
 }
@@ -54,6 +54,7 @@ class _SkuEditorForm extends StatefulWidget {
   final List<SupplierProfile> suppliers;
   final StockSku? initialSku;
   final Future<void> Function(StockSku sku) onSave;
+  final Future<void> Function()? onDelete;
   final VoidCallback onClose;
 
   const _SkuEditorForm({
@@ -63,6 +64,7 @@ class _SkuEditorForm extends StatefulWidget {
     required this.onSave,
     required this.onClose,
     this.initialSku,
+    this.onDelete,
   });
 
   @override
@@ -392,7 +394,27 @@ class _SkuEditorFormState extends State<_SkuEditorForm> {
             );
       final saved = await runStockRequest(context, () => widget.onSave(sku));
       if (!saved || !mounted) return;
-      showSuccessSnackBar(context, text.t(editing ? 'Saved' : 'SKU created'));
+      showSuccessSnackBar(context, text.t('Submitted for Owner approval'));
+      widget.onClose();
+    } finally {
+      if (mounted) setState(() => saving = false);
+    }
+  }
+
+  Future<void> deleteSku() async {
+    final onDelete = widget.onDelete;
+    if (onDelete == null || saving) return;
+    final confirmed = await confirmDataChange(
+      context,
+      action: 'Delete SKU?',
+      details: 'This will submit the SKU deletion for Owner approval.',
+    );
+    if (!confirmed || !mounted) return;
+    setState(() => saving = true);
+    try {
+      final deleted = await runStockRequest(context, onDelete);
+      if (!deleted || !mounted) return;
+      showSuccessSnackBar(context, 'Submitted for Owner approval');
       widget.onClose();
     } finally {
       if (mounted) setState(() => saving = false);
@@ -740,10 +762,27 @@ class _SkuEditorFormState extends State<_SkuEditorForm> {
               if (showErrors && supplierIds.isEmpty)
                 _InlineError(text.t('Supplier required')),
               const SizedBox(height: 20),
-              PrimaryButton(
-                text: text.t(saving ? 'Saving...' : editing ? 'Save' : 'Save SKU'),
-                icon: saving ? null : Icons.save_outlined,
-                onPressed: saving ? null : save,
+              Row(
+                children: [
+                  if (editing) ...[
+                    Expanded(
+                      child: PrimaryButton(
+                        text: text.t('Delete'),
+                        icon: Icons.delete_outline_rounded,
+                        outlined: true,
+                        onPressed: saving ? null : deleteSku,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                  ],
+                  Expanded(
+                    child: PrimaryButton(
+                      text: text.t(saving ? 'Saving...' : editing ? 'Save' : 'Save SKU'),
+                      icon: saving ? null : Icons.save_outlined,
+                      onPressed: saving ? null : save,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),

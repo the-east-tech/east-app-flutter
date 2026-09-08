@@ -108,7 +108,6 @@ class TaskTemplate {
   final TaskPerson updatedBy;
   final DateTime createdAt;
   final DateTime updatedAt;
-  final List<TaskAuditEntry> activity;
 
   const TaskTemplate({
     required this.id,
@@ -128,7 +127,6 @@ class TaskTemplate {
     required this.updatedBy,
     required this.createdAt,
     required this.updatedAt,
-    required this.activity,
   });
 
   factory TaskTemplate.fromJson(Map<String, dynamic> json) {
@@ -156,13 +154,6 @@ class TaskTemplate {
       ),
       createdAt: DateTime.parse(json['createdAt'] as String),
       updatedAt: DateTime.parse(json['updatedAt'] as String),
-      activity: (json['activity'] as List<dynamic>? ?? const [])
-          .map(
-            (item) => TaskAuditEntry.fromJson(
-              item as Map<String, dynamic>,
-            ),
-          )
-          .toList(growable: false),
     );
   }
 }
@@ -221,34 +212,6 @@ class TaskPhoto {
   }
 }
 
-class TaskAuditEntry {
-  final String id;
-  final String action;
-  final String details;
-  final TaskPerson actor;
-  final DateTime occurredAt;
-
-  const TaskAuditEntry({
-    required this.id,
-    required this.action,
-    required this.details,
-    required this.actor,
-    required this.occurredAt,
-  });
-
-  factory TaskAuditEntry.fromJson(Map<String, dynamic> json) {
-    return TaskAuditEntry(
-      id: json['id'] as String,
-      action: json['action'] as String,
-      details: json['details'] as String? ?? '',
-      actor: TaskPerson.fromJson(
-        json['actor'] as Map<String, dynamic>,
-      ),
-      occurredAt: DateTime.parse(json['occurredAt'] as String),
-    );
-  }
-}
-
 class TaskRecord {
   final String id;
   final String templateId;
@@ -275,7 +238,6 @@ class TaskRecord {
   final bool canContribute;
   final bool canSubmit;
   final bool canRate;
-  final List<TaskAuditEntry> activity;
 
   const TaskRecord({
     required this.id,
@@ -303,7 +265,6 @@ class TaskRecord {
     required this.canContribute,
     required this.canSubmit,
     required this.canRate,
-    required this.activity,
   });
 
   factory TaskRecord.fromJson(Map<String, dynamic> json) {
@@ -344,13 +305,6 @@ class TaskRecord {
       canContribute: json['canContribute'] as bool,
       canSubmit: json['canSubmit'] as bool,
       canRate: json['canRate'] as bool,
-      activity: (json['activity'] as List<dynamic>? ?? const [])
-          .map(
-            (item) => TaskAuditEntry.fromJson(
-              item as Map<String, dynamic>,
-            ),
-          )
-          .toList(growable: false),
     );
   }
 }

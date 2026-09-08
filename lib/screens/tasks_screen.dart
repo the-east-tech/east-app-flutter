@@ -1645,10 +1645,6 @@ class _TaskDetailPageState extends State<_TaskDetailPage> {
                 const SizedBox(height: 12),
                 _RatingCard(record: record),
               ],
-              if (record.activity.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                _ActivityCard(entries: record.activity),
-              ],
               if (submissionReady) ...[
                 const SizedBox(height: 16),
                 PrimaryButton(
@@ -1817,44 +1813,6 @@ class _RatingCard extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _ActivityCard extends StatelessWidget {
-  final List<TaskAuditEntry> entries;
-
-  const _ActivityCard({required this.entries});
-
-  @override
-  Widget build(BuildContext context) {
-    return WhiteCard(
-      child: ExpansionTile(
-        tilePadding: EdgeInsets.zero,
-        childrenPadding: EdgeInsets.zero,
-        title: const Text(
-          'Activity & Audit',
-          style: TextStyle(fontWeight: FontWeight.w900),
-        ),
-        children: entries.reversed.map((entry) {
-          return ListTile(
-            contentPadding: EdgeInsets.zero,
-            dense: true,
-            leading: const Icon(
-              Icons.history_rounded,
-              color: AppColours.textMuted,
-            ),
-            title: Text(
-              _actionLabel(entry.action),
-              style: const TextStyle(fontWeight: FontWeight.w700),
-            ),
-            subtitle: Text(
-              '${entry.actor.fullName} · ${_formatDateTime(entry.occurredAt)}'
-              '${entry.details.isEmpty ? '' : '\n${entry.details}'}',
-            ),
-          );
-        }).toList(growable: false),
       ),
     );
   }

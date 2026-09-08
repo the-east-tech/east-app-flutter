@@ -69,7 +69,6 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   late List<StockSubmission> stockSubmissions;
   late List<StockSku> stockSkus;
   late List<StockReceivingRecord> stockReceivingRecords;
-  late List<StockAuditEntry> stockAuditEntries;
   late List<SupplierProfile> suppliers;
   late List<AttendanceRecord> attendanceRecords;
   int stockTagPage = -1;
@@ -119,7 +118,6 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     stockSubmissions = <StockSubmission>[];
     stockSkus = <StockSku>[];
     stockReceivingRecords = <StockReceivingRecord>[];
-    stockAuditEntries = <StockAuditEntry>[];
     suppliers = <SupplierProfile>[];
     attendanceRecords = List<AttendanceRecord>.from(sampleAttendanceRecords);
     unawaited(loadPointsLeaderboard());
@@ -462,11 +460,18 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   }) async {
     if (!forceRefresh && !reset && stockSkuPage >= 0 && stockSkusLast) return;
     final nextPage = reset || forceRefresh ? 0 : stockSkuPage + 1;
-    final query = Uri(queryParameters: {'page': '$nextPage', 'size': '50'}).query;
+    final query = Uri(
+      queryParameters: {
+        'active': 'true',
+        'page': '$nextPage',
+        'size': '50',
+      },
+    ).query;
     final cacheKey = '${EastAppApi.stockSkusCachePrefix(widget.session.tenant.id)}$query';
     final result = await widget.api.stockSkus(
       page: nextPage,
       size: 50,
+      active: true,
       tenantId: widget.session.tenant.id,
       forceRefresh: forceRefresh,
     );
@@ -570,7 +575,6 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
         case StockPage.assigneeSetup:
           // On-demand: Assignee loads only after Assigned/Unassigned + Load.
           break;
-        case StockPage.auditTrail:
         case StockPage.home:
           break;
       }
@@ -580,27 +584,13 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     }
   }
 
-  Future<EastAppPage<StockAuditEntry>> loadStockAuditEntries(
-    DateTime rangeStart,
-    DateTime rangeEnd,
-    int page,
-    int size,
-  ) {
-    return widget.api.stockAudit(
-      from: rangeStart,
-      to: rangeEnd,
-      page: page,
-      size: size,
-    );
-  }
-
   void goToTab(int index) {
     AppFeedback.select();
     setState(() {
       pageSlideDirection = index >= selectedIndex ? 1 : -1;
       if (index == 0) {
         unawaited(loadPointsLeaderboard());
-        unawaited(loadHomeData());
+        unawaited(loadHomeData(forceRefresh: true));
       }
       if (index == 2 && selectedIndex == 2) {
         stockResetSignal++;
@@ -746,260 +736,34 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     return true;
   }
 
-  String auditTimestamp() {
-    final now = DateTime.now();
-    final hour = now.hour.toString().padLeft(2, '0');
-    final minute = now.minute.toString().padLeft(2, '0');
-    return 'Today $hour:$minute';
-  }
-
-  String formatAuditValue(Object? value) {
-    if (value == null) return '-';
-    if (value is String) return value.trim().isEmpty ? '-' : value.trim();
-    if (value is double) {
-      return value == value.roundToDouble()
-          ? value.toStringAsFixed(0)
-          : value.toStringAsFixed(2);
-    }
-    if (value is int) return value.toString();
-    if (value is bool) return value ? 'Yes' : 'No';
-    if (value is Iterable) {
-      final values = value.map((item) => item.toString().trim()).where((item) => item.isNotEmpty).toList();
-      return values.isEmpty ? '-' : values.join(', ');
-    }
-    final text = value.toString().trim();
-    return text.isEmpty ? '-' : text;
-  }
-
-  bool sameStringList(List<String> left, List<String> right) {
-    if (left.length != right.length) return false;
-    for (var i = 0; i < left.length; i++) {
-      if (left[i] != right[i]) return false;
-    }
-    return true;
-  }
-
-  void addAuditChange(
-    List<StockAuditChange> changes,
-    String field,
-    Object? oldValue,
-    Object? newValue,
-  ) {
-    final before = formatAuditValue(oldValue);
-    final after = formatAuditValue(newValue);
-    if (before == after) return;
-    changes.add(StockAuditChange(field: field, oldValue: before, newValue: after));
-  }
-
-  String actorNameFor(String actor) {
-    if (actor == headId) return headName;
-    if (actor == managerId) return managerName;
-    if (actor == staffId) return staffName;
-    return actor.trim().isEmpty ? currentUserName : actor;
-  }
-
-  String actorRoleFor(String actor) {
-    if (actor == headId) return 'head';
-    if (actor == managerId) return 'manager';
-    if (actor == staffId) return 'staff';
-    return currentRoleName;
-  }
-
-  String skuNameFor(String skuId) {
-    for (final sku in stockSkus) {
-      if (sku.id == skuId) return sku.name;
-    }
-    return skuId;
-  }
-
-  StockAuditEntry buildAuditEntry({
-    required String module,
-    required String action,
-    required String itemId,
-    required String itemName,
-    required List<StockAuditChange> changes,
-    String? actorName,
-    String? actorId,
-    String? actorRole,
-    String note = '',
-  }) {
-    final now = DateTime.now();
-    return StockAuditEntry(
-      id: 'AUD${now.microsecondsSinceEpoch}',
-      module: module,
-      action: action,
-      itemId: itemId,
-      itemName: itemName,
-      actorName: actorName ?? currentUserName,
-      actorId: actorId ?? currentUserId,
-      actorRole: actorRole ?? currentRoleName,
-      timestampText: auditTimestamp(),
-      capturedAt: now,
-      changes: List<StockAuditChange>.unmodifiable(changes),
-      note: note,
-    );
-  }
-
-  List<StockAuditChange> skuAuditChanges(StockSku before, StockSku after) {
-    final changes = <StockAuditChange>[];
-    addAuditChange(changes, 'SKU Name', before.name, after.name);
-    addAuditChange(changes, 'Tag 1', before.category, after.category);
-    addAuditChange(changes, 'Tag 2', before.location, after.location);
-    addAuditChange(changes, 'Unit', before.unit, after.unit);
-    addAuditChange(changes, 'Min Balance', before.minimumBalanceValue, after.minimumBalanceValue);
-    addAuditChange(changes, 'Current Balance', before.currentBalanceValue, after.currentBalanceValue);
-    addAuditChange(changes, 'Max Balance', before.maximumBalanceValue, after.maximumBalanceValue);
-    addAuditChange(changes, 'Recovery', '${before.recoveryPercent}%', '${after.recoveryPercent}%');
-    addAuditChange(changes, 'Min Price', 'RM ${formatAuditValue(before.minimumPriceRm)}', 'RM ${formatAuditValue(after.minimumPriceRm)}');
-    addAuditChange(changes, 'Max Price', 'RM ${formatAuditValue(before.maximumPriceRm)}', 'RM ${formatAuditValue(after.maximumPriceRm)}');
-    addAuditChange(changes, 'Supplier', before.supplierIds, after.supplierIds);
-    addAuditChange(changes, 'Assignee', before.assignedStaffNames.isEmpty ? 'Unassigned' : before.assignedStaffNames, after.assignedStaffNames.isEmpty ? 'Unassigned' : after.assignedStaffNames);
-    addAuditChange(changes, 'Receiving Checklist', before.receivingChecklist, after.receivingChecklist);
-    addAuditChange(changes, 'Reset Time', before.resetTime, after.resetTime);
-    addAuditChange(changes, 'Active', before.active, after.active);
-    return changes;
-  }
-
-  List<StockAuditChange> createdSkuAuditChanges(StockSku sku) {
-    final changes = <StockAuditChange>[];
-    addAuditChange(changes, 'SKU Name', '-', sku.name);
-    addAuditChange(changes, 'Tag 1', '-', sku.category);
-    addAuditChange(changes, 'Tag 2', '-', sku.location);
-    addAuditChange(changes, 'Unit', '-', sku.unit);
-    addAuditChange(changes, 'Min Balance', '-', sku.minimumBalanceValue);
-    addAuditChange(changes, 'Current Balance', '-', sku.currentBalanceValue);
-    addAuditChange(changes, 'Max Balance', '-', sku.maximumBalanceValue);
-    addAuditChange(changes, 'Recovery', '-', '${sku.recoveryPercent}%');
-    addAuditChange(changes, 'Price Range', '-', 'RM ${formatAuditValue(sku.minimumPriceRm)} - RM ${formatAuditValue(sku.maximumPriceRm)}');
-    addAuditChange(changes, 'Supplier', '-', sku.supplierIds);
-    addAuditChange(changes, 'Assignee', '-', sku.assignedStaffNames.isEmpty ? 'Unassigned' : sku.assignedStaffNames);
-    addAuditChange(changes, 'Reset Time', '-', sku.resetTime);
-    return changes;
-  }
-
   void submitStockCheck(StockSubmission submission) {
-    final actorId = submission.submittedBy;
-    final changes = <StockAuditChange>[];
-    addAuditChange(changes, 'Previous Balance', '-', submission.previousBalanceValue);
-    addAuditChange(changes, 'Current Balance', '-', submission.currentBalanceValue);
-    addAuditChange(changes, 'Below Min', '-', submission.belowMinimumBalance);
-    addAuditChange(changes, 'Checked Values', '-', submission.checkedItems.entries.map((entry) => '${entry.key}: ${entry.value ? 'Yes' : 'No'}').join(', '));
-    addAuditChange(changes, 'Remarks', '-', submission.remarks.values.where((value) => value.trim().isNotEmpty).join('; '));
     setState(() {
       stockSubmissions = [submission, ...stockSubmissions];
-      stockAuditEntries = [
-        buildAuditEntry(
-          module: 'Stock Count',
-          action: 'Submitted count',
-          itemId: submission.stockTaskId,
-          itemName: skuNameFor(submission.stockTaskId),
-          actorName: actorNameFor(actorId),
-          actorId: actorId,
-          actorRole: actorRoleFor(actorId),
-          changes: changes,
-        ),
-        ...stockAuditEntries,
-      ];
     });
   }
 
   void reviewStockCount(StockSubmission submission) {
-    final previous = stockSubmissions.where((item) => item.id == submission.id).isEmpty
-        ? null
-        : stockSubmissions.firstWhere((item) => item.id == submission.id);
-    final changes = <StockAuditChange>[];
-    if (previous != null) {
-      addAuditChange(changes, 'Review Status', previous.reviewStatus, submission.reviewStatus);
-      addAuditChange(changes, 'Reviewed By', previous.reviewedBy, submission.reviewedBy);
-      addAuditChange(changes, 'Review Note', previous.reviewNote, submission.reviewNote);
-    }
     setState(() {
       stockSubmissions = stockSubmissions.map((item) {
         if (item.id != submission.id) return item;
         return submission;
       }).toList();
-      if (changes.isNotEmpty) {
-        stockAuditEntries = [
-          buildAuditEntry(
-            module: 'Stock Count',
-            action: 'Reviewed count',
-            itemId: submission.stockTaskId,
-            itemName: skuNameFor(submission.stockTaskId),
-            changes: changes,
-          ),
-          ...stockAuditEntries,
-        ];
-      }
     });
   }
 
   void createStockTask(StockTask task) {
-    final changes = <StockAuditChange>[];
-    addAuditChange(changes, 'Task Title', '-', task.title);
-    addAuditChange(changes, 'Supplier', '-', task.supplierName);
-    addAuditChange(changes, 'Checks', '-', task.checks.map((check) => check.question).join('; '));
-    setState(() {
-      stockTasks = [task, ...stockTasks];
-      stockAuditEntries = [
-        buildAuditEntry(
-          module: 'Stock Task',
-          action: 'Created task',
-          itemId: task.id,
-          itemName: task.title,
-          changes: changes,
-        ),
-        ...stockAuditEntries,
-      ];
-    });
+    setState(() => stockTasks = [task, ...stockTasks]);
   }
 
   void createSupplier(SupplierProfile supplier) {
-    final changes = <StockAuditChange>[];
-    addAuditChange(changes, 'Supplier Name', '-', supplier.supplierName);
-    addAuditChange(changes, 'Supplier Item', '-', supplier.supplierItem);
-    addAuditChange(changes, 'Unit', '-', supplier.unit);
-    addAuditChange(changes, 'Price', '-', 'RM ${formatAuditValue(supplier.pricingPerUnit)}');
-    addAuditChange(changes, 'Min Balance', '-', supplier.minimumBalanceValue);
-    addAuditChange(changes, 'Max Balance', '-', supplier.maximumBalanceValue);
-    setState(() {
-      suppliers = [supplier, ...suppliers];
-      stockAuditEntries = [
-        buildAuditEntry(
-          module: 'Supplier',
-          action: 'Created supplier',
-          itemId: supplier.id,
-          itemName: supplier.supplierName,
-          changes: changes,
-        ),
-        ...stockAuditEntries,
-      ];
-    });
+    setState(() => suppliers = [supplier, ...suppliers]);
   }
 
-
-
   void createSku(StockSku sku) {
-    final changes = createdSkuAuditChanges(sku);
-    setState(() {
-      stockSkus = [sku, ...stockSkus];
-      stockAuditEntries = [
-        buildAuditEntry(
-          module: 'SKU',
-          action: 'Created SKU',
-          itemId: sku.id,
-          itemName: sku.name,
-          changes: changes,
-        ),
-        ...stockAuditEntries,
-      ];
-    });
+    setState(() => stockSkus = [sku, ...stockSkus]);
   }
 
   void updateSku(StockSku updatedSku) {
-    final previous = stockSkus.where((sku) => sku.id == updatedSku.id).isEmpty
-        ? null
-        : stockSkus.firstWhere((sku) => sku.id == updatedSku.id);
-    final changes = previous == null ? <StockAuditChange>[] : skuAuditChanges(previous, updatedSku);
     setState(() {
       stockSkus = stockSkus.map((sku) {
         if (sku.id != updatedSku.id) return sku;
@@ -1008,18 +772,6 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
           lastUpdatedBy: currentUserId,
         );
       }).toList();
-      if (changes.isNotEmpty) {
-        stockAuditEntries = [
-          buildAuditEntry(
-            module: 'SKU',
-            action: 'Edited SKU',
-            itemId: updatedSku.id,
-            itemName: updatedSku.name,
-            changes: changes,
-          ),
-          ...stockAuditEntries,
-        ];
-      }
     });
   }
 
@@ -1028,13 +780,6 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     double balance,
     String updatedBy,
   ) {
-    final previous = stockSkus.where((sku) => sku.id == skuId).isEmpty
-        ? null
-        : stockSkus.firstWhere((sku) => sku.id == skuId);
-    final changes = <StockAuditChange>[];
-    if (previous != null) {
-      addAuditChange(changes, 'Current Balance', previous.currentBalanceValue, balance);
-    }
     setState(() {
       stockSkus = stockSkus.map((sku) {
         if (sku.id != skuId) return sku;
@@ -1045,76 +790,19 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
           lastUpdatedBy: updatedBy,
         );
       }).toList();
-      if (changes.isNotEmpty) {
-        stockAuditEntries = [
-          buildAuditEntry(
-            module: 'SKU Balance',
-            action: 'Updated balance',
-            itemId: skuId,
-            itemName: previous?.name ?? skuId,
-            actorName: actorNameFor(updatedBy),
-            actorId: updatedBy,
-            actorRole: actorRoleFor(updatedBy),
-            changes: changes,
-          ),
-          ...stockAuditEntries,
-        ];
-      }
     });
   }
 
   void submitStockReceiving(StockReceivingRecord record) {
-    final actorId = record.receivedBy;
-    final changes = <StockAuditChange>[];
-    addAuditChange(changes, 'Supplier', '-', record.supplierName);
-    addAuditChange(changes, 'Items', '-', record.items.map((item) => '${item.skuName}: invoice ${formatAuditValue(item.invoiceQuantity)} ${item.unit}, received ${formatAuditValue(item.receivedQuantity)} ${item.unit}, ${item.condition}').join('; '));
-    addAuditChange(changes, 'Invoice Photo', '-', record.invoicePhotoName);
-    addAuditChange(changes, 'Goods Photo', '-', record.goodsPhotoName);
-    setState(() {
-      stockReceivingRecords = [record, ...stockReceivingRecords];
-      stockAuditEntries = [
-        buildAuditEntry(
-          module: 'Receiving',
-          action: 'Submitted receiving',
-          itemId: record.id,
-          itemName: record.supplierName,
-          actorName: actorNameFor(actorId),
-          actorId: actorId,
-          actorRole: actorRoleFor(actorId),
-          changes: changes,
-        ),
-        ...stockAuditEntries,
-      ];
-    });
+    setState(() => stockReceivingRecords = [record, ...stockReceivingRecords]);
   }
 
   void reviewStockReceiving(StockReceivingRecord record) {
-    final previous = stockReceivingRecords.where((item) => item.id == record.id).isEmpty
-        ? null
-        : stockReceivingRecords.firstWhere((item) => item.id == record.id);
-    final changes = <StockAuditChange>[];
-    if (previous != null) {
-      addAuditChange(changes, 'Review Status', previous.reviewStatus, record.reviewStatus);
-      addAuditChange(changes, 'Reviewed By', previous.reviewedBy, record.reviewedBy);
-      addAuditChange(changes, 'Review Note', previous.reviewNote, record.reviewNote);
-    }
     setState(() {
       stockReceivingRecords = stockReceivingRecords.map((item) {
         if (item.id != record.id) return item;
         return record;
       }).toList();
-      if (changes.isNotEmpty) {
-        stockAuditEntries = [
-          buildAuditEntry(
-            module: 'Receiving',
-            action: 'Reviewed receiving',
-            itemId: record.id,
-            itemName: record.supplierName,
-            changes: changes,
-          ),
-          ...stockAuditEntries,
-        ];
-      }
     });
   }
 
@@ -1123,13 +811,6 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     double balance,
     String updatedBy,
   ) {
-    final previous = suppliers.where((supplier) => supplier.id == supplierId).isEmpty
-        ? null
-        : suppliers.firstWhere((supplier) => supplier.id == supplierId);
-    final changes = <StockAuditChange>[];
-    if (previous != null) {
-      addAuditChange(changes, 'Current Balance', previous.currentBalanceValue, balance);
-    }
     setState(() {
       suppliers = suppliers.map((supplier) {
         if (supplier.id != supplierId) return supplier;
@@ -1140,21 +821,6 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
           lastBalanceUpdatedBy: updatedBy,
         );
       }).toList();
-      if (changes.isNotEmpty) {
-        stockAuditEntries = [
-          buildAuditEntry(
-            module: 'Supplier Balance',
-            action: 'Updated supplier balance',
-            itemId: supplierId,
-            itemName: previous?.supplierName ?? supplierId,
-            actorName: actorNameFor(updatedBy),
-            actorId: updatedBy,
-            actorRole: actorRoleFor(updatedBy),
-            changes: changes,
-          ),
-          ...stockAuditEntries,
-        ];
-      }
     });
   }
 
@@ -1283,49 +949,29 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   }
 
   Future<void> createSkuRemote(StockSku sku) async {
-    final saved = await widget.api.createStockSku(sku);
-    await invalidateSetupCache(EastAppApi.stockSkusCachePrefix(widget.session.tenant.id));
-    await invalidateReportData();
-    if (!mounted) return;
-    setState(() {
-      stockSkus = [saved, ...stockSkus];
-      stockSkusUpdatedAt = DateTime.now();
-    });
+    await widget.api.createStockSku(sku);
+    _markHomeDataStale();
   }
 
   Future<void> updateSkuRemote(StockSku sku) async {
-    final saved = await widget.api.updateStockSku(sku);
-    await invalidateSetupCache(EastAppApi.stockSkusCachePrefix(widget.session.tenant.id));
-    await invalidateReportData();
-    if (!mounted) return;
-    setState(() {
-      stockSkusUpdatedAt = DateTime.now();
-      stockSkus = stockSkus
-          .map((item) => item.id == saved.id ? saved : item)
-          .toList();
-    });
+    await widget.api.updateStockSku(sku);
+    _markHomeDataStale();
   }
 
-  Future<void> updateSkuBalanceRemote(
-    String skuId,
-    double balance,
-    String _,
-  ) async {
-    final saved = await widget.api.updateStockSkuBalance(
-      skuId: skuId,
-      balance: balance,
-    );
+  Future<void> deleteSkuRemote(String skuId) async {
+    await widget.api.deleteStockSku(skuId);
+    _markHomeDataStale();
+  }
+
+  Future<void> reloadAfterSkuChangeReview() async {
     await invalidateSetupCache(
       EastAppApi.stockSkusCachePrefix(widget.session.tenant.id),
     );
-    await invalidateReportData();
-    if (!mounted) return;
-    setState(() {
-      stockSkusUpdatedAt = DateTime.now();
-      stockSkus = stockSkus
-          .map((item) => item.id == saved.id ? saved : item)
-          .toList();
-    });
+    await Future.wait([
+      loadStockSkus(reset: true, forceRefresh: true),
+      invalidateReportData(),
+    ]);
+    _markHomeDataStale();
   }
 
   Future<void> submitStockCheckRemote(StockSubmission submission) async {
@@ -2006,7 +1652,6 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
               canLoadMoreCounts: stockCountPage >= 0 && !stockCountsLast,
               canLoadMoreReceivings:
                   stockReceivingPage >= 0 && !stockReceivingsLast,
-              onLoadAuditEntries: loadStockAuditEntries,
               onSubmitStockCheck: submitStockCheckRemote,
               onCreateStockTask: createStockTask,
               onUpdateSupplierBalance: updateSupplierBalanceRemote,
@@ -2015,7 +1660,8 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
               onDeleteSuppliers: deleteSuppliersRemote,
               onCreateSku: createSkuRemote,
               onUpdateSku: updateSkuRemote,
-              onUpdateSkuBalance: updateSkuBalanceRemote,
+              onDeleteSku: deleteSkuRemote,
+              onSkuChangeReviewed: reloadAfterSkuChangeReview,
               onSubmitReceiving: submitStockReceivingRemote,
               onReviewReceiving: reviewStockReceivingRemote,
               onReviewStockCount: reviewStockCountRemote,

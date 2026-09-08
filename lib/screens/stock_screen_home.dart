@@ -17,7 +17,6 @@ class _StockHomePage extends StatelessWidget {
   bool get canReceiveStock => isManager || isHead;
   bool get canPurchaseStock => isManager || isHead;
   bool get canManageSetup => isOwner || isHead;
-  bool get canAccessAuditTrail => isOwner || isHead;
 
   @override
   Widget build(BuildContext context) {
@@ -86,13 +85,6 @@ class _StockHomePage extends StatelessWidget {
                 icon: Icons.assignment_ind_outlined,
                 onTap: () => onOpenPage(StockPage.assigneeSetup),
               ),
-              if (canAccessAuditTrail)
-                _StockMenuCard(
-                  title: text.t('Audit Trail'),
-                  subtitle: text.t('Change log'),
-                  icon: Icons.manage_history_rounded,
-                  onTap: () => onOpenPage(StockPage.auditTrail),
-                ),
             ],
           ),
         ],

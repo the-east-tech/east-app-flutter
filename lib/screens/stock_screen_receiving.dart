@@ -14,8 +14,6 @@ class _StockReceivingPage extends StatefulWidget {
   final List<StockSku> skus;
   final VoidCallback onBack;
   final Future<void> Function(StockReceivingRecord record) onSubmitReceiving;
-  final Future<void> Function(String skuId, double balance, String updatedBy)
-      onUpdateSkuBalance;
 
   const _StockReceivingPage({
     required this.tenantId,
@@ -24,7 +22,6 @@ class _StockReceivingPage extends StatefulWidget {
     required this.skus,
     required this.onBack,
     required this.onSubmitReceiving,
-    required this.onUpdateSkuBalance,
   });
 
   @override

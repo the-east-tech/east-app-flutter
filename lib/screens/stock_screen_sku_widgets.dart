@@ -96,7 +96,7 @@ void showSkuDetailDialog(
   required List<StockTag> tags,
   required List<SupplierProfile> suppliers,
   required Future<void> Function(StockSku sku) onUpdateSku,
-  required Future<void> Function(String skuId, double balance, String updatedBy) onUpdateSkuBalance,
+  required Future<void> Function(String skuId) onDeleteSku,
 }) {
   showStockBottomSheet<void>(
     context,
@@ -106,7 +106,7 @@ void showSkuDetailDialog(
       tags: tags,
       suppliers: suppliers,
       onUpdateSku: onUpdateSku,
-      onUpdateSkuBalance: onUpdateSkuBalance,
+      onDeleteSku: onDeleteSku,
       onClose: () => Navigator.of(sheetContext).pop(),
     ),
   );
