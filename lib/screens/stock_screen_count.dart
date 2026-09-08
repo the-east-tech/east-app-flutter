@@ -121,9 +121,11 @@ class _DailyStockCountPageState extends State<_DailyStockCountPage> {
     return widget.skus.where((sku) => sku.location == activeFilter).toList();
   }
 
-  DateTime monthlyStockCheckDate(int year, int month, int requestedDay) {
+  DateTime monthlyStockCheckDate(int year, int month, int? requestedDay) {
     final lastDay = DateTime(year, month + 1, 0).day;
-    final day = requestedDay.clamp(1, lastDay).toInt();
+    final day = requestedDay == null
+        ? lastDay
+        : requestedDay.clamp(1, lastDay).toInt();
     return DateTime(year, month, day);
   }
 
@@ -137,7 +139,7 @@ class _DailyStockCountPageState extends State<_DailyStockCountPage> {
         final daysSinceSchedule = (today.weekday - scheduledDay + 7) % 7;
         return today.subtract(Duration(days: daysSinceSchedule));
       case StockCheckSchedule.monthly:
-        final scheduledDay = (sku.stockCheckDay ?? 1).clamp(1, 31).toInt();
+        final scheduledDay = sku.stockCheckDay;
         var candidate = monthlyStockCheckDate(
           today.year,
           today.month,
@@ -162,12 +164,11 @@ class _DailyStockCountPageState extends State<_DailyStockCountPage> {
       case StockCheckSchedule.weekly:
         return start.add(const Duration(days: 7));
       case StockCheckSchedule.monthly:
-        final scheduledDay = (sku.stockCheckDay ?? 1).clamp(1, 31).toInt();
         final nextMonth = DateTime(start.year, start.month + 1, 1);
         return monthlyStockCheckDate(
           nextMonth.year,
           nextMonth.month,
-          scheduledDay,
+          sku.stockCheckDay,
         );
     }
   }

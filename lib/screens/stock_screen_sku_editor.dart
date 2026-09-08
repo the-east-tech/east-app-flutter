@@ -128,7 +128,11 @@ class _SkuEditorFormState extends State<_SkuEditorForm> {
     tag2 = sku?.location.trim().isEmpty == false ? sku!.location : null;
     unit = sku?.unit ?? 'kg';
     stockCheckSchedule = sku?.stockCheckSchedule ?? StockCheckSchedule.daily;
-    stockCheckDay = sku?.stockCheckDay ?? 1;
+    final configuredStockCheckDay = sku?.stockCheckDay;
+    stockCheckDay = stockCheckSchedule == StockCheckSchedule.monthly &&
+            (configuredStockCheckDay == null || configuredStockCheckDay > 28)
+        ? 0
+        : configuredStockCheckDay ?? 1;
     final recovery = sku?.recoveryPercent ?? 100;
     recoveryPercent = ((recovery / 5).round() * 5).clamp(5, 100).toInt();
     supplierIds = {...?sku?.supplierIds};
@@ -341,6 +345,12 @@ class _SkuEditorFormState extends State<_SkuEditorForm> {
           .where((value) => value.isNotEmpty)
           .take(5)
           .toList();
+      final effectiveStockCheckDay =
+          stockCheckSchedule == StockCheckSchedule.daily ||
+                  (stockCheckSchedule == StockCheckSchedule.monthly &&
+                      stockCheckDay == 0)
+              ? null
+              : stockCheckDay;
       final existing = widget.initialSku;
       final sku = existing == null
           ? StockSku(
@@ -362,34 +372,32 @@ class _SkuEditorFormState extends State<_SkuEditorForm> {
               photoPath: photoPath,
               assignedStaffName: 'Unassigned',
               stockCheckSchedule: stockCheckSchedule,
-              stockCheckDay: stockCheckSchedule == StockCheckSchedule.daily
-                  ? null
-                  : stockCheckDay,
+              stockCheckDay: effectiveStockCheckDay,
               lastUpdatedAt: 'Not counted yet',
               lastUpdatedBy: headId,
               coolingPeriod: true,
             )
-          : existing.copyWith(
-              name: name,
-              tag1Id: selectedTag1?.id ?? '',
-              category: selectedTag1?.tag ?? '',
-              tag2Id: selectedTag2?.id ?? '',
-              location: selectedTag2?.tag ?? '',
-              receivingChecklist: checklist,
-              unit: unit,
-              minimumBalanceValue: minBalance,
-              maximumBalanceValue: maxBalance,
-              currentBalanceValue: currentBalance,
-              recoveryPercent: recoveryPercent,
-              minimumPriceRm: minPrice,
-              maximumPriceRm: maxPrice,
-              supplierIds: supplierIds.toList(),
-              photoPath: photoPath,
-              stockCheckSchedule: stockCheckSchedule,
-              stockCheckDay: stockCheckSchedule == StockCheckSchedule.daily
-                  ? null
-                  : stockCheckDay,
-            );
+          : existing
+              .copyWith(stockCheckSchedule: StockCheckSchedule.daily)
+              .copyWith(
+                name: name,
+                tag1Id: selectedTag1?.id ?? '',
+                category: selectedTag1?.tag ?? '',
+                tag2Id: selectedTag2?.id ?? '',
+                location: selectedTag2?.tag ?? '',
+                receivingChecklist: checklist,
+                unit: unit,
+                minimumBalanceValue: minBalance,
+                maximumBalanceValue: maxBalance,
+                currentBalanceValue: currentBalance,
+                recoveryPercent: recoveryPercent,
+                minimumPriceRm: minPrice,
+                maximumPriceRm: maxPrice,
+                supplierIds: supplierIds.toList(),
+                photoPath: photoPath,
+                stockCheckSchedule: stockCheckSchedule,
+                stockCheckDay: effectiveStockCheckDay,
+              );
       final saved = await runStockRequest(context, () => widget.onSave(sku));
       if (!saved || !mounted) return;
       showSuccessSnackBar(context, text.t('Submitted for Owner approval'));
@@ -619,9 +627,15 @@ class _SkuEditorFormState extends State<_SkuEditorForm> {
                   if (value == null) return;
                   setState(() {
                     stockCheckSchedule = value;
-                    stockCheckDay = value == StockCheckSchedule.weekly
-                        ? stockCheckDay.clamp(1, 7).toInt()
-                        : stockCheckDay.clamp(1, 31).toInt();
+                    if (value == StockCheckSchedule.weekly) {
+                      stockCheckDay = stockCheckDay == 0
+                          ? 1
+                          : stockCheckDay.clamp(1, 7).toInt();
+                    } else if (value == StockCheckSchedule.monthly) {
+                      stockCheckDay = stockCheckDay > 28
+                          ? 0
+                          : stockCheckDay.clamp(0, 28).toInt();
+                    }
                   });
                 },
               ),
@@ -646,16 +660,24 @@ class _SkuEditorFormState extends State<_SkuEditorForm> {
               if (stockCheckSchedule == StockCheckSchedule.monthly) ...[
                 const SizedBox(height: 8),
                 DropdownButtonFormField<int>(
-                  initialValue: stockCheckDay.clamp(1, 31).toInt(),
+                  initialValue: stockCheckDay > 28
+                      ? 0
+                      : stockCheckDay.clamp(0, 28).toInt(),
                   isExpanded: true,
                   decoration: _inputDecoration(''),
-                  items: List.generate(
-                    31,
-                    (index) => DropdownMenuItem(
-                      value: index + 1,
-                      child: Text('${text.t('Day')} ${index + 1}'),
+                  items: [
+                    DropdownMenuItem(
+                      value: 0,
+                      child: Text(text.t('Last day')),
                     ),
-                  ),
+                    ...List.generate(
+                      28,
+                      (index) => DropdownMenuItem(
+                        value: index + 1,
+                        child: Text('${text.t('Day')} ${index + 1}'),
+                      ),
+                    ),
+                  ],
                   onChanged: (value) {
                     if (value != null) setState(() => stockCheckDay = value);
                   },
