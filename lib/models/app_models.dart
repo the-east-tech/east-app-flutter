@@ -4,6 +4,24 @@ enum UserRole {
   head,
 }
 
+enum StockCheckSchedule {
+  daily('DAILY', 'Daily'),
+  weekly('WEEKLY', 'Weekly'),
+  monthly('MONTHLY', 'Monthly');
+
+  final String apiValue;
+  final String label;
+
+  const StockCheckSchedule(this.apiValue, this.label);
+
+  static StockCheckSchedule fromApi(String? value) {
+    return StockCheckSchedule.values.firstWhere(
+      (schedule) => schedule.apiValue == value?.toUpperCase(),
+      orElse: () => StockCheckSchedule.daily,
+    );
+  }
+}
+
 enum KnowledgeVideoLanguage {
   english('ENGLISH', 'English'),
   myanmar('MYANMAR', 'Myanmar');
@@ -146,7 +164,6 @@ class KnowledgeItem {
   }
 }
 
-
 class SupplierProfile {
   final String id;
   final String supplierName;
@@ -214,9 +231,6 @@ class SupplierProfile {
   }
 }
 
-
-
-
 class StockSku {
   final String id;
   final String name;
@@ -235,8 +249,8 @@ class StockSku {
   final List<String> assignedStaffNames;
   final String location;
   final List<String> receivingChecklist;
-  final int stockCheckFrequencyDays;
-  final String resetTime;
+  final StockCheckSchedule stockCheckSchedule;
+  final int? stockCheckDay;
   final String lastUpdatedAt;
   final String lastUpdatedBy;
   final bool active;
@@ -261,8 +275,8 @@ class StockSku {
     List<String> assignedStaffNames = const [],
     this.location = '',
     this.receivingChecklist = const [],
-    this.stockCheckFrequencyDays = 1,
-    this.resetTime = '08:00',
+    this.stockCheckSchedule = StockCheckSchedule.daily,
+    this.stockCheckDay,
     required this.lastUpdatedAt,
     required this.lastUpdatedBy,
     this.active = true,
@@ -281,7 +295,8 @@ class StockSku {
     return List.unmodifiable(result);
   }
 
-  String get assignedStaffName => assignedStaffNames.isEmpty ? 'Unassigned' : assignedStaffNames.join(', ');
+  String get assignedStaffName =>
+      assignedStaffNames.isEmpty ? 'Unassigned' : assignedStaffNames.join(', ');
 
   bool get hasAssignee => assignedStaffNames.isNotEmpty;
 
@@ -313,8 +328,8 @@ class StockSku {
     List<String>? assignedStaffNames,
     String? location,
     List<String>? receivingChecklist,
-    int? stockCheckFrequencyDays,
-    String? resetTime,
+    StockCheckSchedule? stockCheckSchedule,
+    int? stockCheckDay,
     String? lastUpdatedAt,
     String? lastUpdatedBy,
     bool? active,
@@ -324,6 +339,7 @@ class StockSku {
         (assignedStaffName == null
             ? this.assignedStaffNames
             : _normaliseAssignedStaffNames([assignedStaffName]));
+    final nextSchedule = stockCheckSchedule ?? this.stockCheckSchedule;
 
     return StockSku(
       id: id,
@@ -343,8 +359,10 @@ class StockSku {
       assignedStaffNames: nextAssignedStaffNames,
       location: location ?? this.location,
       receivingChecklist: receivingChecklist ?? this.receivingChecklist,
-      stockCheckFrequencyDays: stockCheckFrequencyDays ?? this.stockCheckFrequencyDays,
-      resetTime: resetTime ?? this.resetTime,
+      stockCheckSchedule: nextSchedule,
+      stockCheckDay: nextSchedule == StockCheckSchedule.daily
+          ? null
+          : stockCheckDay ?? this.stockCheckDay,
       lastUpdatedAt: lastUpdatedAt ?? this.lastUpdatedAt,
       lastUpdatedBy: lastUpdatedBy ?? this.lastUpdatedBy,
       active: active ?? this.active,
@@ -406,7 +424,8 @@ class StockReceivingRecord {
 
   bool get isApproved => reviewStatus == 'Approved';
   bool get isRejected => reviewStatus == 'Rejected';
-  bool get isPendingReview => reviewStatus == 'Pending Review' || reviewStatus == 'Pending';
+  bool get isPendingReview =>
+      reviewStatus == 'Pending Review' || reviewStatus == 'Pending';
 
   StockReceivingRecord copyWith({
     String? reviewStatus,
@@ -515,7 +534,8 @@ class StockSubmission {
 
   bool get isApproved => reviewStatus == 'Approved';
   bool get isRejected => reviewStatus == 'Rejected';
-  bool get isPendingReview => reviewStatus == 'Pending Review' || reviewStatus == 'Pending';
+  bool get isPendingReview =>
+      reviewStatus == 'Pending Review' || reviewStatus == 'Pending';
   double get increasedValue => currentBalanceValue - previousBalanceValue;
 
   StockSubmission copyWith({
@@ -551,8 +571,6 @@ class StockSubmission {
     );
   }
 }
-
-
 
 enum AttendanceStatus {
   notClockedIn,
