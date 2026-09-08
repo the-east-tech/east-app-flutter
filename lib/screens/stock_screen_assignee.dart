@@ -236,7 +236,7 @@ class _SkuAssigneePageState extends State<_SkuAssigneePage> {
     final confirmed = await confirmDataChange(
       context,
       action: 'Update SKU Assignees?',
-      details: 'This will replace the assignee list for the selected SKU.',
+      details: 'This will submit the assignee change for Owner approval.',
     );
     if (!confirmed || !mounted) return;
 
@@ -244,21 +244,7 @@ class _SkuAssigneePageState extends State<_SkuAssigneePage> {
     final saved = await runStockRequest(context, () => widget.onUpdateSku(updatedSku));
     if (!saved || !mounted) return;
 
-    final stillMatches = assignmentFilter == 'Assigned'
-        ? updatedSku.assignedStaffNames.isNotEmpty
-        : updatedSku.assignedStaffNames.isEmpty;
-    setState(() {
-      final index = loadedSkus.indexWhere((item) => item.id == sku.id);
-      if (index >= 0) {
-        if (stillMatches) {
-          loadedSkus[index] = updatedSku;
-        } else {
-          loadedSkus.removeAt(index);
-          if (totalSkus > 0) totalSkus--;
-        }
-      }
-    });
-    showSuccessSnackBar(context, text.t('Assignee updated'));
+    showSuccessSnackBar(context, text.t('Submitted for Owner approval'));
   }
 
   @override

@@ -37,8 +37,6 @@ part 'stock_screen_review_media.dart';
 part 'stock_screen_sku.dart';
 part 'stock_screen_sku_widgets.dart';
 part 'stock_screen_sku_editor.dart';
-part 'stock_screen_audit.dart';
-part 'stock_screen_audit_widgets.dart';
 part 'stock_screen_assignee.dart';
 part 'stock_screen_supplier.dart';
 part 'stock_screen_tag.dart';

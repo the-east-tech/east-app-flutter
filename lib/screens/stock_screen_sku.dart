@@ -10,7 +10,7 @@ class _SkuSetupPage extends StatefulWidget {
   final VoidCallback onBack;
   final Future<void> Function(StockSku sku) onCreateSku;
   final Future<void> Function(StockSku sku) onUpdateSku;
-  final Future<void> Function(String skuId, double balance, String updatedBy) onUpdateSkuBalance;
+  final Future<void> Function(String skuId) onDeleteSku;
 
   const _SkuSetupPage({
     required this.api,
@@ -22,7 +22,7 @@ class _SkuSetupPage extends StatefulWidget {
     required this.onBack,
     required this.onCreateSku,
     required this.onUpdateSku,
-    required this.onUpdateSkuBalance,
+    required this.onDeleteSku,
   });
 
   @override
@@ -187,7 +187,7 @@ class _SkuSetupPageState extends State<_SkuSetupPage> {
         builder: (dialogContext) {
           final text = AppTextScope.of(dialogContext);
           return AlertDialog(
-            title: Text(text.t(preview.invalidRows == 0 ? 'Import SKUs?' : 'CSV cannot be imported')),
+            title: Text(text.t(preview.invalidRows == 0 ? 'Submit SKU changes?' : 'CSV cannot be submitted')),
             content: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 460),
               child: SingleChildScrollView(
@@ -198,7 +198,7 @@ class _SkuSetupPageState extends State<_SkuSetupPage> {
                     Text('${text.t('Recognised format')}: ${preview.format} v${preview.formatVersion}', style: const TextStyle(fontWeight: FontWeight.w700)),
                     const SizedBox(height: 14),
                     _SkuCsvPreviewRow(label: text.t('Total rows'), value: preview.totalRows),
-                    _SkuCsvPreviewRow(label: text.t('Ready to import'), value: preview.readyRows, colour: AppColours.green),
+                    _SkuCsvPreviewRow(label: text.t('Ready to submit'), value: preview.readyRows, colour: AppColours.green),
                     _SkuCsvPreviewRow(label: text.t('Existing duplicates skipped'), value: preview.duplicateRows),
                     _SkuCsvPreviewRow(label: text.t('New tags'), value: preview.newTagCount),
                     _SkuCsvPreviewRow(label: text.t('Invalid rows'), value: preview.invalidRows, colour: preview.invalidRows == 0 ? null : AppColours.red),
@@ -220,7 +220,7 @@ class _SkuSetupPageState extends State<_SkuSetupPage> {
             ),
             actions: [
               TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: Text(text.t(preview.canImport ? 'Cancel' : 'Close'))),
-              if (preview.canImport) FilledButton(onPressed: () => Navigator.of(dialogContext).pop(true), child: Text(text.t('Import'))),
+              if (preview.canImport) FilledButton(onPressed: () => Navigator.of(dialogContext).pop(true), child: Text(text.t('Submit'))),
             ],
           );
         },
@@ -229,7 +229,7 @@ class _SkuSetupPageState extends State<_SkuSetupPage> {
       await widget.api.importStockSkuCsv(fileName: file.name, bytes: bytes);
       if (!mounted) return;
       await widget.onReloadAfterSkuImport();
-      if (mounted) showSuccessSnackBar(context, 'Imported');
+      if (mounted) showSuccessSnackBar(context, 'Submitted for Owner approval');
     } on EastAppApiException {
       // Global API error handling already presents the failure.
     } catch (_) {
@@ -316,7 +316,7 @@ class _SkuSetupPageState extends State<_SkuSetupPage> {
             child: Column(children: [
               ...skus.map((sku) => _SkuCompactRow(
                 sku: sku,
-                onTap: () => showSkuDetailDialog(context, sku: sku, tags: widget.tags, suppliers: widget.suppliers, onUpdateSku: widget.onUpdateSku, onUpdateSkuBalance: widget.onUpdateSkuBalance),
+                onTap: () => showSkuDetailDialog(context, sku: sku, tags: widget.tags, suppliers: widget.suppliers, onUpdateSku: widget.onUpdateSku, onDeleteSku: widget.onDeleteSku),
               )),
             ]),
           ),

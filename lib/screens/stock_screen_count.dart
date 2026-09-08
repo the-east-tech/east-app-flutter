@@ -6,8 +6,6 @@ class _DailyStockCountPage extends StatefulWidget {
   final List<StockSubmission> submissions;
   final VoidCallback onBack;
   final Future<void> Function(StockSubmission submission) onSubmitStockCheck;
-  final Future<void> Function(String skuId, double balance, String updatedBy)
-      onUpdateSkuBalance;
   final void Function(List<String> skuIds) onResetCountTimers;
 
   const _DailyStockCountPage({
@@ -16,7 +14,6 @@ class _DailyStockCountPage extends StatefulWidget {
     required this.submissions,
     required this.onBack,
     required this.onSubmitStockCheck,
-    required this.onUpdateSkuBalance,
     required this.onResetCountTimers,
   });
 

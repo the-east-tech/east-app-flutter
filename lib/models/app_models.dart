@@ -554,50 +554,6 @@ class StockSubmission {
 
 
 
-class StockAuditChange {
-  final String field;
-  final String oldValue;
-  final String newValue;
-
-  const StockAuditChange({
-    required this.field,
-    required this.oldValue,
-    required this.newValue,
-  });
-}
-
-class StockAuditEntry {
-  final String id;
-  final String module;
-  final String action;
-  final String itemId;
-  final String itemName;
-  final String actorName;
-  final String actorId;
-  final String actorRole;
-  final String timestampText;
-  final DateTime capturedAt;
-  final List<StockAuditChange> changes;
-  final String note;
-
-  const StockAuditEntry({
-    required this.id,
-    required this.module,
-    required this.action,
-    required this.itemId,
-    required this.itemName,
-    required this.actorName,
-    required this.actorId,
-    required this.actorRole,
-    required this.timestampText,
-    required this.capturedAt,
-    required this.changes,
-    this.note = '',
-  });
-
-  bool get hasChanges => changes.isNotEmpty;
-}
-
 enum AttendanceStatus {
   notClockedIn,
   working,

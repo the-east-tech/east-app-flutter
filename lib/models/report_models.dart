@@ -432,6 +432,9 @@ class SalesReport {
   final DateTime? submittedAt;
   final String? reviewedByName;
   final String? reviewNote;
+  final String? amendedByName;
+  final DateTime? amendedAt;
+  final String? amendReason;
   final List<VoidBill> voidBills;
 
   const SalesReport({
@@ -454,6 +457,9 @@ class SalesReport {
     required this.submittedAt,
     required this.reviewedByName,
     required this.reviewNote,
+    required this.amendedByName,
+    required this.amendedAt,
+    required this.amendReason,
     required this.voidBills,
   });
 
@@ -483,6 +489,9 @@ class SalesReport {
       submittedAt: _dateTime(json['submittedAt']),
       reviewedByName: json['reviewedByName'] as String?,
       reviewNote: json['reviewNote'] as String?,
+      amendedByName: json['amendedByName'] as String?,
+      amendedAt: _dateTime(json['amendedAt']),
+      amendReason: json['amendReason'] as String?,
       voidBills: (json['voidBills'] as List<dynamic>? ?? const [])
           .map((item) => VoidBill.fromJson(item as Map<String, dynamic>))
           .toList(growable: false),

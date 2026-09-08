@@ -329,6 +329,9 @@ class _TaskHubScreenState extends State<TaskHubScreen> {
       builder: (_) => _SalesHistorySheet(
         api: widget.api,
         tenantId: widget.tenantId,
+        role: widget.role,
+        earliestDate: earliestEditableDate,
+        onChanged: handleChanged,
       ),
     );
   }
@@ -362,6 +365,7 @@ class _TaskHubScreenState extends State<TaskHubScreen> {
         initialReport: loaded!.report,
         cashRecipients: loaded!.cashRecipients,
         earliestDate: earliestEditableDate,
+        role: widget.role,
         onChanged: handleChanged,
       ),
     );
@@ -972,10 +976,16 @@ Future<T?> _showReportPage<T>(
 class _SalesHistorySheet extends StatefulWidget {
   final EastAppApi api;
   final String tenantId;
+  final UserRole role;
+  final DateTime earliestDate;
+  final Future<void> Function() onChanged;
 
   const _SalesHistorySheet({
     required this.api,
     required this.tenantId,
+    required this.role,
+    required this.earliestDate,
+    required this.onChanged,
   });
 
   @override
@@ -1062,10 +1072,29 @@ class _SalesHistorySheetState extends State<_SalesHistorySheet> {
   }
 
   Future<void> openRecord(SalesReport report) async {
+    List<SalesCashRecipient> recipients;
+    try {
+      recipients = await widget.api.salesCashRecipients(
+        tenantId: widget.tenantId,
+      );
+    } on EastAppApiException {
+      return;
+    }
+    if (!mounted) return;
     await _showReportPage<void>(
       context,
       title: 'Sales · ${_formatDate(report.reportDate)}',
-      builder: (_) => _SalesSubmittedDetail(api: widget.api, report: report),
+      builder: (_) => _SalesSheet(
+        api: widget.api,
+        initialReport: report,
+        cashRecipients: recipients,
+        earliestDate: widget.earliestDate,
+        role: widget.role,
+        onChanged: () async {
+          await widget.onChanged();
+          await load(forceRefresh: true);
+        },
+      ),
     );
   }
 
@@ -1464,6 +1493,7 @@ class _SalesSheet extends StatefulWidget {
   final SalesReport initialReport;
   final List<SalesCashRecipient> cashRecipients;
   final DateTime earliestDate;
+  final UserRole role;
   final Future<void> Function() onChanged;
 
   const _SalesSheet({
@@ -1471,6 +1501,7 @@ class _SalesSheet extends StatefulWidget {
     required this.initialReport,
     required this.cashRecipients,
     required this.earliestDate,
+    required this.role,
     required this.onChanged,
   });
 
@@ -1492,6 +1523,8 @@ class _SalesSheetState extends State<_SalesSheet> {
   String? voidPhotoPath;
   String? cashReceivedByUserId;
   bool voidExpanded = false;
+
+  bool get canAmend => widget.role == UserRole.head;
 
   @override
   void initState() {
@@ -1963,6 +1996,88 @@ class _SalesSheetState extends State<_SalesSheet> {
     }
   }
 
+  Future<void> amend() async {
+    final reportId = report.id;
+    if (!canAmend || reportId == null || report.workflowStatus != 'APPROVED') {
+      return;
+    }
+    final warningAccepted = await confirmDataChange(
+      context,
+      action: 'Amend approved Sales Report?',
+      details:
+          'This action is not suggested. It will move the report from DONE back to PENDING and allow its current data to be overwritten.',
+    );
+    if (!warningAccepted || !mounted) return;
+
+    final controller = TextEditingController();
+    final reason = await showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Confirm Sales Amendment'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Final confirmation: the approved report will be reopened. Enter the compulsory reason below.',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: controller,
+                autofocus: true,
+                maxLength: 500,
+                maxLines: 3,
+                onChanged: (_) => setDialogState(() {}),
+                decoration: const InputDecoration(
+                  labelText: 'Amendment reason',
+                  hintText: 'Why must this approved report be changed?',
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: controller.text.trim().isEmpty
+                  ? null
+                  : () => Navigator.of(dialogContext).pop(
+                        controller.text.trim(),
+                      ),
+              child: const Text('Confirm Amend'),
+            ),
+          ],
+        ),
+      ),
+    );
+    controller.dispose();
+    if (reason == null || !mounted) return;
+
+    try {
+      final amended = await _runReportAction<SalesReport>(
+        context,
+        () async {
+          final value = await widget.api.amendSalesReport(
+            reportId: reportId,
+            reason: reason,
+          );
+          await widget.onChanged();
+          return value;
+        },
+      );
+      if (!mounted || amended == null) return;
+      setState(() => applyReport(amended));
+      showSuccessSnackBar(context, 'Sales report reopened for amendment');
+    } on EastAppApiException {
+      return;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final text = AppTextScope.of(context);
@@ -1971,7 +2086,40 @@ class _SalesSheetState extends State<_SalesSheet> {
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 100),
       children: [
-        _StatusBanner(status: report.workflowStatus, note: report.reviewNote),
+        _StatusBanner(
+          status: report.workflowStatus,
+          note: report.amendReason ?? report.reviewNote,
+        ),
+        if (report.amendReason?.trim().isNotEmpty == true) ...[
+          const SizedBox(height: 10),
+          WhiteCard(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  text.t('Latest Amendment'),
+                  style: const TextStyle(
+                    fontSize: AppTextSize.s16,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                _approvalDetailRow(
+                  'Amended By',
+                  report.amendedByName ?? '-',
+                ),
+                _approvalDetailRow(
+                  'Amended At',
+                  report.amendedAt == null
+                      ? '-'
+                      : _formatDateTime(report.amendedAt!),
+                ),
+                _approvalDetailRow('Reason', report.amendReason!),
+              ],
+            ),
+          ),
+        ],
         const SizedBox(height: 10),
         _ReportDateSelector(date: report.reportDate, onTap: selectDate),
         const SizedBox(height: 12),
@@ -2089,6 +2237,17 @@ class _SalesSheetState extends State<_SalesSheet> {
         ),
         const SizedBox(height: 14),
         buildVoidBillsSection(editable),
+        if (canAmend && report.workflowStatus == 'APPROVED') ...[
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: amend,
+              icon: const Icon(Icons.warning_amber_rounded),
+              label: Text(text.t('Amend Approved Report')),
+            ),
+          ),
+        ],
         if (editable) ...[
           const SizedBox(height: 14),
           SizedBox(

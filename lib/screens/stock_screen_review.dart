@@ -1,6 +1,6 @@
 part of 'stock_screen.dart';
 
-enum _StockApprovalKind { count, receiving }
+enum _StockApprovalKind { count, receiving, sku }
 
 class _StockApprovalScope extends InheritedWidget {
   final Widget section;
@@ -29,6 +29,8 @@ class _StockApprovalLauncher extends StatelessWidget {
   final Future<void> Function(StockSubmission submission) onReviewStockCount;
   final Future<void> Function(List<StockSubmission> submissions)
       onBulkReviewStockCounts;
+  final bool canReviewSkuChanges;
+  final Future<void> Function() onSkuChangeReviewed;
 
   const _StockApprovalLauncher({
     required this.kind,
@@ -36,22 +38,31 @@ class _StockApprovalLauncher extends StatelessWidget {
     required this.onReviewReceiving,
     required this.onReviewStockCount,
     required this.onBulkReviewStockCounts,
+    required this.canReviewSkuChanges,
+    required this.onSkuChangeReviewed,
   });
 
   bool get isReceiving => kind == _StockApprovalKind.receiving;
+  bool get isSku => kind == _StockApprovalKind.sku;
 
   Future<void> _open(BuildContext context) async {
     AppFeedback.select();
     await showStockBottomSheet<void>(
       context,
       maxHeightFactor: 0.94,
-      builder: (sheetContext) => _StockApprovalSheet(
-        kind: kind,
-        api: api,
-        onReviewReceiving: onReviewReceiving,
-        onReviewStockCount: onReviewStockCount,
-        onBulkReviewStockCounts: onBulkReviewStockCounts,
-      ),
+      builder: (sheetContext) => isSku
+          ? _SkuChangeApprovalSheet(
+              api: api,
+              canReview: canReviewSkuChanges,
+              onReviewed: onSkuChangeReviewed,
+            )
+          : _StockApprovalSheet(
+              kind: kind,
+              api: api,
+              onReviewReceiving: onReviewReceiving,
+              onReviewStockCount: onReviewStockCount,
+              onBulkReviewStockCounts: onBulkReviewStockCounts,
+            ),
     );
   }
 
@@ -75,9 +86,11 @@ class _StockApprovalLauncher extends StatelessWidget {
                   borderRadius: BorderRadius.circular(13),
                 ),
                 child: Icon(
-                  isReceiving
-                      ? Icons.inventory_2_outlined
-                      : Icons.fact_check_outlined,
+                  isSku
+                      ? Icons.edit_note_rounded
+                      : isReceiving
+                          ? Icons.inventory_2_outlined
+                          : Icons.fact_check_outlined,
                   color: AppColours.blue,
                 ),
               ),
@@ -88,9 +101,11 @@ class _StockApprovalLauncher extends StatelessWidget {
                   children: [
                     Text(
                       text.t(
-                        isReceiving
-                            ? 'Receiving Records'
-                            : 'Daily Count Records',
+                        isSku
+                            ? 'SKU Change Records'
+                            : isReceiving
+                                ? 'Receiving Records'
+                                : 'Daily Count Records',
                       ),
                       style: const TextStyle(
                         fontSize: AppTextSize.s16,
@@ -100,9 +115,11 @@ class _StockApprovalLauncher extends StatelessWidget {
                     const SizedBox(height: 3),
                     Text(
                       text.t(
-                        isReceiving
-                            ? 'Review submitted receiving records'
-                            : 'Review submitted daily stock counts',
+                        isSku
+                            ? 'Review submitted SKU changes'
+                            : isReceiving
+                                ? 'Review submitted receiving records'
+                                : 'Review submitted daily stock counts',
                       ),
                       style: const TextStyle(
                         color: AppColours.textMuted,
@@ -1088,6 +1105,360 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
                     ),
                   ],
                 ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SkuChangeApprovalSheet extends StatefulWidget {
+  final EastAppApi api;
+  final bool canReview;
+  final Future<void> Function() onReviewed;
+
+  const _SkuChangeApprovalSheet({
+    required this.api,
+    required this.canReview,
+    required this.onReviewed,
+  });
+
+  @override
+  State<_SkuChangeApprovalSheet> createState() =>
+      _SkuChangeApprovalSheetState();
+}
+
+class _SkuChangeApprovalSheetState extends State<_SkuChangeApprovalSheet> {
+  List<StockSkuChangeRequest> records = const [];
+  String statusFilter = 'SUBMITTED';
+  bool loading = true;
+  String? reviewingId;
+
+  List<StockSkuChangeRequest> get visibleRecords => records
+      .where((record) => record.workflowStatus == statusFilter)
+      .toList(growable: false);
+
+  String proposalLabel(String key) {
+    final spaced = key.replaceAllMapped(
+      RegExp(r'([a-z0-9])([A-Z])'),
+      (match) => '${match.group(1)} ${match.group(2)}',
+    );
+    return spaced
+        .split(' ')
+        .map(
+          (word) => word.isEmpty
+              ? word
+              : '${word[0].toUpperCase()}${word.substring(1)}',
+        )
+        .join(' ');
+  }
+
+  String proposalValue(Object? value) {
+    if (value == null) return '-';
+    if (value is List) return value.isEmpty ? '-' : value.join(', ');
+    if (value is bool) return value ? 'Yes' : 'No';
+    final result = value.toString().trim();
+    return result.isEmpty ? '-' : result;
+  }
+
+  String requestTime(DateTime value) {
+    final localizations = MaterialLocalizations.of(context);
+    return '${localizations.formatMediumDate(value)} · '
+        '${localizations.formatTimeOfDay(TimeOfDay.fromDateTime(value))}';
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(loadRecords());
+  }
+
+  Future<void> loadRecords() async {
+    if (mounted) setState(() => loading = true);
+    try {
+      final loaded = await widget.api.stockSkuChangeRequests();
+      if (!mounted) return;
+      setState(() => records = loaded);
+    } on EastAppApiException {
+      // Global API error handling already presents the failure.
+    } finally {
+      if (mounted) setState(() => loading = false);
+    }
+  }
+
+  Future<String?> returnReason() async {
+    final controller = TextEditingController();
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Return SKU Change?'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          maxLength: 1000,
+          maxLines: 3,
+          decoration: const InputDecoration(
+            labelText: 'Reason',
+            hintText: 'Explain what must be corrected',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final value = controller.text.trim();
+              if (value.isNotEmpty) Navigator.of(dialogContext).pop(value);
+            },
+            child: const Text('Return'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    return reason;
+  }
+
+  Future<void> review(StockSkuChangeRequest record, String nextStatus) async {
+    if (!widget.canReview || reviewingId != null) return;
+    String note = '';
+    if (nextStatus == 'PENDING') {
+      final reason = await returnReason();
+      if (reason == null || !mounted) return;
+      note = reason;
+    } else {
+      final confirmed = await confirmDataChange(
+        context,
+        action: 'Approve SKU Change?',
+        details:
+            'This will apply the ${record.changeType.toLowerCase()} change to ${record.skuName}.',
+      );
+      if (!confirmed || !mounted) return;
+    }
+
+    setState(() => reviewingId = record.id);
+    try {
+      final updated = await widget.api.reviewStockSkuChange(
+        requestId: record.id,
+        status: nextStatus,
+        note: note,
+      );
+      await widget.onReviewed();
+      if (!mounted) return;
+      setState(() {
+        records = records
+            .map((item) => item.id == updated.id ? updated : item)
+            .toList(growable: false);
+      });
+      showSuccessSnackBar(
+        context,
+        nextStatus == 'DONE'
+            ? 'SKU change approved'
+            : 'SKU change returned',
+      );
+    } on EastAppApiException {
+      // Global API error handling already presents the failure.
+    } finally {
+      if (mounted) setState(() => reviewingId = null);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
+    final visible = visibleRecords;
+    return SizedBox(
+      height: MediaQuery.sizeOf(context).height * 0.86,
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
+            child: Column(
+              children: [
+                stockBottomSheetHandle(),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'SKU Change Records',
+                        style: TextStyle(
+                          fontSize: AppTextSize.s24,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: loadRecords,
+                      icon: const Icon(Icons.refresh_rounded),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.close_rounded),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+              children: [
+                DropdownButtonFormField<String>(
+                  initialValue: statusFilter,
+                  decoration: _inputDecoration(text.t('Status')),
+                  items: const [
+                    DropdownMenuItem(
+                      value: 'SUBMITTED',
+                      child: Text('SUBMITTED'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'PENDING',
+                      child: Text('PENDING'),
+                    ),
+                    DropdownMenuItem(value: 'DONE', child: Text('DONE')),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) setState(() => statusFilter = value);
+                  },
+                ),
+                const SizedBox(height: 12),
+                if (!widget.canReview)
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 12),
+                    child: Text(
+                      'Only Owner can approve or return SKU changes.',
+                      style: TextStyle(
+                        color: AppColours.textMuted,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                if (loading)
+                  const Center(child: CircularProgressIndicator())
+                else if (visible.isEmpty)
+                  const WhiteCard(
+                    child: Text(
+                      'No SKU change records found.',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                  )
+                else
+                  ...visible.map(
+                    (record) => Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: WhiteCard(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    record.skuName,
+                                    style: const TextStyle(
+                                      fontSize: AppTextSize.s17,
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
+                                ),
+                                SmallStatusPill(
+                                  text: record.changeType,
+                                  textColour: AppColours.blue,
+                                  backgroundColour: AppColours.blueSoft,
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              'Requested by ${record.requestedByName.isEmpty ? 'Unknown' : record.requestedByName}',
+                              style: const TextStyle(
+                                color: AppColours.textMuted,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              requestTime(record.submittedAt),
+                              style: const TextStyle(
+                                color: AppColours.textMuted,
+                                fontSize: AppTextSize.s12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            if (record.reviewNote.isNotEmpty) ...[
+                              const SizedBox(height: 6),
+                              Text('Reason: ${record.reviewNote}'),
+                            ],
+                            if (record.proposedData != null) ...[
+                              const SizedBox(height: 6),
+                              ExpansionTile(
+                                tilePadding: EdgeInsets.zero,
+                                childrenPadding: EdgeInsets.zero,
+                                title: const Text(
+                                  'Proposed Values',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                                children: [
+                                  _ReviewInfoRows(
+                                    rows: record.proposedData!.entries
+                                        .where(
+                                          (entry) =>
+                                              entry.key != 'photoPath',
+                                        )
+                                        .map(
+                                          (entry) => _ReviewInfoRow(
+                                            label: proposalLabel(entry.key),
+                                            value: proposalValue(entry.value),
+                                          ),
+                                        )
+                                        .toList(growable: false),
+                                  ),
+                                ],
+                              ),
+                            ],
+                            if (record.workflowStatus == 'SUBMITTED' &&
+                                widget.canReview) ...[
+                              const SizedBox(height: 12),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: PrimaryButton(
+                                      text: 'Return',
+                                      outlined: true,
+                                      icon: Icons.undo_rounded,
+                                      onPressed: reviewingId == null
+                                          ? () => review(record, 'PENDING')
+                                          : null,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: PrimaryButton(
+                                      text: reviewingId == record.id
+                                          ? 'Applying...'
+                                          : 'Approve',
+                                      icon: Icons.check_rounded,
+                                      onPressed: reviewingId == null
+                                          ? () => review(record, 'DONE')
+                                          : null,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),

@@ -26,8 +26,6 @@ class StockScreen extends StatefulWidget {
   final bool canLoadMoreSkus;
   final bool canLoadMoreCounts;
   final bool canLoadMoreReceivings;
-  final Future<EastAppPage<StockAuditEntry>> Function(
-      DateTime rangeStart, DateTime rangeEnd, int page, int size) onLoadAuditEntries;
   final Future<void> Function(StockSubmission submission) onSubmitStockCheck;
   final void Function(StockTask task) onCreateStockTask;
   final Future<void> Function(String supplierId, double balance, String updatedBy)
@@ -37,8 +35,8 @@ class StockScreen extends StatefulWidget {
   final Future<bool> Function(Set<String> supplierIds) onDeleteSuppliers;
   final Future<void> Function(StockSku sku) onCreateSku;
   final Future<void> Function(StockSku sku) onUpdateSku;
-  final Future<void> Function(String skuId, double balance, String updatedBy)
-      onUpdateSkuBalance;
+  final Future<void> Function(String skuId) onDeleteSku;
+  final Future<void> Function() onSkuChangeReviewed;
   final Future<void> Function(StockReceivingRecord record) onSubmitReceiving;
   final Future<void> Function(StockReceivingRecord record) onReviewReceiving;
   final Future<void> Function(StockSubmission submission) onReviewStockCount;
@@ -79,7 +77,6 @@ class StockScreen extends StatefulWidget {
     required this.canLoadMoreSkus,
     required this.canLoadMoreCounts,
     required this.canLoadMoreReceivings,
-    required this.onLoadAuditEntries,
     required this.onSubmitStockCheck,
     required this.onCreateStockTask,
     required this.onUpdateSupplierBalance,
@@ -88,7 +85,8 @@ class StockScreen extends StatefulWidget {
     required this.onDeleteSuppliers,
     required this.onCreateSku,
     required this.onUpdateSku,
-    required this.onUpdateSkuBalance,
+    required this.onDeleteSku,
+    required this.onSkuChangeReviewed,
     required this.onSubmitReceiving,
     required this.onReviewReceiving,
     required this.onReviewStockCount,
@@ -117,5 +115,4 @@ enum StockPage {
   supplierSetup,
   tagSetup,
   assigneeSetup,
-  auditTrail,
 }

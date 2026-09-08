@@ -870,6 +870,18 @@ class EastAppApi {
     return SalesReport.fromJson(body);
   }
 
+  Future<SalesReport> amendSalesReport({
+    required String reportId,
+    required String reason,
+  }) async {
+    final body = await _requestJson(
+      'POST',
+      '/api/v1/reports/sales/$reportId/amend',
+      body: {'reason': reason.trim()},
+    ) as Map<String, dynamic>;
+    return SalesReport.fromJson(body);
+  }
+
   Future<WasteReport> createWasteReport({
     required DateTime reportDate,
     String? skuId,
@@ -2766,34 +2778,57 @@ class EastAppApi {
     return Uint8List.fromList(response.bodyBytes);
   }
 
-  Future<StockSku> createStockSku(StockSku sku) async {
+  Future<StockSkuChangeRequest> createStockSku(StockSku sku) async {
     final body = await _requestJson(
       'POST',
       '/api/v1/stock/skus',
       body: stockSkuToJson(sku),
     ) as Map<String, dynamic>;
-    return stockSkuFromJson(body);
+    return StockSkuChangeRequest.fromJson(body);
   }
 
-  Future<StockSku> updateStockSku(StockSku sku) async {
+  Future<StockSkuChangeRequest> updateStockSku(StockSku sku) async {
     final body = await _requestJson(
       'PATCH',
       '/api/v1/stock/skus/${sku.id}',
       body: stockSkuToJson(sku),
     ) as Map<String, dynamic>;
-    return stockSkuFromJson(body);
+    return StockSkuChangeRequest.fromJson(body);
   }
 
-  Future<StockSku> updateStockSkuBalance({
-    required String skuId,
-    required double balance,
+  Future<StockSkuChangeRequest> deleteStockSku(String skuId) async {
+    final body = await _requestJson(
+      'DELETE',
+      '/api/v1/stock/skus/$skuId',
+    ) as Map<String, dynamic>;
+    return StockSkuChangeRequest.fromJson(body);
+  }
+
+  Future<List<StockSkuChangeRequest>> stockSkuChangeRequests() async {
+    final body = await _requestJson(
+      'GET',
+      '/api/v1/stock/sku-change-requests',
+    ) as List<dynamic>;
+    return body
+        .map(
+          (item) => StockSkuChangeRequest.fromJson(
+            item as Map<String, dynamic>,
+          ),
+        )
+        .toList(growable: false);
+  }
+
+  Future<StockSkuChangeRequest> reviewStockSkuChange({
+    required String requestId,
+    required String status,
+    String note = '',
   }) async {
     final body = await _requestJson(
       'PATCH',
-      '/api/v1/stock/skus/$skuId/balance',
-      body: {'balance': balance},
+      '/api/v1/stock/sku-change-requests/$requestId/review',
+      body: {'status': status, 'note': note},
     ) as Map<String, dynamic>;
-    return stockSkuFromJson(body);
+    return StockSkuChangeRequest.fromJson(body);
   }
 
   Future<StockSubmission> createStockCount(
@@ -2876,27 +2911,6 @@ class EastAppApi {
       },
     ) as Map<String, dynamic>;
     return stockReceivingRecordFromJson(body);
-  }
-
-  Future<EastAppPage<StockAuditEntry>> stockAudit({
-    required DateTime from,
-    required DateTime to,
-    bool mine = false,
-    int page = 0,
-    int size = 50,
-  }) async {
-    final query = Uri(queryParameters: {
-      'from': formatApiDate(from),
-      'to': formatApiDate(to),
-      'mine': '$mine',
-      'page': '$page',
-      'size': '$size',
-    }).query;
-    final body = await _requestJson(
-      'GET',
-      '/api/v1/stock/audit?$query',
-    ) as Map<String, dynamic>;
-    return stockAuditPageFromJson(body);
   }
 
   Future<Uint8List> _loadMediaBytes(
