@@ -121,13 +121,55 @@ class _DailyStockCountPageState extends State<_DailyStockCountPage> {
     return widget.skus.where((sku) => sku.location == activeFilter).toList();
   }
 
+  DateTime monthlyStockCheckDate(int year, int month, int requestedDay) {
+    final lastDay = DateTime(year, month + 1, 0).day;
+    final day = requestedDay.clamp(1, lastDay).toInt();
+    return DateTime(year, month, day);
+  }
+
   DateTime countCycleStart(StockSku sku, DateTime now) {
-    final parts = sku.resetTime.split(':');
-    final hour = parts.isEmpty ? 8 : int.tryParse(parts.first) ?? 8;
-    final minute = parts.length < 2 ? 0 : int.tryParse(parts[1]) ?? 0;
-    var start = DateTime(now.year, now.month, now.day, hour, minute);
-    if (now.isBefore(start)) start = start.subtract(const Duration(days: 1));
-    return start;
+    final today = DateTime(now.year, now.month, now.day);
+    switch (sku.stockCheckSchedule) {
+      case StockCheckSchedule.daily:
+        return today;
+      case StockCheckSchedule.weekly:
+        final scheduledDay = (sku.stockCheckDay ?? 1).clamp(1, 7).toInt();
+        final daysSinceSchedule = (today.weekday - scheduledDay + 7) % 7;
+        return today.subtract(Duration(days: daysSinceSchedule));
+      case StockCheckSchedule.monthly:
+        final scheduledDay = (sku.stockCheckDay ?? 1).clamp(1, 31).toInt();
+        var candidate = monthlyStockCheckDate(
+          today.year,
+          today.month,
+          scheduledDay,
+        );
+        if (candidate.isAfter(today)) {
+          final previousMonth = DateTime(today.year, today.month - 1, 1);
+          candidate = monthlyStockCheckDate(
+            previousMonth.year,
+            previousMonth.month,
+            scheduledDay,
+          );
+        }
+        return candidate;
+    }
+  }
+
+  DateTime countCycleEnd(StockSku sku, DateTime start) {
+    switch (sku.stockCheckSchedule) {
+      case StockCheckSchedule.daily:
+        return start.add(const Duration(days: 1));
+      case StockCheckSchedule.weekly:
+        return start.add(const Duration(days: 7));
+      case StockCheckSchedule.monthly:
+        final scheduledDay = (sku.stockCheckDay ?? 1).clamp(1, 31).toInt();
+        final nextMonth = DateTime(start.year, start.month + 1, 1);
+        return monthlyStockCheckDate(
+          nextMonth.year,
+          nextMonth.month,
+          scheduledDay,
+        );
+    }
   }
 
   bool submissionBlocksCount(StockSubmission submission) {
@@ -140,7 +182,7 @@ class _DailyStockCountPageState extends State<_DailyStockCountPage> {
     List<StockSubmission>? submissions,
   }) {
     final start = countCycleStart(sku, DateTime.now());
-    final end = start.add(const Duration(days: 1));
+    final end = countCycleEnd(sku, start);
     for (final submission in submissions ?? widget.submissions) {
       if (submission.stockTaskId == sku.id &&
           submissionBlocksCount(submission) &&
@@ -249,9 +291,9 @@ class _DailyStockCountPageState extends State<_DailyStockCountPage> {
 
     final confirmed = await confirmDataChange(
       context,
-      action: 'Submit Daily Stock Count?',
+      action: 'Submit Stock Check?',
       details:
-          'This will create stock-count records and update the selected SKU balances.',
+          'This will create stock-check records and update the selected SKU balances.',
     );
     if (!confirmed || !mounted) return;
 
@@ -268,12 +310,12 @@ class _DailyStockCountPageState extends State<_DailyStockCountPage> {
             submittedBy: submittedBy,
             submittedAt: 'Submitted just now',
             capturedAt: capturedAt,
-            stockPhotoName: 'daily_${sku.id.toLowerCase()}_camera.jpg',
-            invoicePhotoName: 'Not required for daily count',
+            stockPhotoName: 'stock_check_${sku.id.toLowerCase()}_camera.jpg',
+            invoicePhotoName: 'Not required for stock check',
             previousBalanceValue: sku.currentBalanceValue,
             currentBalanceValue: currentBalance,
             belowMinimumBalance: currentBalance < sku.minimumBalanceValue,
-            checkedItems: const {'daily_count': true},
+            checkedItems: const {'stock_check': true},
             remarks: {'note': note.isEmpty ? 'No remark provided.' : note},
           ),
         ),
@@ -282,7 +324,7 @@ class _DailyStockCountPageState extends State<_DailyStockCountPage> {
     }
 
     widget.onResetCountTimers(skusToSubmit.map((sku) => sku.id).toList());
-    showSuccessSnackBar(context, text.t('Daily stock count submitted'));
+    showSuccessSnackBar(context, text.t('Stock check submitted'));
     widget.onBack();
   }
 
@@ -318,7 +360,7 @@ class _DailyStockCountPageState extends State<_DailyStockCountPage> {
             children: [
               Expanded(
                 child: Text(
-                  '${text.t('Today')}: $completedCount / ${widget.skus.length} ${text.t('completed')}',
+                  '${text.t('Current cycle')}: $completedCount / ${widget.skus.length} ${text.t('completed')}',
                   style: const TextStyle(
                     fontSize: AppTextSize.s16,
                     color: AppColours.textMuted,
@@ -383,7 +425,7 @@ class _DailyStockCountPageState extends State<_DailyStockCountPage> {
         ],
         const SizedBox(height: 8),
         PrimaryButton(
-          text: text.t('Submit Daily Count'),
+          text: text.t('Submit Stock Check'),
           icon: Icons.send_rounded,
           onPressed: canSubmit ? submit : null,
         ),
@@ -418,7 +460,7 @@ class _CountTagFilterChips extends StatelessWidget {
               onTap: () => onChanged(option),
               borderRadius: BorderRadius.circular(999),
               child: AnimatedContainer(
-                duration: const Duration(milliseconds: 160),
+                duration: const Duration(milliseconds: 120),
                 padding:
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
@@ -651,7 +693,7 @@ class _DailyStockMiniCard extends StatelessWidget {
       padding: EdgeInsets.zero,
       child: AnimatedOpacity(
         opacity: autoSaved ? 0.55 : 1,
-        duration: const Duration(milliseconds: 180),
+        duration: const Duration(milliseconds: 140),
         child: Pressable(
           onTap: editable && !autoSaved ? onBalanceTap : null,
           borderRadius: BorderRadius.circular(18),
@@ -715,7 +757,7 @@ class _DailyStockMiniCard extends StatelessWidget {
                                       alignment: Alignment.centerLeft,
                                       child: AnimatedContainer(
                                         duration:
-                                            const Duration(milliseconds: 450),
+                                            const Duration(milliseconds: 180),
                                         curve: Curves.easeOutCubic,
                                         width: constraints.maxWidth * ratio,
                                         decoration: BoxDecoration(
