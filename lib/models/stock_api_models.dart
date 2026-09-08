@@ -130,9 +130,9 @@ StockSku stockSkuFromJson(Map<String, dynamic> json) {
         (json['receivingChecklist'] as List<dynamic>? ?? const [])
             .map((item) => item.toString())
             .toList(growable: false),
-    stockCheckFrequencyDays:
-        (json['stockCheckFrequencyDays'] as num?)?.toInt() ?? 1,
-    resetTime: json['resetTime'] as String? ?? '08:00',
+    stockCheckSchedule:
+        StockCheckSchedule.fromApi(json['stockCheckSchedule'] as String?),
+    stockCheckDay: (json['stockCheckDay'] as num?)?.toInt(),
     lastUpdatedAt: json['lastUpdatedAt'] as String? ?? '',
     lastUpdatedBy: json['lastUpdatedBy'] as String? ?? '',
     active: json['active'] as bool? ?? true,
@@ -286,8 +286,8 @@ Map<String, Object?> stockSkuToJson(StockSku sku) {
     'photoPath': sku.photoPath,
     'assignedStaffNames': sku.assignedStaffNames,
     'receivingChecklist': sku.receivingChecklist,
-    'stockCheckFrequencyDays': sku.stockCheckFrequencyDays,
-    'resetTime': sku.resetTime,
+    'stockCheckSchedule': sku.stockCheckSchedule.apiValue,
+    'stockCheckDay': sku.stockCheckDay,
     'active': sku.active,
     'coolingPeriod': sku.coolingPeriod,
   };

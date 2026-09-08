@@ -25,16 +25,24 @@ class _CareerPathScreenState extends State<CareerPathScreen>
     with SingleTickerProviderStateMixin {
   static const roles = <_CareerRole>[
     _CareerRole(
-      systemKey: 'STAFF_2',
-      name: 'Staff 2',
-      headline: 'Build the foundation',
-      description: 'Learn the essentials and build reliable daily habits.',
-      icon: Icons.eco_rounded,
+      systemKey: 'PART_TIME',
+      name: 'Part Time',
+      headline: 'Learn the basics',
+      description: 'Support the team, learn the essentials and build reliable habits.',
+      icon: Icons.schedule_rounded,
       colour: Color(0xFF00A67A),
     ),
     _CareerRole(
-      systemKey: 'STAFF_1',
-      name: 'Staff 1',
+      systemKey: 'STAFF',
+      name: 'Staff',
+      headline: 'Build the foundation',
+      description: 'Handle daily work reliably and grow confidence in the routine.',
+      icon: Icons.eco_rounded,
+      colour: Color(0xFF0A8FCE),
+    ),
+    _CareerRole(
+      systemKey: 'SENIOR_STAFF',
+      name: 'Senior Staff',
       headline: 'Own the routine',
       description: 'Handle daily work confidently, consistently and independently.',
       icon: Icons.bolt_rounded,
@@ -85,7 +93,7 @@ class _CareerPathScreenState extends State<CareerPathScreen>
     selectedRoleIndex = initialIndex < 0 ? 0 : initialIndex;
     burstController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 650),
+      duration: const Duration(milliseconds: 320),
     )..value = 1;
   }
 
@@ -129,7 +137,7 @@ class _CareerPathScreenState extends State<CareerPathScreen>
                     Expanded(
                       child: PageTitle(
                         title: text.t('Career Path'),
-                        subtitle: text.t('Climb from Staff to Head'),
+                        subtitle: text.t('Climb from Part Time to Head'),
                       ),
                     ),
                   ],
@@ -305,7 +313,7 @@ class _CareerHero extends StatelessWidget {
                 ),
                 const SizedBox(height: 22),
                 AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 260),
+                  duration: const Duration(milliseconds: 160),
                   transitionBuilder: (child, animation) =>
                       ScaleTransition(scale: animation, child: child),
                   child: Row(
@@ -357,7 +365,7 @@ class _CareerHero extends StatelessWidget {
                 ),
                 const SizedBox(height: 13),
                 AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 220),
+                  duration: const Duration(milliseconds: 150),
                   child: Text(
                     text.t(selectedRole.description),
                     key: ValueKey('${selectedRole.systemKey}-description'),
@@ -425,7 +433,7 @@ class _CareerPathEntry extends StatelessWidget {
                 : Icons.lock_outline_rounded;
 
     return TweenAnimationBuilder<double>(
-      duration: Duration(milliseconds: 280 + displayIndex * 70),
+      duration: Duration(milliseconds: 170 + displayIndex * 30),
       curve: Curves.easeOutCubic,
       tween: Tween(begin: 0, end: 1),
       builder: (context, progress, child) => Transform.translate(
@@ -451,7 +459,7 @@ class _CareerPathEntry extends StatelessWidget {
                     ),
                   ),
                   AnimatedContainer(
-                    duration: const Duration(milliseconds: 220),
+                    duration: const Duration(milliseconds: 140),
                     width: selected ? 34 : 28,
                     height: selected ? 34 : 28,
                     decoration: BoxDecoration(
@@ -467,7 +475,7 @@ class _CareerPathEntry extends StatelessWidget {
                       ),
                     ),
                     child: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 180),
+                      duration: const Duration(milliseconds: 120),
                       child: Icon(
                         selected ? Icons.hiking_rounded : statusIcon,
                         key: ValueKey('$selected-$status'),
@@ -501,7 +509,7 @@ class _CareerPathEntry extends StatelessWidget {
                     onTap: () => onTap(sourceIndex),
                     borderRadius: BorderRadius.circular(18),
                     child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 230),
+                      duration: const Duration(milliseconds: 150),
                       curve: Curves.easeOut,
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
@@ -529,7 +537,7 @@ class _CareerPathEntry extends StatelessWidget {
                         children: [
                           AnimatedScale(
                             scale: selected ? 1.12 : 1,
-                            duration: const Duration(milliseconds: 220),
+                            duration: const Duration(milliseconds: 140),
                             child: Container(
                               width: 42,
                               height: 42,
