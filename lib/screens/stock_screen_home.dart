@@ -21,16 +21,11 @@ class _StockHomePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = AppTextScope.of(context);
-    final todaySubtitle = isStaff
-        ? text.t('Update physical stock balance')
-        : text.t('Count stock / receive goods / prepare restock');
 
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 24),
       children: [
-        PageTitle(title: text.t('Stock Dashboard'), subtitle: todaySubtitle),
-        const SizedBox(height: 8),
         _SectionTitle(
           text.t('Operation'),
           icon: Icons.inventory_2_outlined,
@@ -305,19 +300,10 @@ class _StockMenuCard extends StatelessWidget {
                           child: Icon(icon, color: Colors.white, size: 21),
                         ),
                         const Spacer(),
-                        Container(
-                          width: 27,
-                          height: 27,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.82),
-                            shape: BoxShape.circle,
-                            border: Border.all(color: AppColours.border),
-                          ),
-                          child: const Icon(
-                            Icons.arrow_forward_rounded,
-                            color: AppColours.blue,
-                            size: 16,
-                          ),
+                        const Icon(
+                          Icons.chevron_right_rounded,
+                          color: AppColours.textMuted,
+                          size: 22,
                         ),
                       ],
                     ),
