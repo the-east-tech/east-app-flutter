@@ -82,7 +82,8 @@ class _SkuEditorFormState extends State<_SkuEditorForm> {
   late String? tag1;
   late String? tag2;
   late String unit;
-  late String resetTime;
+  late StockCheckSchedule stockCheckSchedule;
+  late int stockCheckDay;
   late int recoveryPercent;
   late Set<String> supplierIds;
   String? pendingPhotoPath;
@@ -126,7 +127,8 @@ class _SkuEditorFormState extends State<_SkuEditorForm> {
     tag1 = sku?.category.trim().isEmpty == false ? sku!.category : null;
     tag2 = sku?.location.trim().isEmpty == false ? sku!.location : null;
     unit = sku?.unit ?? 'kg';
-    resetTime = sku?.resetTime ?? '08:00';
+    stockCheckSchedule = sku?.stockCheckSchedule ?? StockCheckSchedule.daily;
+    stockCheckDay = sku?.stockCheckDay ?? 1;
     final recovery = sku?.recoveryPercent ?? 100;
     recoveryPercent = ((recovery / 5).round() * 5).clamp(5, 100).toInt();
     supplierIds = {...?sku?.supplierIds};
@@ -184,16 +186,6 @@ class _SkuEditorFormState extends State<_SkuEditorForm> {
       pendingPhotoPath = path;
       pendingPhotoBytes = bytes;
     });
-  }
-
-  Future<void> pickResetTime() async {
-    final picked = await showTimePicker(
-      context: context,
-      initialTime: parseStockResetTime(resetTime),
-    );
-    if (picked != null && mounted) {
-      setState(() => resetTime = formatStockResetTime(picked));
-    }
   }
 
   Future<void> pickSuppliers() async {
@@ -305,7 +297,6 @@ class _SkuEditorFormState extends State<_SkuEditorForm> {
         currentBalance == null ||
         minPrice == null ||
         maxPrice == null ||
-        !isValidStockResetTime(resetTime) ||
         supplierIds.isEmpty ||
         (requiresPhoto && pendingPhotoPath == null)) {
       AppFeedback.warning();
@@ -370,7 +361,10 @@ class _SkuEditorFormState extends State<_SkuEditorForm> {
               supplierIds: supplierIds.toList(),
               photoPath: photoPath,
               assignedStaffName: 'Unassigned',
-              resetTime: resetTime,
+              stockCheckSchedule: stockCheckSchedule,
+              stockCheckDay: stockCheckSchedule == StockCheckSchedule.daily
+                  ? null
+                  : stockCheckDay,
               lastUpdatedAt: 'Not counted yet',
               lastUpdatedBy: headId,
               coolingPeriod: true,
@@ -391,6 +385,10 @@ class _SkuEditorFormState extends State<_SkuEditorForm> {
               maximumPriceRm: maxPrice,
               supplierIds: supplierIds.toList(),
               photoPath: photoPath,
+              stockCheckSchedule: stockCheckSchedule,
+              stockCheckDay: stockCheckSchedule == StockCheckSchedule.daily
+                  ? null
+                  : stockCheckDay,
             );
       final saved = await runStockRequest(context, () => widget.onSave(sku));
       if (!saved || !mounted) return;
@@ -434,6 +432,7 @@ class _SkuEditorFormState extends State<_SkuEditorForm> {
       'kg', 'pcs', 'box', 'bottle', 'carton', 'ctn', 'pack', 'bag', 'btl',
       'biji', 'unit',
     ];
+    const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
     return Column(
       children: [
@@ -603,12 +602,65 @@ class _SkuEditorFormState extends State<_SkuEditorForm> {
               if (photoRequiredError)
                 _InlineError(text.t('Stock Thumbnail required')),
               const SizedBox(height: 14),
-              _FieldLabel(text.t('Reset Time')),
-              OutlinedButton.icon(
-                onPressed: pickResetTime,
-                icon: const Icon(Icons.schedule_rounded),
-                label: Text(resetTime),
+              _FieldLabel(text.t('Stock Check')),
+              DropdownButtonFormField<StockCheckSchedule>(
+                initialValue: stockCheckSchedule,
+                isExpanded: true,
+                decoration: _inputDecoration(''),
+                items: StockCheckSchedule.values
+                    .map(
+                      (schedule) => DropdownMenuItem(
+                        value: schedule,
+                        child: Text(text.t(schedule.label)),
+                      ),
+                    )
+                    .toList(growable: false),
+                onChanged: (value) {
+                  if (value == null) return;
+                  setState(() {
+                    stockCheckSchedule = value;
+                    stockCheckDay = value == StockCheckSchedule.weekly
+                        ? stockCheckDay.clamp(1, 7).toInt()
+                        : stockCheckDay.clamp(1, 31).toInt();
+                  });
+                },
               ),
+              if (stockCheckSchedule == StockCheckSchedule.weekly) ...[
+                const SizedBox(height: 8),
+                DropdownButtonFormField<int>(
+                  initialValue: stockCheckDay.clamp(1, 7).toInt(),
+                  isExpanded: true,
+                  decoration: _inputDecoration(''),
+                  items: List.generate(
+                    7,
+                    (index) => DropdownMenuItem(
+                      value: index + 1,
+                      child: Text(text.t(weekdays[index])),
+                    ),
+                  ),
+                  onChanged: (value) {
+                    if (value != null) setState(() => stockCheckDay = value);
+                  },
+                ),
+              ],
+              if (stockCheckSchedule == StockCheckSchedule.monthly) ...[
+                const SizedBox(height: 8),
+                DropdownButtonFormField<int>(
+                  initialValue: stockCheckDay.clamp(1, 31).toInt(),
+                  isExpanded: true,
+                  decoration: _inputDecoration(''),
+                  items: List.generate(
+                    31,
+                    (index) => DropdownMenuItem(
+                      value: index + 1,
+                      child: Text('${text.t('Day')} ${index + 1}'),
+                    ),
+                  ),
+                  onChanged: (value) {
+                    if (value != null) setState(() => stockCheckDay = value);
+                  },
+                ),
+              ],
               const SizedBox(height: 14),
               _FieldLabel(text.t('Unit')),
               DropdownButtonFormField<String>(

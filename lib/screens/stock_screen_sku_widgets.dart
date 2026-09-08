@@ -33,6 +33,12 @@ class _SkuCompactRow extends StatelessWidget {
     final statusColour = isLow ? AppColours.red : AppColours.green;
     final statusBackground = isLow ? AppColours.redSoft : AppColours.greenSoft;
     final balanceColour = isLow ? AppColours.red : AppColours.green;
+    final stockCheckDay = sku.stockCheckDay ?? 1;
+    final stockCheck = switch (sku.stockCheckSchedule) {
+      StockCheckSchedule.daily => text.t('Daily'),
+      StockCheckSchedule.weekly => '${text.t('Weekly')} · ${text.t(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][stockCheckDay - 1])}',
+      StockCheckSchedule.monthly => '${text.t('Monthly')} · ${text.t('Day')} $stockCheckDay',
+    };
     return Pressable(
       onTap: onTap,
       borderRadius: BorderRadius.circular(0),
@@ -47,7 +53,7 @@ class _SkuCompactRow extends StatelessWidget {
             const SizedBox(height: 2),
             Text('${text.content(sku.category)} · ${sku.unit}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: AppTextSize.s13, color: AppColours.textMuted, fontWeight: FontWeight.w700)),
             const SizedBox(height: 2),
-            Text('${sku.assignedStaffName} · ${text.t('Reset')} ${sku.resetTime}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: AppTextSize.s13, fontWeight: FontWeight.w700, color: AppColours.textMuted)),
+            Text('${sku.assignedStaffName} · $stockCheck', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: AppTextSize.s13, fontWeight: FontWeight.w700, color: AppColours.textMuted)),
           ])),
           const SizedBox(width: 8),
           Column(crossAxisAlignment: CrossAxisAlignment.end, mainAxisSize: MainAxisSize.min, children: [

@@ -22,7 +22,7 @@ class _StockHomePage extends StatelessWidget {
   Widget build(BuildContext context) {
     final text = AppTextScope.of(context);
     final todaySubtitle = isStaff
-        ? text.t('Update daily physical stock balance')
+        ? text.t('Update physical stock balance')
         : text.t('Count stock / receive goods / prepare restock');
 
     return ListView(
@@ -31,7 +31,10 @@ class _StockHomePage extends StatelessWidget {
       children: [
         PageTitle(title: text.t('Stock Dashboard'), subtitle: todaySubtitle),
         const SizedBox(height: 8),
-        _SectionTitle(text.t('Operation')),
+        _SectionTitle(
+          text.t('Operation'),
+          icon: Icons.inventory_2_outlined,
+        ),
         _StockMenuGrid(
           children: [
             _StockMenuCard(
@@ -51,26 +54,29 @@ class _StockHomePage extends StatelessWidget {
               _StockMenuCard(
                 title: text.t('Purchase'),
                 subtitle: text.t('Restock'),
-                icon: Icons.content_copy_rounded,
+                icon: Icons.shopping_bag_outlined,
                 onTap: () => onOpenPage(StockPage.restockMessage),
               ),
           ],
         ),
         if (canManageSetup) ...[
-          const SizedBox(height: 12),
-          _SectionTitle(text.t('Setup - Owner & Head')),
+          const SizedBox(height: 16),
+          _SectionTitle(
+            text.t('Setup'),
+            icon: Icons.tune_rounded,
+          ),
           _StockMenuGrid(
             children: [
               _StockMenuCard(
                 title: text.t('SKU'),
                 subtitle: text.t('Create/list SKU'),
-                icon: Icons.add_box_outlined,
+                icon: Icons.widgets_outlined,
                 onTap: () => onOpenPage(StockPage.skuSetup),
               ),
               _StockMenuCard(
                 title: text.t('Supplier'),
                 subtitle: text.t('Create/list Supplier'),
-                icon: Icons.add_business_outlined,
+                icon: Icons.storefront_outlined,
                 onTap: () => onOpenPage(StockPage.supplierSetup),
               ),
               _StockMenuCard(
@@ -82,7 +88,7 @@ class _StockHomePage extends StatelessWidget {
               _StockMenuCard(
                 title: text.t('Assignee'),
                 subtitle: text.t('Assign SKU to user'),
-                icon: Icons.assignment_ind_outlined,
+                icon: Icons.person_pin_circle_outlined,
                 onTap: () => onOpenPage(StockPage.assigneeSetup),
               ),
             ],
@@ -145,20 +151,58 @@ class _MiniMetric extends StatelessWidget {
 
 class _SectionTitle extends StatelessWidget {
   final String title;
+  final IconData icon;
 
-  const _SectionTitle(this.title);
+  const _SectionTitle(this.title, {required this.icon});
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(2, 4, 2, 7),
-      child: Text(
-        title.toUpperCase(),
-        style: const TextStyle(
-          fontSize: AppTextSize.s15,
-          fontWeight: FontWeight.w700,
-          color: AppColours.textMuted,
-          letterSpacing: 0.6,
+    return TweenAnimationBuilder<double>(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOutCubic,
+      tween: Tween(begin: 0, end: 1),
+      builder: (context, progress, child) => Transform.translate(
+        offset: Offset(0, 7 * (1 - progress)),
+        child: Opacity(opacity: progress, child: child),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(2, 4, 2, 8),
+        child: Row(
+          children: [
+            Container(
+              width: 30,
+              height: 30,
+              decoration: BoxDecoration(
+                color: AppColours.blueSoft.withValues(alpha: 0.75),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, size: 17, color: AppColours.blue),
+            ),
+            const SizedBox(width: 9),
+            Text(
+              title.toUpperCase(),
+              style: const TextStyle(
+                fontSize: AppTextSize.s14,
+                fontWeight: FontWeight.w900,
+                color: AppColours.textMain,
+                letterSpacing: 0.8,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Container(
+                height: 1,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      AppColours.blue.withValues(alpha: 0.28),
+                      AppColours.border.withValues(alpha: 0.15),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -182,7 +226,7 @@ class _StockMenuGrid extends StatelessWidget {
           spacing: 10,
           runSpacing: 10,
           children: children
-              .map((child) => SizedBox(width: cardWidth, height: 100, child: child))
+              .map((child) => SizedBox(width: cardWidth, height: 108, child: child))
               .toList(),
         );
       },
@@ -205,56 +249,102 @@ class _StockMenuCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return WhiteCard(
-      padding: EdgeInsets.zero,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(18),
-        child: Padding(
-          padding: const EdgeInsets.all(8),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    return TweenAnimationBuilder<double>(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOutCubic,
+      tween: Tween(begin: 0, end: 1),
+      builder: (context, progress, child) => Transform.translate(
+        offset: Offset(0, 8 * (1 - progress)),
+        child: Opacity(opacity: progress, child: child),
+      ),
+      child: WhiteCard(
+        padding: EdgeInsets.zero,
+        child: Pressable(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(18),
+          child: Stack(
+            clipBehavior: Clip.antiAlias,
             children: [
-              Row(
-                children: [
-                  Container(
-                    width: 34,
-                    height: 34,
-                    decoration: BoxDecoration(
-                      color: AppColours.background,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(icon, color: AppColours.blue, size: 22),
+              Positioned(
+                right: -20,
+                top: -22,
+                child: Container(
+                  width: 72,
+                  height: 72,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: AppColours.blueSoft.withValues(alpha: 0.48),
                   ),
-                  const Spacer(),
-                  const SizedBox(width: 4),
-                  const Icon(
-                    Icons.chevron_right_rounded,
-                    color: AppColours.textMuted,
-                    size: 22,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              Text(
-                title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: AppTextSize.s18,
-                  fontWeight: FontWeight.w700,
                 ),
               ),
-              const SizedBox(height: 3),
-              Text(
-                subtitle,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: AppTextSize.s13,
-                  color: AppColours.textMuted,
-                  height: 1.2,
-                  fontWeight: FontWeight.w500,
+              Padding(
+                padding: const EdgeInsets.all(11),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          width: 38,
+                          height: 38,
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [Color(0xFF1557F2), Color(0xFF6B4EFF)],
+                            ),
+                            borderRadius: BorderRadius.circular(13),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppColours.blue.withValues(alpha: 0.18),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Icon(icon, color: Colors.white, size: 21),
+                        ),
+                        const Spacer(),
+                        Container(
+                          width: 27,
+                          height: 27,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.82),
+                            shape: BoxShape.circle,
+                            border: Border.all(color: AppColours.border),
+                          ),
+                          child: const Icon(
+                            Icons.arrow_forward_rounded,
+                            color: AppColours.blue,
+                            size: 16,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Spacer(),
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: AppTextSize.s17,
+                        fontWeight: FontWeight.w900,
+                        color: AppColours.textMain,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: AppTextSize.s12,
+                        color: AppColours.textMuted,
+                        height: 1.2,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],

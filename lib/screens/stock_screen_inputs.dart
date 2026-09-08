@@ -20,7 +20,7 @@ class _SetupDetailRow extends StatelessWidget {
         const SizedBox(width: 14),
         Expanded(
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
+            duration: const Duration(milliseconds: 140),
             padding: editable ? const EdgeInsets.symmetric(horizontal: 8, vertical: 2) : EdgeInsets.zero,
             decoration: editable
                 ? BoxDecoration(color: AppColours.blueSoft.withValues(alpha: 0.55), borderRadius: BorderRadius.circular(10), border: Border.all(color: AppColours.blue.withValues(alpha: 0.18)))
@@ -60,7 +60,7 @@ class _SkuBalanceSummary extends StatelessWidget {
         const SizedBox(height: 8),
         LayoutBuilder(builder: (context, constraints) => Stack(children: [
           Container(height: 18, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(99), border: Border.all(color: AppColours.border))),
-          AnimatedContainer(duration: const Duration(milliseconds: 450), curve: Curves.easeOutCubic, height: 18, width: constraints.maxWidth * ratio, decoration: BoxDecoration(color: belowMinimum ? AppColours.red : AppColours.green, borderRadius: BorderRadius.circular(99))),
+          AnimatedContainer(duration: const Duration(milliseconds: 180), curve: Curves.easeOutCubic, height: 18, width: constraints.maxWidth * ratio, decoration: BoxDecoration(color: belowMinimum ? AppColours.red : AppColours.green, borderRadius: BorderRadius.circular(99))),
         ])),
         const SizedBox(height: 8),
         Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -203,23 +203,3 @@ void showAddSupplierDialog(BuildContext context, {required Future<void> Function
 }
 
 String formatStockNumber(double value) => value == value.roundToDouble() ? value.toStringAsFixed(0) : value.toStringAsFixed(2);
-
-String formatStockResetTime(TimeOfDay value) => '${value.hour.toString().padLeft(2, '0')}:${value.minute.toString().padLeft(2, '0')}';
-
-TimeOfDay parseStockResetTime(String value) {
-  final parts = value.trim().split(':');
-  if (parts.length == 2) {
-    final hour = int.tryParse(parts[0]);
-    final minute = int.tryParse(parts[1]);
-    if (hour != null && minute != null && hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59) return TimeOfDay(hour: hour, minute: minute);
-  }
-  return const TimeOfDay(hour: 8, minute: 0);
-}
-
-bool isValidStockResetTime(String value) {
-  final parts = value.trim().split(':');
-  if (parts.length != 2) return false;
-  final hour = int.tryParse(parts[0]);
-  final minute = int.tryParse(parts[1]);
-  return hour != null && minute != null && hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59;
-}

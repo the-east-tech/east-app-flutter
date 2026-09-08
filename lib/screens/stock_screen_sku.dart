@@ -37,6 +37,13 @@ class _SkuSetupPageState extends State<_SkuSetupPage> {
   String assignedFilter = 'All';
   bool exportingSkus = false;
 
+  static const fastMenuAnimation = AnimationStyle(
+    duration: Duration(milliseconds: 120),
+    reverseDuration: Duration(milliseconds: 90),
+    curve: Curves.easeOutCubic,
+    reverseCurve: Curves.easeInCubic,
+  );
+
   @override
   void dispose() {
     searchController.dispose();
@@ -88,6 +95,7 @@ class _SkuSetupPageState extends State<_SkuSetupPage> {
     return PopupMenuButton<String>(
       initialValue: value,
       position: PopupMenuPosition.under,
+      popUpAnimationStyle: fastMenuAnimation,
       tooltip: '$label: $value',
       onSelected: onChanged,
       itemBuilder: (_) => options.map((option) {
@@ -274,6 +282,7 @@ class _SkuSetupPageState extends State<_SkuSetupPage> {
             PopupMenuButton<String>(
               enabled: !exportingSkus,
               tooltip: text.t('More SKU actions'),
+              popUpAnimationStyle: fastMenuAnimation,
               icon: const Icon(Icons.more_vert_rounded),
               onSelected: (value) {
                 if (value == 'import') unawaited(importSkus());
