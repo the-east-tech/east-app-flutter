@@ -2632,9 +2632,9 @@ class _PeopleMenuCard extends StatelessWidget {
                 child: Container(
                   width: 72,
                   height: 72,
-                  decoration: BoxDecoration(
+                  decoration: const BoxDecoration(
                     shape: BoxShape.circle,
-                    color: AppColours.blueSoft.withValues(alpha: 0.48),
+                    color: Colors.transparent,
                   ),
                 ),
               ),
