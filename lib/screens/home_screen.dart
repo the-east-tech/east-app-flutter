@@ -243,11 +243,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(14, 12, 14, 24),
         children: [
-        PageTitle(
-          title: widget.businessName,
-          subtitle: text.t('Home Dashboard'),
-        ),
-        const SizedBox(height: 4),
         _GoogleRatingCard(
           api: widget.api,
           tenantId: widget.tenantId,
