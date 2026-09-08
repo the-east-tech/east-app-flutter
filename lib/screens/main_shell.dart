@@ -151,6 +151,9 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
       homeReviewSummary = null;
       homeReportDashboard = null;
       homeRecentActivities = const [];
+      knowledge = <KnowledgeItem>[];
+      knowledgeLoaded = false;
+      knowledgeLoading = false;
       unawaited(loadPointsLeaderboard());
       unawaited(loadHomeData());
       notificationUnreadCount = 0;
@@ -409,6 +412,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
           page: 0,
           size: 100,
           tenantId: widget.session.tenant.id,
+          forceRefresh: forceRefresh,
         ),
         widget.api.knowledgeSops(page: 0, size: 100),
       ]);
@@ -597,9 +601,6 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
       }
       selectedIndex = index;
     });
-    if (index == 4) {
-      unawaited(loadKnowledgeData());
-    }
   }
 
   void changeLanguage(AppLanguage value) {
@@ -1697,6 +1698,8 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
               permissions: widget.session.permissions,
               knowledgeItems: knowledge,
               tags: stockTags,
+              dataLoaded: knowledgeLoaded,
+              onLoadData: loadKnowledgeData,
               onCreateSop: createSop,
               onUpdateSop: updateSop,
               onDeleteSops: deleteSops,
