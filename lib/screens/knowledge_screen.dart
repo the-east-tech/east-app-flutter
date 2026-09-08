@@ -18,6 +18,8 @@ class KnowledgeScreen extends StatefulWidget {
   final Set<EastAppPermission> permissions;
   final List<KnowledgeItem> knowledgeItems;
   final List<StockTag> tags;
+  final bool dataLoaded;
+  final Future<void> Function({bool forceRefresh}) onLoadData;
   final Future<KnowledgeItem> Function(KnowledgeItem item) onCreateSop;
   final Future<KnowledgeItem> Function(KnowledgeItem item) onUpdateSop;
   final Future<void> Function(Set<String> sopIds) onDeleteSops;
@@ -29,6 +31,8 @@ class KnowledgeScreen extends StatefulWidget {
     required this.permissions,
     required this.knowledgeItems,
     required this.tags,
+    required this.dataLoaded,
+    required this.onLoadData,
     required this.onCreateSop,
     required this.onUpdateSop,
     required this.onDeleteSops,
@@ -43,6 +47,7 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
   final listSearchController = TextEditingController();
   bool showSopList = false;
   bool showAudit = false;
+  bool dataLoading = false;
   KnowledgeItem? selectedSop;
   bool selectedSopOpenedFromManagement = false;
   String? homeSelectedTagId;
@@ -140,6 +145,16 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
     homeSearchController.dispose();
     listSearchController.dispose();
     super.dispose();
+  }
+
+  Future<void> loadData({bool forceRefresh = false}) async {
+    if (dataLoading) return;
+    setState(() => dataLoading = true);
+    try {
+      await widget.onLoadData(forceRefresh: forceRefresh);
+    } finally {
+      if (mounted) setState(() => dataLoading = false);
+    }
   }
 
   Future<void> openCreateSop() async {
@@ -343,7 +358,6 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
       homeSearchController,
       homeSelectedTagId,
     );
-    final totalSops = allSopGroups().length;
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 24),
@@ -358,7 +372,6 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
               title: text.t('Manage SOP'),
               subtitle: text.t('View SOP'),
               icon: Icons.description_outlined,
-              badgeText: '$totalSops',
               onTap: openSopList,
             ),
             if (canViewAudit)
@@ -371,17 +384,41 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
           ],
         ),
         const SizedBox(height: 16),
-        Text(
-          text.t('SOP'),
-          style: const TextStyle(
-            fontSize: AppTextSize.s22,
-            fontWeight: FontWeight.w800,
-            color: AppColours.textMain,
-          ),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                text.t('SOP'),
+                style: const TextStyle(
+                  fontSize: AppTextSize.s22,
+                  fontWeight: FontWeight.w800,
+                  color: AppColours.textMain,
+                ),
+              ),
+            ),
+            TextButton.icon(
+              onPressed: dataLoading
+                  ? null
+                  : () => loadData(forceRefresh: widget.dataLoaded),
+              icon: dataLoading
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Icon(
+                      widget.dataLoaded
+                          ? Icons.refresh_rounded
+                          : Icons.download_rounded,
+                    ),
+              label: Text(text.t(widget.dataLoaded ? 'Refresh' : 'Load')),
+            ),
+          ],
         ),
         const SizedBox(height: 12),
         TextField(
           controller: homeSearchController,
+          enabled: widget.dataLoaded,
           style: AppTextStyles.formValue,
           onChanged: (_) => setState(() {}),
           textInputAction: TextInputAction.search,
@@ -402,17 +439,21 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
                   ),
           ),
         ),
-        const SizedBox(height: 12),
-        _TagSegmentedFilter(
-          tags: widget.tags,
-          selectedTagId: homeSelectedTagId,
-          onChanged: (tagId) {
-            FocusScope.of(context).unfocus();
-            setState(() => homeSelectedTagId = tagId);
-          },
-        ),
+        if (widget.dataLoaded) ...[
+          const SizedBox(height: 12),
+          _TagSegmentedFilter(
+            tags: widget.tags,
+            selectedTagId: homeSelectedTagId,
+            onChanged: (tagId) {
+              FocusScope.of(context).unfocus();
+              setState(() => homeSelectedTagId = tagId);
+            },
+          ),
+        ],
         const SizedBox(height: 14),
-        if (visibleItems.isEmpty)
+        if (!widget.dataLoaded)
+          _KnowledgeEmptyState(text: text.t('Tap Load to view SOPs.'))
+        else if (visibleItems.isEmpty)
           _KnowledgeEmptyState(text: text.t('No SOP found.'))
         else
           ...visibleItems.map(
@@ -458,124 +499,148 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
                     : text.t('Select SOP'),
               ),
             ),
-          ],
-        ),
-        if (canManageSops) ...[
-          if (deleteMode) ...[
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: cancelDeleteMode,
-                    icon: const Icon(Icons.close_rounded),
-                    label: Text(text.t('Cancel')),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: visibleItems.isEmpty
-                        ? null
-                        : () => toggleAllVisibleSops(visibleItems),
-                    icon: Icon(
-                      allVisibleSelected
-                          ? Icons.deselect_rounded
-                          : Icons.select_all_rounded,
-                    ),
-                    label: Text(
-                      text.t(allVisibleSelected ? 'Clear All' : 'Select All'),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed:
-                    selectedSopGroupIds.isEmpty ? null : deleteSelectedSops,
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppColours.red,
-                  foregroundColor: Colors.white,
-                ),
-                icon: const Icon(Icons.delete_outline_rounded),
-                label: Text(
-                  selectedSopGroupIds.isEmpty
-                      ? text.t('Delete')
-                      : '${text.t('Delete')} (${selectedSopGroupIds.length})',
-                ),
+            Padding(
+              padding: const EdgeInsets.only(top: 16),
+              child: IconButton(
+                tooltip: text.t(widget.dataLoaded ? 'Refresh' : 'Load'),
+                onPressed: dataLoading
+                    ? null
+                    : () => loadData(forceRefresh: widget.dataLoaded),
+                icon: dataLoading
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Icon(
+                        widget.dataLoaded
+                            ? Icons.refresh_rounded
+                            : Icons.download_rounded,
+                      ),
               ),
             ),
-          ] else
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: visibleItems.isEmpty ? null : enterDeleteMode,
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColours.red,
-                      side: const BorderSide(color: AppColours.red),
+          ],
+        ),
+        if (!widget.dataLoaded) ...[
+          _KnowledgeEmptyState(text: text.t('Tap Load to view SOPs.')),
+        ] else ...[
+          if (canManageSops) ...[
+            if (deleteMode) ...[
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: cancelDeleteMode,
+                      icon: const Icon(Icons.close_rounded),
+                      label: Text(text.t('Cancel')),
                     ),
-                    icon: const Icon(Icons.delete_outline_rounded),
-                    label: Text(text.t('Delete')),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: visibleItems.isEmpty
+                          ? null
+                          : () => toggleAllVisibleSops(visibleItems),
+                      icon: Icon(
+                        allVisibleSelected
+                            ? Icons.deselect_rounded
+                            : Icons.select_all_rounded,
+                      ),
+                      label: Text(
+                        text.t(allVisibleSelected ? 'Clear All' : 'Select All'),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed:
+                      selectedSopGroupIds.isEmpty ? null : deleteSelectedSops,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColours.red,
+                    foregroundColor: Colors.white,
+                  ),
+                  icon: const Icon(Icons.delete_outline_rounded),
+                  label: Text(
+                    selectedSopGroupIds.isEmpty
+                        ? text.t('Delete')
+                        : '${text.t('Delete')} (${selectedSopGroupIds.length})',
                   ),
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: PrimaryButton(
-                    text: text.t('Create SOP'),
-                    icon: Icons.add_rounded,
-                    onPressed: openCreateSop,
+              ),
+            ] else
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: visibleItems.isEmpty ? null : enterDeleteMode,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColours.red,
+                        side: const BorderSide(color: AppColours.red),
+                      ),
+                      icon: const Icon(Icons.delete_outline_rounded),
+                      label: Text(text.t('Delete')),
+                    ),
                   ),
-                ),
-              ],
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: PrimaryButton(
+                      text: text.t('Create SOP'),
+                      icon: Icons.add_rounded,
+                      onPressed: openCreateSop,
+                    ),
+                  ),
+                ],
+              ),
+            const SizedBox(height: 12),
+          ],
+          TextField(
+            controller: listSearchController,
+            style: AppTextStyles.formValue,
+            onChanged: (_) => setState(() {}),
+            textInputAction: TextInputAction.search,
+            onTapOutside: (_) => FocusScope.of(context).unfocus(),
+            decoration: AppInputStyle.decoration(
+              text.t('Search SOP...'),
+            ).copyWith(
+              prefixIcon: const Icon(Icons.search_rounded),
+              suffixIcon: listSearchController.text.trim().isEmpty
+                  ? null
+                  : IconButton(
+                      onPressed: () {
+                        listSearchController.clear();
+                        FocusScope.of(context).unfocus();
+                        setState(() {});
+                      },
+                      icon: const Icon(Icons.close_rounded, size: 20),
+                    ),
             ),
+          ),
           const SizedBox(height: 12),
+          _TagSegmentedFilter(
+            tags: widget.tags,
+            selectedTagId: listSelectedTagId,
+            onChanged: (tagId) {
+              FocusScope.of(context).unfocus();
+              setState(() => listSelectedTagId = tagId);
+            },
+          ),
+          const SizedBox(height: 12),
+          if (visibleItems.isEmpty)
+            _KnowledgeEmptyState(text: text.t('No SOP found.'))
+          else
+            _SopGroupList(
+              groups: visibleItems,
+              tagNameFor: tagNameFor,
+              selecting: deleteMode,
+              selectedGroupIds: selectedSopGroupIds,
+              onToggleSelection: toggleSopSelection,
+              onVersionTap: openManagementSopDetail,
+            ),
         ],
-        TextField(
-          controller: listSearchController,
-          style: AppTextStyles.formValue,
-          onChanged: (_) => setState(() {}),
-          textInputAction: TextInputAction.search,
-          onTapOutside: (_) => FocusScope.of(context).unfocus(),
-          decoration: AppInputStyle.decoration(
-            text.t('Search SOP...'),
-          ).copyWith(
-            prefixIcon: const Icon(Icons.search_rounded),
-            suffixIcon: listSearchController.text.trim().isEmpty
-                ? null
-                : IconButton(
-                    onPressed: () {
-                      listSearchController.clear();
-                      FocusScope.of(context).unfocus();
-                      setState(() {});
-                    },
-                    icon: const Icon(Icons.close_rounded, size: 20),
-                  ),
-          ),
-        ),
-        const SizedBox(height: 12),
-        _TagSegmentedFilter(
-          tags: widget.tags,
-          selectedTagId: listSelectedTagId,
-          onChanged: (tagId) {
-            FocusScope.of(context).unfocus();
-            setState(() => listSelectedTagId = tagId);
-          },
-        ),
-        const SizedBox(height: 12),
-        if (visibleItems.isEmpty)
-          _KnowledgeEmptyState(text: text.t('No SOP found.'))
-        else
-          _SopGroupList(
-            groups: visibleItems,
-            tagNameFor: tagNameFor,
-            selecting: deleteMode,
-            selectedGroupIds: selectedSopGroupIds,
-            onToggleSelection: toggleSopSelection,
-            onVersionTap: openManagementSopDetail,
-          ),
       ],
     );
   }
@@ -1061,7 +1126,6 @@ class _KnowledgeMenuCard extends StatelessWidget {
   final String title;
   final String subtitle;
   final IconData icon;
-  final String? badgeText;
   final VoidCallback onTap;
 
   const _KnowledgeMenuCard({
@@ -1069,7 +1133,6 @@ class _KnowledgeMenuCard extends StatelessWidget {
     required this.subtitle,
     required this.icon,
     required this.onTap,
-    this.badgeText,
   });
 
   @override
@@ -1130,14 +1193,6 @@ class _KnowledgeMenuCard extends StatelessWidget {
                           child: Icon(icon, color: Colors.white, size: 21),
                         ),
                         const Spacer(),
-                        if (badgeText != null) ...[
-                          SmallStatusPill(
-                            text: badgeText!,
-                            textColour: AppColours.green,
-                            backgroundColour: AppColours.greenSoft,
-                          ),
-                          const SizedBox(width: 6),
-                        ],
                         const Icon(
                           Icons.chevron_right_rounded,
                           color: AppColours.textMuted,
