@@ -410,6 +410,8 @@ class _StockScreenState extends State<StockScreen> {
         return _StockHomePage(
           role: widget.role,
           isOwner: widget.isOwner,
+          reviewSummary: widget.reviewSummary,
+          onRefresh: () => _loadData(StockPage.home, forceRefresh: true),
           onOpenPage: openPage,
         );
     }

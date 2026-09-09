@@ -591,6 +591,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
           // On-demand: Assignee loads only after Assigned/Unassigned + Load.
           break;
         case StockPage.home:
+          await refreshHomeReviewSummary();
           break;
       }
       return null;
@@ -1588,9 +1589,11 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
               : widget.role == UserRole.manager
                   ? pendingStockCheckCount
                   : 0;
-          final stockBadgeCount =
-              widget.session.user.role.isOwner || widget.role == UserRole.head
-                  ? (homeReviewSummary?.outstandingPending ?? 0)
+          final stockBadgeCount = widget.session.user.role.isOwner
+              ? (homeReviewSummary?.outstandingPending ?? 0)
+              : widget.role == UserRole.head
+                  ? (homeReviewSummary?.dailyCountPending ?? 0) +
+                      (homeReviewSummary?.receivingPending ?? 0)
                   : inventoryBadgeCount;
           final taskBadgeCount =
               (homeReportDashboard?.pendingSalesApprovals ?? 0) +
