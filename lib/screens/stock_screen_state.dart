@@ -81,6 +81,16 @@ class _StockScreenState extends State<StockScreen> {
   bool get isHead => widget.role == UserRole.head;
   bool get canApproveStock => widget.isOwner || isHead;
 
+  int approvalBadgeCount(_StockApprovalKind kind) {
+    final summary = widget.reviewSummary;
+    if (summary == null) return 0;
+    return switch (kind) {
+      _StockApprovalKind.count => summary.dailyCountPending,
+      _StockApprovalKind.receiving => summary.receivingPending,
+      _StockApprovalKind.sku => summary.skuChangePending,
+    };
+  }
+
   StockPurchaseGateway get purchaseGateway => StockPurchaseGateway(
         widget.api,
         tenantId: widget.currentTenantId,
@@ -276,15 +286,22 @@ class _StockScreenState extends State<StockScreen> {
     required Widget child,
   }) {
     if (!canApproveStock) return child;
+    final badgeCount = approvalBadgeCount(kind);
     return _StockApprovalScope(
-      section: _StockApprovalLauncher(
-        kind: kind,
-        api: widget.api,
-        onReviewReceiving: reviewReceiving,
-        onReviewStockCount: widget.onReviewStockCount,
-        onBulkReviewStockCounts: widget.onBulkReviewStockCounts,
-        canReviewSkuChanges: widget.isOwner,
-        onSkuChangeReviewed: widget.onSkuChangeReviewed,
+      section: Badge.count(
+        count: badgeCount,
+        isLabelVisible: badgeCount > 0,
+        alignment: Alignment.topRight,
+        offset: const Offset(-10, 8),
+        child: _StockApprovalLauncher(
+          kind: kind,
+          api: widget.api,
+          onReviewReceiving: reviewReceiving,
+          onReviewStockCount: widget.onReviewStockCount,
+          onBulkReviewStockCounts: widget.onBulkReviewStockCounts,
+          canReviewSkuChanges: widget.isOwner,
+          onSkuChangeReviewed: widget.onSkuChangeReviewed,
+        ),
       ),
       child: child,
     );

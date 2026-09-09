@@ -5,6 +5,7 @@ class StockScreen extends StatefulWidget {
   final EastAppApi api;
   final bool isOwner;
   final String currentTenantId;
+  final StockReviewSummary? reviewSummary;
   final Future<void> Function() onReloadAfterSkuImport;
   final List<StockTask> stockTasks;
   final List<StockSubmission> submissions;
@@ -56,6 +57,7 @@ class StockScreen extends StatefulWidget {
     required this.api,
     required this.isOwner,
     required this.currentTenantId,
+    required this.reviewSummary,
     required this.onReloadAfterSkuImport,
     required this.stockTasks,
     required this.submissions,
