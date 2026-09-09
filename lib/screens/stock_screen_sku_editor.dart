@@ -307,12 +307,8 @@ class _SkuEditorFormState extends State<_SkuEditorForm> {
       showWarningSnackBar(context, text.t('Select one date.'));
       return;
     }
-    if (minBalance < 0 ||
-        maxBalance <= 0 ||
-        maxBalance < minBalance ||
-        currentBalance < 0 ||
-        currentBalance > maxBalance) {
-      showWarningSnackBar(context, text.t('Balance must be Min / Current / Max.'));
+    if (minBalance < 0 || maxBalance <= 0 || maxBalance < minBalance) {
+      showWarningSnackBar(context, text.t('Balance must be Min / Max.'));
       return;
     }
     if (minPrice < 0 || maxPrice < minPrice) {

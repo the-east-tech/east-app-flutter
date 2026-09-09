@@ -24,6 +24,8 @@ class TheEastApp extends StatefulWidget {
 }
 
 class _TheEastAppState extends State<TheEastApp> {
+  static const minimumProcessingDuration = Duration(milliseconds: 400);
+
   final EastAppApi api = EastAppApi();
   final SessionStore sessionStore = SessionStore();
   final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -38,6 +40,8 @@ class _TheEastAppState extends State<TheEastApp> {
   String? startupError;
   bool apiErrorDialogOpen = false;
   bool processingRequest = false;
+  DateTime? processingStartedAt;
+  Timer? processingDismissTimer;
 
   @override
   void initState() {
@@ -76,12 +80,38 @@ class _TheEastAppState extends State<TheEastApp> {
   }
 
   void handleProcessingChanged(bool value) {
-    if (!mounted || processingRequest == value) return;
-    setState(() => processingRequest = value);
+    if (!mounted) return;
+    if (value) {
+      processingDismissTimer?.cancel();
+      processingDismissTimer = null;
+      processingStartedAt = DateTime.now();
+      if (!processingRequest) setState(() => processingRequest = true);
+      return;
+    }
+
+    if (!processingRequest) return;
+    final elapsed = DateTime.now().difference(
+      processingStartedAt ?? DateTime.now(),
+    );
+    final remaining = minimumProcessingDuration - elapsed;
+    if (remaining > Duration.zero) {
+      processingDismissTimer?.cancel();
+      processingDismissTimer = Timer(remaining, hideProcessingOverlay);
+      return;
+    }
+    hideProcessingOverlay();
+  }
+
+  void hideProcessingOverlay() {
+    if (!mounted || !processingRequest) return;
+    processingDismissTimer = null;
+    processingStartedAt = null;
+    setState(() => processingRequest = false);
   }
 
   @override
   void dispose() {
+    processingDismissTimer?.cancel();
     api.close();
     super.dispose();
   }
