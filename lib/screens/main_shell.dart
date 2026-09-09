@@ -301,6 +301,17 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     );
   }
 
+  Future<void> refreshHomeReviewSummary() async {
+    if (widget.role == UserRole.staff) return;
+    try {
+      final summary = await widget.api.todayStockReviewSummary();
+      if (!mounted) return;
+      setState(() => homeReviewSummary = summary);
+    } on EastAppApiException {
+      _markHomeDataStale();
+    }
+  }
+
   Future<void> loadHomeData({bool forceRefresh = false}) {
     final dayKey = _currentDayKey();
     if (!forceRefresh && homeDataLoaded && homeDataDayKey == dayKey) {
@@ -972,6 +983,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
       loadStockSkus(reset: true, forceRefresh: true),
       invalidateReportData(),
     ]);
+    await refreshHomeReviewSummary();
     _markHomeDataStale();
   }
 
@@ -1005,6 +1017,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
           .map((item) => item.id == saved.id ? saved : item)
           .toList();
     });
+    await refreshHomeReviewSummary();
   }
 
   Future<void> bulkReviewStockCountsRemote(
@@ -1019,6 +1032,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
           .map((item) => byId[item.id] ?? item)
           .toList();
     });
+    await refreshHomeReviewSummary();
   }
 
   Future<void> submitStockReceivingRemote(
@@ -1061,6 +1075,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
           .map((item) => item.id == saved.id ? saved : item)
           .toList();
     });
+    await refreshHomeReviewSummary();
   }
 
   void clockIn(AttendanceRecord record) {

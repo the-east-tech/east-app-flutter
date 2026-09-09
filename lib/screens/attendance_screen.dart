@@ -20,6 +20,7 @@ import '../utils/app_build_info.dart';
 import '../widgets/app_components.dart';
 import '../widgets/app_feedback.dart';
 import '../widgets/device_contact_picker.dart';
+import '../widgets/dashboard_menu.dart';
 import '../widgets/phone_number_field.dart';
 import 'people_audit_screen.dart';
 import 'points_screen.dart';
@@ -899,54 +900,54 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 24),
       children: [
-        _PeopleSectionTitle(
+        DashboardSectionTitle(
           text.t('People'),
           icon: Icons.groups_outlined,
         ),
-        _PeopleMenuGrid(
+        DashboardMenuGrid(
           children: [
             if (canManageUsers)
-              _PeopleMenuCard(
+              DashboardMenuCard(
                 title: text.t('User'),
                 subtitle: text.t('List users'),
                 icon: Icons.people_outline_rounded,
                 onTap: () => openPage(_PeoplePage.users),
               ),
-            _PeopleMenuCard(
+            DashboardMenuCard(
               title: text.t('Attendance'),
               subtitle: text.t('Clock in/out'),
               icon: Icons.work_history_outlined,
               onTap: openAttendanceOptions,
             ),
-            _PeopleMenuCard(
+            DashboardMenuCard(
               title: text.t('Schedule'),
               subtitle: text.t('Shift planning'),
               icon: Icons.calendar_month_outlined,
               onTap: () => showComingSoon(text.t('Schedule')),
             ),
             if (canManageUsers)
-              _PeopleMenuCard(
+              DashboardMenuCard(
                 title: text.t('Role'),
                 subtitle: text.t('View role hierarchy'),
                 icon: Icons.admin_panel_settings_outlined,
                 onTap: () => openPage(_PeoplePage.roles),
               ),
             if (canManagePoints)
-              _PeopleMenuCard(
+              DashboardMenuCard(
                 title: text.t('Points'),
                 subtitle: text.t('Add or deduct points'),
                 icon: Icons.add_chart_rounded,
                 onTap: () => openPage(_PeoplePage.points),
               ),
             if (canManageTenants)
-              _PeopleMenuCard(
+              DashboardMenuCard(
                 title: text.t('Business'),
                 subtitle: text.t('Manage businesses'),
                 icon: Icons.business_outlined,
                 onTap: () => openPage(_PeoplePage.tenants),
               ),
             if (isHead)
-              _PeopleMenuCard(
+              DashboardMenuCard(
                 title: text.t('Audit'),
                 subtitle: text.t('Attendance reports'),
                 icon: Icons.analytics_outlined,
@@ -2501,209 +2502,6 @@ class _PeopleMiniMetric extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _PeopleSectionTitle extends StatelessWidget {
-  final String title;
-  final IconData icon;
-
-  const _PeopleSectionTitle(this.title, {required this.icon});
-
-  @override
-  Widget build(BuildContext context) {
-    return TweenAnimationBuilder<double>(
-      duration: const Duration(milliseconds: 180),
-      curve: Curves.easeOutCubic,
-      tween: Tween(begin: 0, end: 1),
-      builder: (context, progress, child) => Transform.translate(
-        offset: Offset(0, 7 * (1 - progress)),
-        child: Opacity(opacity: progress, child: child),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(2, 4, 2, 8),
-        child: Row(
-          children: [
-            Container(
-              width: 30,
-              height: 30,
-              decoration: BoxDecoration(
-                color: AppColours.blueSoft.withValues(alpha: 0.75),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(icon, size: 17, color: AppColours.blue),
-            ),
-            const SizedBox(width: 9),
-            Text(
-              title.toUpperCase(),
-              style: const TextStyle(
-                fontSize: AppTextSize.s14,
-                fontWeight: FontWeight.w900,
-                color: AppColours.textMain,
-                letterSpacing: 0.8,
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Container(
-                height: 1,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      AppColours.blue.withValues(alpha: 0.28),
-                      AppColours.border.withValues(alpha: 0.15),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _PeopleMenuGrid extends StatelessWidget {
-  final List<Widget> children;
-
-  const _PeopleMenuGrid({required this.children});
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final useTwoColumns = constraints.maxWidth >= 330;
-        final cardWidth = useTwoColumns
-            ? (constraints.maxWidth - 10) / 2
-            : constraints.maxWidth;
-
-        return Wrap(
-          spacing: 10,
-          runSpacing: 10,
-          children: children
-              .map((child) => SizedBox(width: cardWidth, height: 108, child: child))
-              .toList(),
-        );
-      },
-    );
-  }
-}
-
-class _PeopleMenuCard extends StatelessWidget {
-  final String title;
-  final String subtitle;
-  final IconData icon;
-  final VoidCallback onTap;
-  final Widget? badgeWidget;
-
-  const _PeopleMenuCard({
-    required this.title,
-    required this.subtitle,
-    required this.icon,
-    required this.onTap,
-    this.badgeWidget,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final text = AppTextScope.of(context);
-    return TweenAnimationBuilder<double>(
-      duration: const Duration(milliseconds: 180),
-      curve: Curves.easeOutCubic,
-      tween: Tween(begin: 0, end: 1),
-      builder: (context, progress, child) => Transform.translate(
-        offset: Offset(0, 8 * (1 - progress)),
-        child: Opacity(opacity: progress, child: child),
-      ),
-      child: WhiteCard(
-        padding: EdgeInsets.zero,
-        child: Pressable(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(18),
-          child: Stack(
-            clipBehavior: Clip.antiAlias,
-            children: [
-              Positioned(
-                right: -20,
-                top: -22,
-                child: Container(
-                  width: 72,
-                  height: 72,
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.transparent,
-                  ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(11),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          width: 38,
-                          height: 38,
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [Color(0xFF1557F2), Color(0xFF6B4EFF)],
-                            ),
-                            borderRadius: BorderRadius.circular(13),
-                            boxShadow: [
-                              BoxShadow(
-                                color: AppColours.blue.withValues(alpha: 0.18),
-                                blurRadius: 10,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                          child: Icon(icon, color: Colors.white, size: 21),
-                        ),
-                        const Spacer(),
-                        ?badgeWidget,
-                        if (badgeWidget != null) const SizedBox(width: 6),
-                        const Icon(
-                          Icons.chevron_right_rounded,
-                          color: AppColours.textMuted,
-                          size: 22,
-                        ),
-                      ],
-                    ),
-                    const Spacer(),
-                    Text(
-                      text.t(title),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: AppTextSize.s17,
-                        fontWeight: FontWeight.w900,
-                        color: AppColours.textMain,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      text.t(subtitle),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: AppTextSize.s12,
-                        color: AppColours.textMuted,
-                        height: 1.2,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }

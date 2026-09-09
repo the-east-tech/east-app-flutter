@@ -164,13 +164,10 @@ class _StockApprovalSheet extends StatefulWidget {
 
 class _StockApprovalSheetState extends State<_StockApprovalSheet> {
   static const int _pageSize = 50;
-  static const List<String> _statusOptions = [
-    'Pending Review',
-    'Approved',
-    'Rejected',
-  ];
+  static const List<StockWorkflowStatus> _statusOptions =
+      StockWorkflowStatus.values;
 
-  String statusFilter = 'Pending Review';
+  StockWorkflowStatus statusFilter = StockWorkflowStatus.submitted;
   late DateTime rangeStart;
   late DateTime rangeEnd;
   List<StockReceivingRecord> receivingRecords = const [];
@@ -185,7 +182,8 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
   final Set<String> selectedIds = <String>{};
 
   bool get isReceiving => widget.kind == _StockApprovalKind.receiving;
-  bool get canReviewSelectedStatus => statusFilter == 'Pending Review';
+  bool get canReviewSelectedStatus =>
+      statusFilter == StockWorkflowStatus.submitted;
   int get recordsCount =>
       isReceiving ? receivingRecords.length : countRecords.length;
 
@@ -277,7 +275,7 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
       final page = reset ? 0 : loadedPage + 1;
       if (isReceiving) {
         final result = await widget.api.stockReceivings(
-          reviewStatus: statusFilter,
+          workflowStatus: statusFilter,
           from: rangeStart,
           to: rangeEnd,
           page: page,
@@ -296,7 +294,7 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
       } else {
         final result = await widget.api.stockCounts(
           mine: false,
-          reviewStatus: statusFilter,
+          workflowStatus: statusFilter,
           from: rangeStart,
           to: rangeEnd,
           page: page,
@@ -344,10 +342,12 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
     );
   }
 
-  Color reviewStatusColour(String status) {
-    if (status == 'Approved') return AppColours.green;
-    if (status == 'Rejected') return AppColours.red;
-    return AppColours.blue;
+  Color workflowStatusColour(StockWorkflowStatus status) {
+    return switch (status) {
+      StockWorkflowStatus.pending => AppColours.red,
+      StockWorkflowStatus.submitted => AppColours.blue,
+      StockWorkflowStatus.done => AppColours.green,
+    };
   }
 
   Color receivingConditionColour(StockReceivingRecord record) {
@@ -399,15 +399,15 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
 
   Future<bool> reviewReceiving(
     StockReceivingRecord record,
-    String status,
+    StockWorkflowStatus status,
   ) async {
     final text = AppTextScope.of(context);
     final confirmed = await confirmDataChange(
       context,
       action: text.t(
-        status == 'Approved'
+        status == StockWorkflowStatus.done
             ? 'Approve Receiving Record?'
-            : 'Reject Receiving Record?',
+            : 'Return Receiving Record?',
       ),
       details: text.t(
         'This will update the review status of this receiving record.',
@@ -415,8 +415,8 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
     );
     if (!confirmed || !mounted) return false;
     final updated = record.copyWith(
-      reviewStatus: status,
-      reviewNote: status == 'Approved' ? 'Approved.' : 'Rejected.',
+      workflowStatus: status,
+      reviewNote: status == StockWorkflowStatus.done ? 'Approved.' : 'Returned.',
     );
     final saved = await runStockRequest(
       context,
@@ -433,9 +433,9 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
     showSuccessSnackBar(
       context,
       text.t(
-        status == 'Approved'
+        status == StockWorkflowStatus.done
             ? 'Receiving record approved'
-            : 'Receiving record rejected',
+            : 'Receiving record returned',
       ),
     );
     return true;
@@ -443,13 +443,15 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
 
   Future<bool> reviewCount(
     StockSubmission submission,
-    String status,
+    StockWorkflowStatus status,
   ) async {
     final text = AppTextScope.of(context);
     final confirmed = await confirmDataChange(
       context,
       action: text.t(
-        status == 'Approved' ? 'Approve Daily Count?' : 'Reject Daily Count?',
+        status == StockWorkflowStatus.done
+            ? 'Approve Daily Count?'
+            : 'Return Daily Count?',
       ),
       details: text.t(
         'This will update the review status of this daily stock count.',
@@ -457,8 +459,8 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
     );
     if (!confirmed || !mounted) return false;
     final updated = submission.copyWith(
-      reviewStatus: status,
-      reviewNote: status == 'Approved' ? 'Approved.' : 'Rejected.',
+      workflowStatus: status,
+      reviewNote: status == StockWorkflowStatus.done ? 'Approved.' : 'Returned.',
     );
     final saved = await runStockRequest(
       context,
@@ -475,76 +477,53 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
     showSuccessSnackBar(
       context,
       text.t(
-        status == 'Approved'
+        status == StockWorkflowStatus.done
             ? 'Daily count approved'
-            : 'Daily count rejected',
+            : 'Daily count returned',
       ),
     );
     return true;
   }
 
-  Future<void> bulkReview(String status) async {
+  Future<void> bulkReview(StockWorkflowStatus status) async {
     if (selectedIds.isEmpty || !canReviewSelectedStatus) return;
     final selectedCount = selectedIds.length;
     final text = AppTextScope.of(context);
     final confirmed = await confirmDataChange(
       context,
       action: text.t(
-        status == 'Approved'
+        status == StockWorkflowStatus.done
             ? 'Approve $selectedCount records?'
-            : 'Reject $selectedCount records?',
+            : 'Return $selectedCount records?',
       ),
       details: text.t('This will update all selected records.'),
     );
     if (!confirmed || !mounted) return;
 
-    if (isReceiving) {
-      final selected = receivingRecords
-          .where((item) => selectedIds.contains(item.id))
+    final selected = countRecords
+        .where((item) => selectedIds.contains(item.id))
+        .toList();
+    final updated = selected
+        .map(
+          (item) => item.copyWith(
+            workflowStatus: status,
+            reviewNote:
+                status == StockWorkflowStatus.done ? 'Approved.' : 'Returned.',
+          ),
+        )
+        .toList();
+    final ok = await runStockRequest(
+      context,
+      () => widget.onBulkReviewStockCounts(updated),
+    );
+    if (!ok || !mounted) return;
+    setState(() {
+      countRecords = countRecords
+          .where((item) => !selectedIds.contains(item.id))
           .toList();
-      final ok = await runStockRequest(context, () async {
-        for (final record in selected) {
-          await widget.onReviewReceiving(
-            record.copyWith(
-              reviewStatus: status,
-              reviewNote: status == 'Approved' ? 'Approved.' : 'Rejected.',
-            ),
-          );
-        }
-      });
-      if (!ok || !mounted) return;
-      setState(() {
-        receivingRecords = receivingRecords
-            .where((item) => !selectedIds.contains(item.id))
-            .toList();
-        totalElements =
-            (totalElements - selected.length).clamp(0, totalElements).toInt();
-      });
-    } else {
-      final selected = countRecords
-          .where((item) => selectedIds.contains(item.id))
-          .toList();
-      final updated = selected
-          .map(
-            (item) => item.copyWith(
-              reviewStatus: status,
-              reviewNote: status == 'Approved' ? 'Approved.' : 'Rejected.',
-            ),
-          )
-          .toList();
-      final ok = await runStockRequest(
-        context,
-        () => widget.onBulkReviewStockCounts(updated),
-      );
-      if (!ok || !mounted) return;
-      setState(() {
-        countRecords = countRecords
-            .where((item) => !selectedIds.contains(item.id))
-            .toList();
-        totalElements =
-            (totalElements - selected.length).clamp(0, totalElements).toInt();
-      });
-    }
+      totalElements =
+          (totalElements - selected.length).clamp(0, totalElements).toInt();
+    });
 
     setState(() {
       selecting = false;
@@ -553,9 +532,9 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
     showSuccessSnackBar(
       context,
       text.t(
-        status == 'Approved'
+        status == StockWorkflowStatus.done
             ? 'Selected records approved'
-            : 'Selected records rejected',
+            : 'Selected records returned',
       ),
     );
   }
@@ -602,9 +581,9 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
                         rows: [
                           _ReviewInfoRow(
                             label: 'Review Status',
-                            value: record.reviewStatus,
+                            value: record.workflowStatus.label,
                             valueColour:
-                                reviewStatusColour(record.reviewStatus),
+                                workflowStatusColour(record.workflowStatus),
                           ),
                           _ReviewInfoRow(
                             label: 'Supplier',
@@ -649,17 +628,20 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
                     ],
                   ),
                 ),
-                if (record.reviewStatus == 'Pending Review') ...[
+                if (record.workflowStatus == StockWorkflowStatus.submitted) ...[
                   const SizedBox(height: 14),
                   Row(
                     children: [
                       Expanded(
                         child: PrimaryButton(
-                          text: text.t('Reject'),
+                          text: text.t('Return'),
                           outlined: true,
                           icon: Icons.close_rounded,
                           onPressed: () async {
-                            final ok = await reviewReceiving(record, 'Rejected');
+                            final ok = await reviewReceiving(
+                              record,
+                              StockWorkflowStatus.pending,
+                            );
                             if (ok && detailContext.mounted) {
                               Navigator.of(detailContext).pop();
                             }
@@ -672,7 +654,10 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
                           text: text.t('Approve'),
                           icon: Icons.check_rounded,
                           onPressed: () async {
-                            final ok = await reviewReceiving(record, 'Approved');
+                            final ok = await reviewReceiving(
+                              record,
+                              StockWorkflowStatus.done,
+                            );
                             if (ok && detailContext.mounted) {
                               Navigator.of(detailContext).pop();
                             }
@@ -735,9 +720,10 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
                         rows: [
                           _ReviewInfoRow(
                             label: 'Review Status',
-                            value: submission.reviewStatus,
-                            valueColour:
-                                reviewStatusColour(submission.reviewStatus),
+                            value: submission.workflowStatus.label,
+                            valueColour: workflowStatusColour(
+                              submission.workflowStatus,
+                            ),
                           ),
                           _ReviewInfoRow(label: 'SKU', value: sku.name),
                           _ReviewInfoRow(
@@ -804,17 +790,21 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
                     ],
                   ),
                 ),
-                if (submission.reviewStatus == 'Pending Review') ...[
+                if (submission.workflowStatus ==
+                    StockWorkflowStatus.submitted) ...[
                   const SizedBox(height: 14),
                   Row(
                     children: [
                       Expanded(
                         child: PrimaryButton(
-                          text: text.t('Reject'),
+                          text: text.t('Return'),
                           outlined: true,
                           icon: Icons.close_rounded,
                           onPressed: () async {
-                            final ok = await reviewCount(submission, 'Rejected');
+                            final ok = await reviewCount(
+                              submission,
+                              StockWorkflowStatus.pending,
+                            );
                             if (ok && detailContext.mounted) {
                               Navigator.of(detailContext).pop();
                             }
@@ -827,7 +817,10 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
                           text: text.t('Approve'),
                           icon: Icons.check_rounded,
                           onPressed: () async {
-                            final ok = await reviewCount(submission, 'Approved');
+                            final ok = await reviewCount(
+                              submission,
+                              StockWorkflowStatus.done,
+                            );
                             if (ok && detailContext.mounted) {
                               Navigator.of(detailContext).pop();
                             }
@@ -847,7 +840,7 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
 
   Widget statusDropdown() {
     final text = AppTextScope.of(context);
-    return DropdownButtonFormField<String>(
+    return DropdownButtonFormField<StockWorkflowStatus>(
       initialValue: statusFilter,
       isExpanded: true,
       decoration: _inputDecoration(text.t('Status')).copyWith(
@@ -859,7 +852,7 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
           .map(
             (status) => DropdownMenuItem(
               value: status,
-              child: Text(text.t(status)),
+              child: Text(text.t(status.label)),
             ),
           )
           .toList(),
@@ -893,14 +886,16 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
           ),
           const SizedBox(width: 4),
           FilledButton.tonal(
-            onPressed:
-                selectedIds.isEmpty ? null : () => bulkReview('Rejected'),
-            child: Text(text.t('Reject')),
+            onPressed: selectedIds.isEmpty
+                ? null
+                : () => bulkReview(StockWorkflowStatus.pending),
+            child: Text(text.t('Return')),
           ),
           const SizedBox(width: 6),
           FilledButton(
-            onPressed:
-                selectedIds.isEmpty ? null : () => bulkReview('Approved'),
+            onPressed: selectedIds.isEmpty
+                ? null
+                : () => bulkReview(StockWorkflowStatus.done),
             child: Text(text.t('Approve')),
           ),
         ],
@@ -936,7 +931,8 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
                         ),
                       ),
                     ),
-                    if (loaded &&
+                    if (!isReceiving &&
+                        loaded &&
                         canReviewSelectedStatus &&
                         recordsCount > 0 &&
                         !selecting)
@@ -1059,13 +1055,13 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
                                   record: record,
                                   timerText:
                                       recordDateLabel(record.capturedAt),
-                                  statusText: record.reviewStatus,
+                                  statusText: record.workflowStatus.label,
                                   statusColour:
-                                      reviewStatusColour(record.reviewStatus),
+                                      workflowStatusColour(record.workflowStatus),
                                   conditionColour:
                                       receivingConditionColour(record),
-                                  selectMode: selecting,
-                                  selectable: canReviewSelectedStatus,
+                                  selectMode: false,
+                                  selectable: false,
                                   selected: selected,
                                   onTap: () => showReceivingDetails(record),
                                   onSelectToggle: () =>
@@ -1081,9 +1077,9 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
                                   sku: sku,
                                   timerText:
                                       recordDateLabel(submission.capturedAt),
-                                  statusText: submission.reviewStatus,
-                                  statusColour: reviewStatusColour(
-                                    submission.reviewStatus,
+                                  statusText: submission.workflowStatus.label,
+                                  statusColour: workflowStatusColour(
+                                    submission.workflowStatus,
                                   ),
                                   selectMode: selecting,
                                   selectable: canReviewSelectedStatus,
@@ -1132,7 +1128,7 @@ class _SkuChangeApprovalSheet extends StatefulWidget {
 
 class _SkuChangeApprovalSheetState extends State<_SkuChangeApprovalSheet> {
   List<StockSkuChangeRequest> records = const [];
-  String statusFilter = 'SUBMITTED';
+  StockWorkflowStatus statusFilter = StockWorkflowStatus.submitted;
   bool loading = true;
   String? reviewingId;
 
@@ -1223,10 +1219,13 @@ class _SkuChangeApprovalSheetState extends State<_SkuChangeApprovalSheet> {
     return reason;
   }
 
-  Future<void> review(StockSkuChangeRequest record, String nextStatus) async {
+  Future<void> review(
+    StockSkuChangeRequest record,
+    StockWorkflowStatus nextStatus,
+  ) async {
     if (!widget.canReview || reviewingId != null) return;
     String note = '';
-    if (nextStatus == 'PENDING') {
+    if (nextStatus == StockWorkflowStatus.pending) {
       final reason = await returnReason();
       if (reason == null || !mounted) return;
       note = reason;
@@ -1256,7 +1255,7 @@ class _SkuChangeApprovalSheetState extends State<_SkuChangeApprovalSheet> {
       });
       showSuccessSnackBar(
         context,
-        nextStatus == 'DONE'
+        nextStatus == StockWorkflowStatus.done
             ? 'SKU change approved'
             : 'SKU change returned',
       );
@@ -1309,20 +1308,17 @@ class _SkuChangeApprovalSheetState extends State<_SkuChangeApprovalSheet> {
             child: ListView(
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
               children: [
-                DropdownButtonFormField<String>(
+                DropdownButtonFormField<StockWorkflowStatus>(
                   initialValue: statusFilter,
                   decoration: _inputDecoration(text.t('Status')),
-                  items: const [
-                    DropdownMenuItem(
-                      value: 'SUBMITTED',
-                      child: Text('SUBMITTED'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'PENDING',
-                      child: Text('PENDING'),
-                    ),
-                    DropdownMenuItem(value: 'DONE', child: Text('DONE')),
-                  ],
+                  items: StockWorkflowStatus.values
+                      .map(
+                        (status) => DropdownMenuItem(
+                          value: status,
+                          child: Text(status.label),
+                        ),
+                      )
+                      .toList(growable: false),
                   onChanged: (value) {
                     if (value != null) setState(() => statusFilter = value);
                   },
@@ -1411,7 +1407,10 @@ class _SkuChangeApprovalSheetState extends State<_SkuChangeApprovalSheet> {
                                     rows: record.proposedData!.entries
                                         .where(
                                           (entry) =>
-                                              entry.key != 'photoPath',
+                                              entry.key != 'photoPath' &&
+                                              !(record.changeType == 'UPDATE' &&
+                                                  entry.key ==
+                                                      'currentBalanceValue'),
                                         )
                                         .map(
                                           (entry) => _ReviewInfoRow(
@@ -1424,7 +1423,8 @@ class _SkuChangeApprovalSheetState extends State<_SkuChangeApprovalSheet> {
                                 ],
                               ),
                             ],
-                            if (record.workflowStatus == 'SUBMITTED' &&
+                            if (record.workflowStatus ==
+                                    StockWorkflowStatus.submitted &&
                                 widget.canReview) ...[
                               const SizedBox(height: 12),
                               Row(
@@ -1435,7 +1435,10 @@ class _SkuChangeApprovalSheetState extends State<_SkuChangeApprovalSheet> {
                                       outlined: true,
                                       icon: Icons.undo_rounded,
                                       onPressed: reviewingId == null
-                                          ? () => review(record, 'PENDING')
+                                          ? () => review(
+                                                record,
+                                                StockWorkflowStatus.pending,
+                                              )
                                           : null,
                                     ),
                                   ),
@@ -1447,7 +1450,10 @@ class _SkuChangeApprovalSheetState extends State<_SkuChangeApprovalSheet> {
                                           : 'Approve',
                                       icon: Icons.check_rounded,
                                       onPressed: reviewingId == null
-                                          ? () => review(record, 'DONE')
+                                          ? () => review(
+                                                record,
+                                                StockWorkflowStatus.done,
+                                              )
                                           : null,
                                     ),
                                   ),

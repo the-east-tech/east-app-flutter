@@ -125,7 +125,7 @@ class _KnowledgeAuditScreenState extends State<KnowledgeAuditScreen> {
             ),
             Expanded(
               child: PageTitle(
-                title: text.t('Knowledge Audit'),
+                title: text.t('Video analytics'),
                 subtitle: text.t('Measure recorded SOP playback time'),
               ),
             ),
@@ -272,7 +272,7 @@ class _KnowledgeAuditScreenState extends State<KnowledgeAuditScreen> {
           children: [
             _AuditCardHeading(
               icon: Icons.auto_graph_rounded,
-              title: text.t('Video Audit'),
+              title: text.t('Videos'),
               subtitle: text.t(
                 'Compare SOP videos by total active playback time',
               ),
@@ -284,8 +284,8 @@ class _KnowledgeAuditScreenState extends State<KnowledgeAuditScreen> {
                 text: loadingImpact
                     ? text.t('Loading...')
                     : audit == null
-                        ? text.t('Load Video Audit')
-                        : text.t('Refresh Video Audit'),
+                        ? text.t('Load Video Analytics')
+                        : text.t('Refresh Video Analytics'),
                 icon: Icons.bar_chart_rounded,
                 onPressed: loadingImpact ? null : loadImpact,
               ),
@@ -397,7 +397,7 @@ class _AuditModeSwitch extends StatelessWidget {
           ),
           Expanded(
             child: _AuditModeButton(
-              label: text.t('Video Audit'),
+              label: text.t('Videos'),
               icon: Icons.video_library_outlined,
               selected: value == _KnowledgeAuditMode.video,
               onTap: () => onChanged(_KnowledgeAuditMode.video),
