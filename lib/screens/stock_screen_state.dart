@@ -351,6 +351,9 @@ class _StockScreenState extends State<StockScreen> {
             tenantId: widget.currentTenantId,
             suppliers: widget.suppliers,
             skus: widget.stockSkus,
+            onOrderChanged: () async {
+              await widget.onLoadPageData(StockPage.home, true);
+            },
             onBack: goHome,
           ),
         );

@@ -4,12 +4,14 @@ class _RestockMessagePage extends StatefulWidget {
   final String tenantId;
   final List<SupplierProfile> suppliers;
   final List<StockSku> skus;
+  final Future<void> Function() onOrderChanged;
   final VoidCallback onBack;
 
   const _RestockMessagePage({
     required this.tenantId,
     required this.suppliers,
     required this.skus,
+    required this.onOrderChanged,
     required this.onBack,
   });
 
@@ -384,6 +386,8 @@ class _RestockMessagePageState extends State<_RestockMessagePage> {
                                       supplier.id: saved,
                                     };
                                   });
+                                  await widget.onOrderChanged();
+                                  if (!mounted) return;
                                   if (sheetContext.mounted) {
                                     setSheetState(() => state = saved);
                                   }

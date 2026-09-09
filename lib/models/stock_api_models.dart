@@ -10,6 +10,7 @@ class StockReviewSummary {
   final int dailyCountPending;
   final int receivingPending;
   final int skuChangePending;
+  final int readyToReceive;
 
   const StockReviewSummary({
     required this.pendingReview,
@@ -18,6 +19,7 @@ class StockReviewSummary {
     required this.dailyCountPending,
     required this.receivingPending,
     required this.skuChangePending,
+    required this.readyToReceive,
   });
 
   int get outstandingPending =>
@@ -31,6 +33,7 @@ class StockReviewSummary {
       dailyCountPending: (json['dailyCountPending'] as num? ?? 0).toInt(),
       receivingPending: (json['receivingPending'] as num? ?? 0).toInt(),
       skuChangePending: (json['skuChangePending'] as num? ?? 0).toInt(),
+      readyToReceive: (json['readyToReceive'] as num? ?? 0).toInt(),
     );
   }
 }
