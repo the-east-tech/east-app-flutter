@@ -284,6 +284,9 @@ class _TaskHubScreenState extends State<TaskHubScreen> {
                         _CardBadge('Photo required', Icons.camera_alt_outlined),
                       ],
                 onTap: showWaste,
+                onApproval: canReview ? showWasteApprovals : null,
+                approvalCount: data?.pendingWasteApprovals ?? 0,
+                approvalTooltip: 'Open Waste Approvals',
               ),
             ),
             const SizedBox(height: 12),
@@ -503,12 +506,28 @@ class _TaskHubScreenState extends State<TaskHubScreen> {
     );
   }
 
-  Future<void> showSalesApprovals() async {
+  Future<void> showSalesApprovals() => showReportApprovals(
+        reportType: 'SALES',
+        title: 'Sales Approvals',
+        emptyMessage: 'All Sales reports reviewed',
+      );
+
+  Future<void> showWasteApprovals() => showReportApprovals(
+        reportType: 'WASTE',
+        title: 'Waste Approvals',
+        emptyMessage: 'All Waste reports reviewed',
+      );
+
+  Future<void> showReportApprovals({
+    required String reportType,
+    required String title,
+    required String emptyMessage,
+  }) async {
     List<ReportApproval> approvals;
     try {
       final loaded = await _runReportAction<List<ReportApproval>>(
         context,
-        () => widget.api.reportApprovals(reportType: 'SALES'),
+        () => widget.api.reportApprovals(reportType: reportType),
       );
       if (loaded == null) return;
       approvals = loaded;
@@ -518,10 +537,11 @@ class _TaskHubScreenState extends State<TaskHubScreen> {
     if (!mounted) return;
     await _showReportPage<void>(
       context,
-      title: 'Sales Approvals',
+      title: title,
       builder: (_) => _ApprovalsSheet(
         api: widget.api,
         initialApprovals: approvals,
+        emptyMessage: emptyMessage,
         onChanged: handleChanged,
       ),
     );
@@ -3540,11 +3560,13 @@ Future<void> _showComplaintUpdateDialog(
 class _ApprovalsSheet extends StatefulWidget {
   final EastAppApi api;
   final List<ReportApproval> initialApprovals;
+  final String emptyMessage;
   final Future<void> Function() onChanged;
 
   const _ApprovalsSheet({
     required this.api,
     required this.initialApprovals,
+    required this.emptyMessage,
     required this.onChanged,
   });
 
@@ -3747,7 +3769,7 @@ class _ApprovalsSheetState extends State<_ApprovalsSheet> {
                   const Icon(Icons.verified_rounded, color: AppColours.green, size: 48),
                   const SizedBox(height: 10),
                   Text(
-                    text.t('All Sales reports reviewed'),
+                    text.t(widget.emptyMessage),
                     style: const TextStyle(
                       fontSize: AppTextSize.s18,
                       fontWeight: FontWeight.w900,

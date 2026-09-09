@@ -963,16 +963,19 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   Future<void> createSkuRemote(StockSku sku) async {
     await widget.api.createStockSku(sku);
     _markHomeDataStale();
+    await refreshHomeReviewSummary();
   }
 
   Future<void> updateSkuRemote(StockSku sku) async {
     await widget.api.updateStockSku(sku);
     _markHomeDataStale();
+    await refreshHomeReviewSummary();
   }
 
   Future<void> deleteSkuRemote(String skuId) async {
     await widget.api.deleteStockSku(skuId);
     _markHomeDataStale();
+    await refreshHomeReviewSummary();
   }
 
   Future<void> reloadAfterSkuChangeReview() async {
@@ -1006,6 +1009,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
         );
       }).toList();
     });
+    await refreshHomeReviewSummary();
   }
 
   Future<void> reviewStockCountRemote(StockSubmission submission) async {
@@ -1062,6 +1066,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
         );
       }).toList();
     });
+    await refreshHomeReviewSummary();
   }
 
   Future<void> reviewStockReceivingRemote(
@@ -1587,6 +1592,10 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
               widget.session.user.role.isOwner || widget.role == UserRole.head
                   ? (homeReviewSummary?.outstandingPending ?? 0)
                   : inventoryBadgeCount;
+          final taskBadgeCount =
+              (homeReportDashboard?.pendingSalesApprovals ?? 0) +
+              (homeReportDashboard?.pendingWasteApprovals ?? 0) +
+              (homeReportDashboard?.pendingTaskApprovals ?? 0);
 
           final pages = <Widget>[
             HomeScreen(
@@ -1806,10 +1815,14 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
                   label: text.t('Home'),
                 ),
                 NavigationDestination(
-                  icon: const Icon(Icons.analytics_outlined),
-                  selectedIcon: const Icon(
-                    Icons.analytics_rounded,
-                    color: AppColours.blue,
+                  icon: _BadgedNavIcon(
+                    icon: Icons.analytics_outlined,
+                    count: taskBadgeCount,
+                  ),
+                  selectedIcon: _BadgedNavIcon(
+                    icon: Icons.analytics_rounded,
+                    count: taskBadgeCount,
+                    colour: AppColours.blue,
                   ),
                   label: text.t('Task'),
                 ),
