@@ -1568,6 +1568,10 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
               : widget.role == UserRole.manager
                   ? pendingStockCheckCount
                   : 0;
+          final stockBadgeCount =
+              widget.session.user.role.isOwner || widget.role == UserRole.head
+                  ? (homeReviewSummary?.outstandingPending ?? 0)
+                  : inventoryBadgeCount;
 
           final pages = <Widget>[
             HomeScreen(
@@ -1607,6 +1611,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
               api: widget.api,
               isOwner: widget.session.user.role.isOwner,
               currentTenantId: widget.session.tenant.id,
+              reviewSummary: homeReviewSummary,
               onReloadAfterSkuImport: () async {
                 await Future.wait([
                   widget.api.invalidateFeatureCache(
@@ -1796,11 +1801,11 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
                 NavigationDestination(
                   icon: _BadgedNavIcon(
                     icon: Icons.inventory_2_outlined,
-                    count: inventoryBadgeCount,
+                    count: stockBadgeCount,
                   ),
                   selectedIcon: _BadgedNavIcon(
                     icon: Icons.inventory_2_outlined,
-                    count: inventoryBadgeCount,
+                    count: stockBadgeCount,
                     colour: AppColours.blue,
                   ),
                   label: text.t('Stock'),

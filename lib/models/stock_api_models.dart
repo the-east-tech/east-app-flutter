@@ -7,18 +7,30 @@ class StockReviewSummary {
   final int pendingReview;
   final int done;
   final int total;
+  final int dailyCountPending;
+  final int receivingPending;
+  final int skuChangePending;
 
   const StockReviewSummary({
     required this.pendingReview,
     required this.done,
     required this.total,
+    required this.dailyCountPending,
+    required this.receivingPending,
+    required this.skuChangePending,
   });
+
+  int get outstandingPending =>
+      dailyCountPending + receivingPending + skuChangePending;
 
   factory StockReviewSummary.fromJson(Map<String, dynamic> json) {
     return StockReviewSummary(
       pendingReview: (json['pendingReview'] as num? ?? 0).toInt(),
       done: (json['done'] as num? ?? 0).toInt(),
       total: (json['total'] as num? ?? 0).toInt(),
+      dailyCountPending: (json['dailyCountPending'] as num? ?? 0).toInt(),
+      receivingPending: (json['receivingPending'] as num? ?? 0).toInt(),
+      skuChangePending: (json['skuChangePending'] as num? ?? 0).toInt(),
     );
   }
 }
