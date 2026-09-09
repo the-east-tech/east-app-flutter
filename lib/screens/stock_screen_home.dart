@@ -3,11 +3,15 @@ part of 'stock_screen.dart';
 class _StockHomePage extends StatelessWidget {
   final UserRole role;
   final bool isOwner;
+  final StockReviewSummary? reviewSummary;
+  final Future<void> Function() onRefresh;
   final void Function(StockPage page) onOpenPage;
 
   const _StockHomePage({
     required this.role,
     required this.isOwner,
+    required this.reviewSummary,
+    required this.onRefresh,
     required this.onOpenPage,
   });
 
@@ -17,12 +21,22 @@ class _StockHomePage extends StatelessWidget {
   bool get canReceiveStock => isManager || isHead;
   bool get canPurchaseStock => isManager || isHead;
   bool get canManageSetup => isOwner || isHead;
+  bool get canReview => isOwner || isHead;
+
+  Widget? approvalBadge(int count) {
+    if (!canReview || count <= 0) return null;
+    return Badge.count(
+      count: count,
+      backgroundColor: AppColours.red,
+      textColor: Colors.white,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final text = AppTextScope.of(context);
 
-    return ListView(
+    final content = ListView(
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 24),
       children: [
@@ -36,6 +50,7 @@ class _StockHomePage extends StatelessWidget {
               title: text.t('Count'),
               subtitle: text.t('Stock Balance'),
               icon: Icons.fact_check_outlined,
+              badge: approvalBadge(reviewSummary?.dailyCountPending ?? 0),
               onTap: () => onOpenPage(StockPage.dailyCount),
             ),
             if (canReceiveStock)
@@ -43,6 +58,7 @@ class _StockHomePage extends StatelessWidget {
                 title: text.t('Receiving'),
                 subtitle: text.t('Invoice & goods check'),
                 icon: Icons.assignment_turned_in_outlined,
+                badge: approvalBadge(reviewSummary?.receivingPending ?? 0),
                 onTap: () => onOpenPage(StockPage.receiving),
               ),
             if (canPurchaseStock)
@@ -66,6 +82,9 @@ class _StockHomePage extends StatelessWidget {
                 title: text.t('SKU'),
                 subtitle: text.t('Create/list SKU'),
                 icon: Icons.widgets_outlined,
+                badge: isOwner
+                    ? approvalBadge(reviewSummary?.skuChangePending ?? 0)
+                    : null,
                 onTap: () => onOpenPage(StockPage.skuSetup),
               ),
               DashboardMenuCard(
@@ -91,6 +110,8 @@ class _StockHomePage extends StatelessWidget {
         ],
       ],
     );
+
+    return RefreshIndicator(onRefresh: onRefresh, child: content);
   }
 }
 
