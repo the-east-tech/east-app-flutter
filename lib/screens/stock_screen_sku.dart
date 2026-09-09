@@ -95,7 +95,7 @@ class _SkuSetupPageState extends State<_SkuSetupPage> {
     return PopupMenuButton<String>(
       initialValue: value,
       position: PopupMenuPosition.under,
-      popUpAnimationStyle: fastMenuAnimation,
+      popUpAnimationStyle: AnimationStyle.noAnimation,
       tooltip: '$label: $value',
       onSelected: onChanged,
       itemBuilder: (_) => options.map((option) {

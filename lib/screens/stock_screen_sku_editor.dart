@@ -613,6 +613,7 @@ class _SkuEditorFormState extends State<_SkuEditorForm> {
               const SizedBox(height: 14),
               ScheduleSelector(
                 title: 'Stock Check',
+                compact: true,
                 value: _stockAppScheduleType(stockCheckSchedule),
                 day: stockCheckSchedule == StockCheckSchedule.monthly
                     ? (stockCheckDay == 0 ? null : stockCheckDay)
