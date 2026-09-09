@@ -14,6 +14,7 @@ class ReportDashboard {
   final ComplaintOverview? complaints;
   final int pendingApprovals;
   final int pendingSalesApprovals;
+  final int pendingWasteApprovals;
   final int pendingTaskApprovals;
   final List<ReportTrendPoint> trend;
 
@@ -31,6 +32,7 @@ class ReportDashboard {
     required this.complaints,
     required this.pendingApprovals,
     required this.pendingSalesApprovals,
+    required this.pendingWasteApprovals,
     required this.pendingTaskApprovals,
     required this.trend,
   });
@@ -80,6 +82,8 @@ class ReportDashboard {
                   json['pendingApprovals'] as num? ??
                   0)
               .toInt(),
+      pendingWasteApprovals:
+          (json['pendingWasteApprovals'] as num? ?? 0).toInt(),
       pendingTaskApprovals:
           (json['pendingTaskApprovals'] as num? ??
                   ((json['tasks'] as Map<String, dynamic>?)?['submitted']
