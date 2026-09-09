@@ -29,6 +29,8 @@ class _StockApprovalLauncher extends StatelessWidget {
   final Future<void> Function(StockSubmission submission) onReviewStockCount;
   final Future<void> Function(List<StockSubmission> submissions)
       onBulkReviewStockCounts;
+  final List<StockTag> tags;
+  final List<SupplierProfile> suppliers;
   final bool canReviewSkuChanges;
   final Future<void> Function() onSkuChangeReviewed;
 
@@ -38,6 +40,8 @@ class _StockApprovalLauncher extends StatelessWidget {
     required this.onReviewReceiving,
     required this.onReviewStockCount,
     required this.onBulkReviewStockCounts,
+    required this.tags,
+    required this.suppliers,
     required this.canReviewSkuChanges,
     required this.onSkuChangeReviewed,
   });
@@ -53,6 +57,8 @@ class _StockApprovalLauncher extends StatelessWidget {
       builder: (sheetContext) => isSku
           ? _SkuChangeApprovalSheet(
               api: api,
+              tags: tags,
+              suppliers: suppliers,
               canReview: canReviewSkuChanges,
               onReviewed: onSkuChangeReviewed,
             )
@@ -1112,11 +1118,15 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
 
 class _SkuChangeApprovalSheet extends StatefulWidget {
   final EastAppApi api;
+  final List<StockTag> tags;
+  final List<SupplierProfile> suppliers;
   final bool canReview;
   final Future<void> Function() onReviewed;
 
   const _SkuChangeApprovalSheet({
     required this.api,
+    required this.tags,
+    required this.suppliers,
     required this.canReview,
     required this.onReviewed,
   });
@@ -1136,27 +1146,120 @@ class _SkuChangeApprovalSheetState extends State<_SkuChangeApprovalSheet> {
       .where((record) => record.workflowStatus == statusFilter)
       .toList(growable: false);
 
-  String proposalLabel(String key) {
-    final spaced = key.replaceAllMapped(
-      RegExp(r'([a-z0-9])([A-Z])'),
-      (match) => '${match.group(1)} ${match.group(2)}',
-    );
-    return spaced
-        .split(' ')
-        .map(
-          (word) => word.isEmpty
-              ? word
-              : '${word[0].toUpperCase()}${word.substring(1)}',
-        )
+  static const proposalKeys = [
+    'name',
+    'tag1Id',
+    'tag2Id',
+    'supplierIds',
+    'unit',
+    'minimumBalanceValue',
+    'maximumBalanceValue',
+    'currentBalanceValue',
+    'recoveryPercent',
+    'minimumPriceRm',
+    'maximumPriceRm',
+    'assignedStaffNames',
+    'receivingChecklist',
+    'stockCheckSchedule',
+    'stockCheckDay',
+    'stockCheckDate',
+    'active',
+    'coolingPeriod',
+  ];
+
+  String proposalLabel(String key) => switch (key) {
+        'name' => 'SKU Name',
+        'tag1Id' => 'Tag 1',
+        'tag2Id' => 'Tag 2',
+        'supplierIds' => 'Suppliers',
+        'unit' => 'Unit',
+        'minimumBalanceValue' => 'Minimum Balance',
+        'maximumBalanceValue' => 'Maximum Balance',
+        'currentBalanceValue' => 'Current Balance',
+        'recoveryPercent' => 'Recovery',
+        'minimumPriceRm' => 'Minimum Price',
+        'maximumPriceRm' => 'Maximum Price',
+        'assignedStaffNames' => 'Assigned Staff',
+        'receivingChecklist' => 'Receiving Checklist',
+        'stockCheckSchedule' => 'Stock Check Schedule',
+        'stockCheckDay' => 'Stock Check Day',
+        'stockCheckDate' => 'Stock Check Date',
+        'active' => 'Active',
+        'coolingPeriod' => 'Cooling Period',
+        _ => key,
+      };
+
+  String tagName(Object? value) {
+    if (value == null) return 'None';
+    final id = value.toString();
+    for (final tag in widget.tags) {
+      if (tag.id == id) return tag.tag;
+    }
+    return 'Unavailable';
+  }
+
+  String supplierNames(Object? value) {
+    if (value is! List || value.isEmpty) return 'None';
+    final names = value.map((id) {
+      for (final supplier in widget.suppliers) {
+        if (supplier.id == id.toString()) return supplier.supplierName;
+      }
+      return 'Unavailable';
+    });
+    return names.join('\n');
+  }
+
+  String readableEnum(Object? value) {
+    final words = value
+        .toString()
+        .toLowerCase()
+        .split('_')
+        .where((word) => word.isNotEmpty);
+    return words
+        .map((word) => '${word[0].toUpperCase()}${word.substring(1)}')
         .join(' ');
   }
 
-  String proposalValue(Object? value) {
+  String proposalValue(String key, Object? value) {
+    if (key == 'tag1Id' || key == 'tag2Id') return tagName(value);
+    if (key == 'supplierIds') return supplierNames(value);
     if (value == null) return '-';
-    if (value is List) return value.isEmpty ? '-' : value.join(', ');
+    if (value is List) {
+      if (value.isEmpty) return 'None';
+      if (key == 'receivingChecklist') {
+        return List.generate(
+          value.length,
+          (index) => '${index + 1}. ${value[index]}',
+        ).join('\n');
+      }
+      return value.join('\n');
+    }
     if (value is bool) return value ? 'Yes' : 'No';
+    if (key == 'stockCheckSchedule') return readableEnum(value);
+    if (key == 'recoveryPercent') return '$value%';
+    if (key == 'minimumPriceRm' || key == 'maximumPriceRm') {
+      return 'RM $value';
+    }
     final result = value.toString().trim();
     return result.isEmpty ? '-' : result;
+  }
+
+  List<_ReviewInfoRow> proposalRows(StockSkuChangeRequest record) {
+    final data = record.proposedData;
+    if (data == null) return const [];
+    return proposalKeys
+        .where(
+          (key) => data.containsKey(key) &&
+              !(record.changeType == 'UPDATE' &&
+                  key == 'currentBalanceValue'),
+        )
+        .map(
+          (key) => _ReviewInfoRow(
+            label: proposalLabel(key),
+            value: proposalValue(key, data[key]),
+          ),
+        )
+        .toList(growable: false);
   }
 
   String requestTime(DateTime value) {
@@ -1404,21 +1507,7 @@ class _SkuChangeApprovalSheetState extends State<_SkuChangeApprovalSheet> {
                                 ),
                                 children: [
                                   _ReviewInfoRows(
-                                    rows: record.proposedData!.entries
-                                        .where(
-                                          (entry) =>
-                                              entry.key != 'photoPath' &&
-                                              !(record.changeType == 'UPDATE' &&
-                                                  entry.key ==
-                                                      'currentBalanceValue'),
-                                        )
-                                        .map(
-                                          (entry) => _ReviewInfoRow(
-                                            label: proposalLabel(entry.key),
-                                            value: proposalValue(entry.value),
-                                          ),
-                                        )
-                                        .toList(growable: false),
+                                    rows: proposalRows(record),
                                   ),
                                 ],
                               ),

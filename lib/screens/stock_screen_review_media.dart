@@ -190,16 +190,57 @@ class _ReviewInfoRows extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = AppTextScope.of(context);
-    return Column(children: [
-      for (final row in rows)
-        Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            SizedBox(width: 112, child: Text(text.content(text.t(row.label)), style: const TextStyle(fontSize: AppTextSize.s13, color: AppColours.textMuted, fontWeight: FontWeight.w700))),
-            Expanded(child: Text(text.content(text.t(row.value)), style: TextStyle(fontSize: AppTextSize.s13, color: row.valueColour ?? AppColours.textMain, fontWeight: FontWeight.w800))),
-          ]),
-        ),
-    ]);
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        border: Border.all(color: AppColours.border),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        children: [
+          for (var index = 0; index < rows.length; index++) ...[
+            Container(
+              color: index.isEven
+                  ? AppColours.card
+                  : AppColours.background,
+              padding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 10,
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    width: 112,
+                    child: Text(
+                      text.content(text.t(rows[index].label)),
+                      style: const TextStyle(
+                        fontSize: AppTextSize.s13,
+                        color: AppColours.textMuted,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      text.content(text.t(rows[index].value)),
+                      style: TextStyle(
+                        fontSize: AppTextSize.s13,
+                        color: rows[index].valueColour ?? AppColours.textMain,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (index < rows.length - 1)
+              const Divider(height: 1, thickness: 1),
+          ],
+        ],
+      ),
+    );
   }
 }
 
