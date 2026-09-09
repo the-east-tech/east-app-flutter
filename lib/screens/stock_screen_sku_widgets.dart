@@ -34,6 +34,9 @@ class _SkuCompactRow extends StatelessWidget {
     final statusBackground = isLow ? AppColours.redSoft : AppColours.greenSoft;
     final balanceColour = isLow ? AppColours.red : AppColours.green;
     final stockCheck = switch (sku.stockCheckSchedule) {
+      StockCheckSchedule.adHoc => sku.stockCheckDate == null
+          ? text.t('Ad hoc')
+          : '${text.t('Ad hoc')} · ${MaterialLocalizations.of(context).formatMediumDate(sku.stockCheckDate!)}',
       StockCheckSchedule.daily => text.t('Daily'),
       StockCheckSchedule.weekly => '${text.t('Weekly')} · ${text.t(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][(sku.stockCheckDay ?? 1).clamp(1, 7).toInt() - 1])}',
       StockCheckSchedule.monthly => sku.stockCheckDay == null || sku.stockCheckDay! > 28

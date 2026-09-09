@@ -19,7 +19,6 @@ enum TaskScheduleType {
   adHoc('AD_HOC', 'Ad hoc'),
   daily('DAILY', 'Daily'),
   weekly('WEEKLY', 'Weekly'),
-  biweekly('BIWEEKLY', 'Biweekly'),
   monthly('MONTHLY', 'Monthly');
 
   final String apiValue;
@@ -101,7 +100,6 @@ class TaskTemplate {
   final int requiredPhotoCount;
   final TaskScheduleType scheduleType;
   final DateTime firstTaskDate;
-  final DateTime? endDate;
   final List<String> checklistItems;
   final bool active;
   final TaskPerson createdBy;
@@ -120,7 +118,6 @@ class TaskTemplate {
     required this.requiredPhotoCount,
     required this.scheduleType,
     required this.firstTaskDate,
-    required this.endDate,
     required this.checklistItems,
     required this.active,
     required this.createdBy,
@@ -141,7 +138,6 @@ class TaskTemplate {
       requiredPhotoCount: (json['requiredPhotoCount'] as num).toInt(),
       scheduleType: TaskScheduleType.fromApi(json['scheduleType']),
       firstTaskDate: DateTime.parse(json['firstTaskDate'] as String),
-      endDate: _dateTime(json['endDate']),
       checklistItems: (json['checklistItems'] as List<dynamic>? ?? const [])
           .map((item) => item as String)
           .toList(growable: false),

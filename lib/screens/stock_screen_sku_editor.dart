@@ -75,7 +75,6 @@ class _SkuEditorFormState extends State<_SkuEditorForm> {
   late final TextEditingController nameController;
   late final List<TextEditingController> checklistControllers;
   late final TextEditingController minBalanceController;
-  late final TextEditingController currentBalanceController;
   late final TextEditingController maxBalanceController;
   late final TextEditingController minPriceController;
   late final TextEditingController maxPriceController;
@@ -84,6 +83,7 @@ class _SkuEditorFormState extends State<_SkuEditorForm> {
   late String unit;
   late StockCheckSchedule stockCheckSchedule;
   late int stockCheckDay;
+  DateTime? stockCheckDate;
   late int recoveryPercent;
   late Set<String> supplierIds;
   String? pendingPhotoPath;
@@ -112,9 +112,6 @@ class _SkuEditorFormState extends State<_SkuEditorForm> {
     minBalanceController = TextEditingController(
       text: sku == null ? '' : formatStockNumber(sku.minimumBalanceValue),
     );
-    currentBalanceController = TextEditingController(
-      text: sku == null ? '' : formatStockNumber(sku.currentBalanceValue),
-    );
     maxBalanceController = TextEditingController(
       text: sku == null ? '' : formatStockNumber(sku.maximumBalanceValue),
     );
@@ -133,6 +130,7 @@ class _SkuEditorFormState extends State<_SkuEditorForm> {
             (configuredStockCheckDay == null || configuredStockCheckDay > 28)
         ? 0
         : configuredStockCheckDay ?? 1;
+    stockCheckDate = sku?.stockCheckDate;
     final recovery = sku?.recoveryPercent ?? 100;
     recoveryPercent = ((recovery / 5).round() * 5).clamp(5, 100).toInt();
     supplierIds = {...?sku?.supplierIds};
@@ -145,7 +143,6 @@ class _SkuEditorFormState extends State<_SkuEditorForm> {
       controller.dispose();
     }
     minBalanceController.dispose();
-    currentBalanceController.dispose();
     maxBalanceController.dispose();
     minPriceController.dispose();
     maxPriceController.dispose();
@@ -287,9 +284,7 @@ class _SkuEditorFormState extends State<_SkuEditorForm> {
     final name = nameController.text.trim();
     final minBalance = double.tryParse(minBalanceController.text.trim());
     final maxBalance = double.tryParse(maxBalanceController.text.trim());
-    final currentBalance = editing
-        ? double.tryParse(currentBalanceController.text.trim())
-        : minBalance;
+    final currentBalance = widget.initialSku?.currentBalanceValue ?? minBalance;
     final minPrice = double.tryParse(minPriceController.text.trim());
     final maxPrice = double.tryParse(maxPriceController.text.trim());
     final requiresPhoto = !editing;
@@ -304,6 +299,12 @@ class _SkuEditorFormState extends State<_SkuEditorForm> {
         supplierIds.isEmpty ||
         (requiresPhoto && pendingPhotoPath == null)) {
       AppFeedback.warning();
+      return;
+    }
+    if (stockCheckSchedule == StockCheckSchedule.adHoc &&
+        stockCheckDate == null) {
+      AppFeedback.warning();
+      showWarningSnackBar(context, text.t('Select one date.'));
       return;
     }
     if (minBalance < 0 ||
@@ -347,6 +348,7 @@ class _SkuEditorFormState extends State<_SkuEditorForm> {
           .toList();
       final effectiveStockCheckDay =
           stockCheckSchedule == StockCheckSchedule.daily ||
+                  stockCheckSchedule == StockCheckSchedule.adHoc ||
                   (stockCheckSchedule == StockCheckSchedule.monthly &&
                       stockCheckDay == 0)
               ? null
@@ -373,13 +375,12 @@ class _SkuEditorFormState extends State<_SkuEditorForm> {
               assignedStaffName: 'Unassigned',
               stockCheckSchedule: stockCheckSchedule,
               stockCheckDay: effectiveStockCheckDay,
+              stockCheckDate: stockCheckDate,
               lastUpdatedAt: 'Not counted yet',
               lastUpdatedBy: headId,
               coolingPeriod: true,
             )
-          : existing
-              .copyWith(stockCheckSchedule: StockCheckSchedule.daily)
-              .copyWith(
+          : existing.copyWith(
                 name: name,
                 tag1Id: selectedTag1?.id ?? '',
                 category: selectedTag1?.tag ?? '',
@@ -397,6 +398,8 @@ class _SkuEditorFormState extends State<_SkuEditorForm> {
                 photoPath: photoPath,
                 stockCheckSchedule: stockCheckSchedule,
                 stockCheckDay: effectiveStockCheckDay,
+                clearStockCheckDay: effectiveStockCheckDay == null,
+                stockCheckDate: stockCheckDate,
               );
       final saved = await runStockRequest(context, () => widget.onSave(sku));
       if (!saved || !mounted) return;
@@ -440,16 +443,6 @@ class _SkuEditorFormState extends State<_SkuEditorForm> {
       'kg', 'pcs', 'box', 'bottle', 'carton', 'ctn', 'pack', 'bag', 'btl',
       'biji', 'unit',
     ];
-    const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    final stockCheckDescription = switch (stockCheckSchedule) {
-      StockCheckSchedule.daily => text.t('Repeats every day.'),
-      StockCheckSchedule.weekly =>
-        '${text.t('Repeats every')} ${text.t(weekdays[stockCheckDay.clamp(1, 7).toInt() - 1])}.',
-      StockCheckSchedule.monthly => stockCheckDay == 0
-          ? text.t('Repeats on the last day of every month.')
-          : '${text.t('Repeats monthly on Day')} $stockCheckDay.',
-    };
-
     return Column(
       children: [
         Padding(
@@ -618,114 +611,23 @@ class _SkuEditorFormState extends State<_SkuEditorForm> {
               if (photoRequiredError)
                 _InlineError(text.t('Stock Thumbnail required')),
               const SizedBox(height: 14),
-              WhiteCard(
-                margin: EdgeInsets.zero,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      text.t('Stock Check'),
-                      style: const TextStyle(
-                        fontSize: AppTextSize.s18,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    DropdownButtonFormField<StockCheckSchedule>(
-                      initialValue: stockCheckSchedule,
-                      isExpanded: true,
-                      decoration: InputDecoration(
-                        labelText: text.t('Schedule Type'),
-                        prefixIcon: const Icon(Icons.event_repeat_rounded),
-                        border: const OutlineInputBorder(),
-                      ),
-                      items: StockCheckSchedule.values
-                          .map(
-                            (schedule) => DropdownMenuItem(
-                              value: schedule,
-                              child: Text(text.t(schedule.label)),
-                            ),
-                          )
-                          .toList(growable: false),
-                      onChanged: (value) {
-                        if (value == null) return;
-                        setState(() {
-                          stockCheckSchedule = value;
-                          if (value == StockCheckSchedule.weekly) {
-                            stockCheckDay = stockCheckDay == 0
-                                ? 1
-                                : stockCheckDay.clamp(1, 7).toInt();
-                          } else if (value == StockCheckSchedule.monthly) {
-                            stockCheckDay = stockCheckDay > 28
-                                ? 0
-                                : stockCheckDay.clamp(0, 28).toInt();
-                          }
-                        });
-                      },
-                    ),
-                    if (stockCheckSchedule == StockCheckSchedule.weekly) ...[
-                      const SizedBox(height: 12),
-                      DropdownButtonFormField<int>(
-                        initialValue: stockCheckDay.clamp(1, 7).toInt(),
-                        isExpanded: true,
-                        decoration: InputDecoration(
-                          labelText: text.t('Check day'),
-                          prefixIcon: const Icon(Icons.calendar_today_outlined),
-                          border: const OutlineInputBorder(),
-                        ),
-                        items: List.generate(
-                          7,
-                          (index) => DropdownMenuItem(
-                            value: index + 1,
-                            child: Text(text.t(weekdays[index])),
-                          ),
-                        ),
-                        onChanged: (value) {
-                          if (value != null) setState(() => stockCheckDay = value);
-                        },
-                      ),
-                    ],
-                    if (stockCheckSchedule == StockCheckSchedule.monthly) ...[
-                      const SizedBox(height: 12),
-                      DropdownButtonFormField<int>(
-                        initialValue: stockCheckDay > 28
-                            ? 0
-                            : stockCheckDay.clamp(0, 28).toInt(),
-                        isExpanded: true,
-                        decoration: InputDecoration(
-                          labelText: text.t('Check day'),
-                          prefixIcon: const Icon(Icons.calendar_today_outlined),
-                          border: const OutlineInputBorder(),
-                        ),
-                        items: [
-                          DropdownMenuItem(
-                            value: 0,
-                            child: Text(text.t('Last day')),
-                          ),
-                          ...List.generate(
-                            28,
-                            (index) => DropdownMenuItem(
-                              value: index + 1,
-                              child: Text('${text.t('Day')} ${index + 1}'),
-                            ),
-                          ),
-                        ],
-                        onChanged: (value) {
-                          if (value != null) setState(() => stockCheckDay = value);
-                        },
-                      ),
-                    ],
-                    const SizedBox(height: 10),
-                    Text(
-                      stockCheckDescription,
-                      style: const TextStyle(
-                        color: AppColours.textMuted,
-                        fontSize: AppTextSize.s13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
+              ScheduleSelector(
+                title: 'Stock Check',
+                value: _stockAppScheduleType(stockCheckSchedule),
+                day: stockCheckSchedule == StockCheckSchedule.monthly
+                    ? (stockCheckDay == 0 ? null : stockCheckDay)
+                    : stockCheckDay,
+                date: stockCheckDate,
+                onTypeChanged: (value) => setState(() {
+                  stockCheckSchedule = _stockCheckSchedule(value);
+                  if (stockCheckSchedule == StockCheckSchedule.weekly &&
+                      stockCheckDay == 0) {
+                    stockCheckDay = 1;
+                  }
+                }),
+                onDayChanged: (day) =>
+                    setState(() => stockCheckDay = day ?? 0),
+                onDateChanged: (date) => setState(() => stockCheckDate = date),
               ),
               const SizedBox(height: 14),
               _FieldLabel(text.t('Unit')),
@@ -759,20 +661,6 @@ class _SkuEditorFormState extends State<_SkuEditorForm> {
                       ),
                     ),
                   ),
-                  if (editing) ...[
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: _DialogBareInput(
-                        controller: currentBalanceController,
-                        hint: text.t('Current'),
-                        suffixText: unit,
-                        errorText: requiredNumber(
-                          currentBalanceController,
-                          text.t('Current required'),
-                        ),
-                      ),
-                    ),
-                  ],
                   const SizedBox(width: 8),
                   Expanded(
                     child: _DialogBareInput(
@@ -908,4 +796,22 @@ class _SkuEditorFormState extends State<_SkuEditorForm> {
       ],
     );
   }
+}
+
+AppScheduleType _stockAppScheduleType(StockCheckSchedule type) {
+  return switch (type) {
+    StockCheckSchedule.adHoc => AppScheduleType.adHoc,
+    StockCheckSchedule.daily => AppScheduleType.daily,
+    StockCheckSchedule.weekly => AppScheduleType.weekly,
+    StockCheckSchedule.monthly => AppScheduleType.monthly,
+  };
+}
+
+StockCheckSchedule _stockCheckSchedule(AppScheduleType type) {
+  return switch (type) {
+    AppScheduleType.adHoc => StockCheckSchedule.adHoc,
+    AppScheduleType.daily => StockCheckSchedule.daily,
+    AppScheduleType.weekly => StockCheckSchedule.weekly,
+    AppScheduleType.monthly => StockCheckSchedule.monthly,
+  };
 }

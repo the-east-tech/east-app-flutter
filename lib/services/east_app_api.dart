@@ -1020,7 +1020,6 @@ class EastAppApi {
     required int requiredPhotoCount,
     required TaskScheduleType scheduleType,
     required DateTime firstTaskDate,
-    DateTime? endDate,
     required List<String> checklistItems,
     required bool active,
   }) async {
@@ -1035,7 +1034,6 @@ class EastAppApi {
         'requiredPhotoCount': requiredPhotoCount,
         'scheduleType': scheduleType.apiValue,
         'firstTaskDate': formatApiDate(firstTaskDate),
-        'endDate': endDate == null ? null : formatApiDate(endDate),
         'checklistItems': checklistItems
             .map((item) => item.trim())
             .toList(growable: false),
@@ -1058,7 +1056,6 @@ class EastAppApi {
     required int requiredPhotoCount,
     required TaskScheduleType scheduleType,
     required DateTime firstTaskDate,
-    DateTime? endDate,
     required List<String> checklistItems,
     required bool active,
   }) async {
@@ -1073,7 +1070,6 @@ class EastAppApi {
         'requiredPhotoCount': requiredPhotoCount,
         'scheduleType': scheduleType.apiValue,
         'firstTaskDate': formatApiDate(firstTaskDate),
-        'endDate': endDate == null ? null : formatApiDate(endDate),
         'checklistItems': checklistItems
             .map((item) => item.trim())
             .toList(growable: false),
@@ -2117,7 +2113,7 @@ class EastAppApi {
 
   Future<EastAppPage<StockSubmission>> stockCounts({
     bool mine = false,
-    String? reviewStatus,
+    StockWorkflowStatus? workflowStatus,
     DateTime? from,
     DateTime? to,
     int page = 0,
@@ -2125,8 +2121,8 @@ class EastAppApi {
   }) async {
     final query = Uri(queryParameters: {
       'mine': '$mine',
-      if (reviewStatus != null && reviewStatus.trim().isNotEmpty)
-        'reviewStatus': reviewStatus.trim(),
+      if (workflowStatus != null)
+        'workflowStatus': workflowStatus.apiValue,
       if (from != null) 'from': formatApiDate(from),
       if (to != null) 'to': formatApiDate(to),
       'page': '$page',
@@ -2140,15 +2136,15 @@ class EastAppApi {
   }
 
   Future<EastAppPage<StockReceivingRecord>> stockReceivings({
-    String? reviewStatus,
+    StockWorkflowStatus? workflowStatus,
     DateTime? from,
     DateTime? to,
     int page = 0,
     int size = 50,
   }) async {
     final query = Uri(queryParameters: {
-      if (reviewStatus != null && reviewStatus.trim().isNotEmpty)
-        'reviewStatus': reviewStatus.trim(),
+      if (workflowStatus != null)
+        'workflowStatus': workflowStatus.apiValue,
       if (from != null) 'from': formatApiDate(from),
       if (to != null) 'to': formatApiDate(to),
       'page': '$page',
@@ -2820,13 +2816,13 @@ class EastAppApi {
 
   Future<StockSkuChangeRequest> reviewStockSkuChange({
     required String requestId,
-    required String status,
+    required StockWorkflowStatus status,
     String note = '',
   }) async {
     final body = await _requestJson(
       'PATCH',
       '/api/v1/stock/sku-change-requests/$requestId/review',
-      body: {'status': status, 'note': note},
+      body: {'status': status.apiValue, 'note': note},
     ) as Map<String, dynamic>;
     return StockSkuChangeRequest.fromJson(body);
   }
@@ -2849,7 +2845,7 @@ class EastAppApi {
       'PATCH',
       '/api/v1/stock/counts/${submission.id}/review',
       body: {
-        'status': submission.reviewStatus,
+        'status': submission.workflowStatus.apiValue,
         'note': submission.reviewNote,
       },
     ) as Map<String, dynamic>;
@@ -2860,7 +2856,7 @@ class EastAppApi {
     List<StockSubmission> submissions,
   ) async {
     if (submissions.isEmpty) return const [];
-    final statuses = submissions.map((item) => item.reviewStatus).toSet();
+    final statuses = submissions.map((item) => item.workflowStatus).toSet();
     if (statuses.length != 1) {
       throw const EastAppApiException(
         statusCode: null,
@@ -2879,7 +2875,7 @@ class EastAppApi {
       '/api/v1/stock/counts/bulk-review',
       body: {
         'submissionIds': submissions.map((item) => item.id).toList(growable: false),
-        'status': statuses.single,
+        'status': statuses.single.apiValue,
         'note': notes.isEmpty ? null : notes.first,
       },
     ) as Map<String, dynamic>;
@@ -2906,7 +2902,7 @@ class EastAppApi {
       'PATCH',
       '/api/v1/stock/receivings/${record.id}/review',
       body: {
-        'status': record.reviewStatus,
+        'status': record.workflowStatus.apiValue,
         'note': record.reviewNote,
       },
     ) as Map<String, dynamic>;

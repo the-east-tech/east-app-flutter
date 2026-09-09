@@ -15,6 +15,7 @@ import '../services/east_app_api.dart';
 import '../theme/app_theme.dart';
 import '../utils/app_diagnostics.dart';
 import '../widgets/app_components.dart';
+import '../widgets/schedule_selector.dart';
 import 'knowledge_screen.dart';
 
 enum TasksEntry { tasks, setup, approvals }
@@ -2199,7 +2200,6 @@ class _TaskTemplatePageState extends State<TaskTemplatePage> {
   int checklistCount = 1;
   TaskScheduleType scheduleType = TaskScheduleType.daily;
   late DateTime firstTaskDate;
-  DateTime? endDate;
   bool active = true;
   bool loadingTags = false;
   String? linkedSopId;
@@ -2232,9 +2232,6 @@ class _TaskTemplatePageState extends State<TaskTemplatePage> {
     checklistCount = template?.checklistItems.length ?? 1;
     scheduleType = template?.scheduleType ?? TaskScheduleType.daily;
     firstTaskDate = _dateOnly(template?.firstTaskDate ?? DateTime.now());
-    endDate = template?.endDate == null
-        ? null
-        : _dateOnly(template!.endDate!);
     active = template?.active ?? true;
     linkedSopId = template?.linkedSopId;
     linkedSopTitle = template?.linkedSopTitle;
@@ -2296,37 +2293,6 @@ class _TaskTemplatePageState extends State<TaskTemplatePage> {
     }
   }
 
-  Future<void> selectFirstTaskDate() async {
-    final now = DateTime.now();
-    final selected = await showDatePicker(
-      context: context,
-      initialDate: firstTaskDate,
-      firstDate: DateTime(2000),
-      lastDate: DateTime(now.year + 10, 12, 31),
-      helpText: scheduleType == TaskScheduleType.adHoc
-          ? 'Select Task Date'
-          : 'Select First Task Date',
-    );
-    if (selected == null || !mounted) return;
-    setState(() {
-      firstTaskDate = _dateOnly(selected);
-      if (endDate?.isBefore(firstTaskDate) == true) endDate = null;
-    });
-  }
-
-  Future<void> selectEndDate() async {
-    final now = DateTime.now();
-    final selected = await showDatePicker(
-      context: context,
-      initialDate: endDate ?? firstTaskDate,
-      firstDate: firstTaskDate,
-      lastDate: DateTime(now.year + 10, 12, 31),
-      helpText: 'Select End Date',
-    );
-    if (selected == null || !mounted) return;
-    setState(() => endDate = _dateOnly(selected));
-  }
-
   Future<void> selectLinkedSop() async {
     if (loadingSops) return;
     var options = sopOptions;
@@ -2367,14 +2333,6 @@ class _TaskTemplatePageState extends State<TaskTemplatePage> {
         .take(checklistCount)
         .map((controller) => controller.text.trim())
         .toList(growable: false);
-    if (endDate?.isBefore(firstTaskDate) == true) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('End date cannot be before the first task date.'),
-        ),
-      );
-      return;
-    }
     if (title.isEmpty || selectedTagId == null || checks.any((item) => item.isEmpty)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -2406,7 +2364,6 @@ class _TaskTemplatePageState extends State<TaskTemplatePage> {
           requiredPhotoCount: requiredPhotoCount,
           scheduleType: scheduleType,
           firstTaskDate: firstTaskDate,
-          endDate: scheduleType == TaskScheduleType.adHoc ? null : endDate,
           checklistItems: checks,
           active: active,
         );
@@ -2421,7 +2378,6 @@ class _TaskTemplatePageState extends State<TaskTemplatePage> {
           requiredPhotoCount: requiredPhotoCount,
           scheduleType: scheduleType,
           firstTaskDate: firstTaskDate,
-          endDate: scheduleType == TaskScheduleType.adHoc ? null : endDate,
           checklistItems: checks,
           active: active,
         );
@@ -2477,86 +2433,34 @@ class _TaskTemplatePageState extends State<TaskTemplatePage> {
             ),
           ),
           const SizedBox(height: 12),
-          WhiteCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const Text(
-                  'Schedule',
-                  style: TextStyle(
-                    fontSize: AppTextSize.s18,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                DropdownButtonFormField<TaskScheduleType>(
-                  value: scheduleType,
-                  decoration: const InputDecoration(
-                    labelText: 'Schedule Type',
-                    prefixIcon: Icon(Icons.event_repeat_rounded),
-                    border: OutlineInputBorder(),
-                  ),
-                  items: TaskScheduleType.values
-                      .map(
-                        (type) => DropdownMenuItem<TaskScheduleType>(
-                          value: type,
-                          child: Text(type.label),
-                        ),
-                      )
-                      .toList(growable: false),
-                  onChanged: (value) {
-                    if (value == null) return;
-                    setState(() {
-                      scheduleType = value;
-                      if (value == TaskScheduleType.adHoc) endDate = null;
-                    });
-                  },
-                ),
-                const SizedBox(height: 12),
-                OutlinedButton.icon(
-                  onPressed: selectFirstTaskDate,
-                  icon: const Icon(Icons.calendar_today_outlined),
-                  label: Text(
-                    '${scheduleType == TaskScheduleType.adHoc ? 'Task date' : 'First task date'}: ${_formatDate(firstTaskDate)}',
-                  ),
-                ),
-                if (scheduleType != TaskScheduleType.adHoc) ...[
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: selectEndDate,
-                          icon: const Icon(Icons.event_available_outlined),
-                          label: Text(
-                            endDate == null
-                                ? 'End date: No end date'
-                                : 'End date: ${_formatDate(endDate!)}',
-                          ),
-                        ),
-                      ),
-                      if (endDate != null) ...[
-                        const SizedBox(width: 6),
-                        IconButton(
-                          tooltip: 'Remove end date',
-                          onPressed: () => setState(() => endDate = null),
-                          icon: const Icon(Icons.close_rounded),
-                        ),
-                      ],
-                    ],
-                  ),
-                ],
-                const SizedBox(height: 8),
-                Text(
-                  _scheduleDescription(scheduleType, firstTaskDate),
-                  style: const TextStyle(
-                    color: AppColours.textMuted,
-                    fontSize: AppTextSize.s13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
+          ScheduleSelector(
+            title: 'Schedule',
+            value: _appScheduleType(scheduleType),
+            day: switch (scheduleType) {
+              TaskScheduleType.weekly => firstTaskDate.weekday,
+              TaskScheduleType.monthly =>
+                firstTaskDate.day > 28 ? null : firstTaskDate.day,
+              _ => null,
+            },
+            date: scheduleType == TaskScheduleType.adHoc
+                ? firstTaskDate
+                : null,
+            onTypeChanged: (value) => setState(() {
+              scheduleType = _taskScheduleType(value);
+              if (scheduleType == TaskScheduleType.daily) {
+                firstTaskDate = _dateOnly(DateTime.now());
+              }
+            }),
+            onDayChanged: (day) => setState(() {
+              if (scheduleType == TaskScheduleType.weekly) {
+                firstTaskDate = DateTime(2000, 1, 3 + (day ?? 1) - 1);
+              } else if (scheduleType == TaskScheduleType.monthly) {
+                firstTaskDate = DateTime(2000, 1, day ?? 31);
+              }
+            }),
+            onDateChanged: (date) {
+              if (date != null) setState(() => firstTaskDate = date);
+            },
           ),
           const SizedBox(height: 12),
           WhiteCard(
@@ -3212,24 +3116,34 @@ String _formatDate(DateTime value) {
 }
 
 String _formatTemplateSchedule(TaskTemplate template) {
-  if (template.scheduleType == TaskScheduleType.adHoc) {
-    return 'Ad hoc · ${_formatDate(template.firstTaskDate)}';
-  }
-  final end = template.endDate == null
-      ? 'No end date'
-      : 'Ends ${_formatDate(template.endDate!)}';
-  return '${template.scheduleType.label} · Starts ${_formatDate(template.firstTaskDate)} · $end';
+  const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  return switch (template.scheduleType) {
+    TaskScheduleType.adHoc =>
+      'Ad hoc · ${_formatDate(template.firstTaskDate)}',
+    TaskScheduleType.daily => 'Daily',
+    TaskScheduleType.weekly =>
+      'Weekly · ${weekdays[template.firstTaskDate.weekday - 1]}',
+    TaskScheduleType.monthly => template.firstTaskDate.day > 28
+        ? 'Monthly · Last day'
+        : 'Monthly · Day ${template.firstTaskDate.day}',
+  };
 }
 
-String _scheduleDescription(TaskScheduleType type, DateTime firstTaskDate) {
-  final date = _formatDate(firstTaskDate);
+AppScheduleType _appScheduleType(TaskScheduleType type) {
   return switch (type) {
-    TaskScheduleType.adHoc => 'Runs once on $date.',
-    TaskScheduleType.daily => 'Repeats every day from $date.',
-    TaskScheduleType.weekly => 'Repeats every 7 days from $date.',
-    TaskScheduleType.biweekly => 'Repeats every 14 days from $date.',
-    TaskScheduleType.monthly =>
-      'Repeats monthly from $date. Shorter months use their final day.',
+    TaskScheduleType.adHoc => AppScheduleType.adHoc,
+    TaskScheduleType.daily => AppScheduleType.daily,
+    TaskScheduleType.weekly => AppScheduleType.weekly,
+    TaskScheduleType.monthly => AppScheduleType.monthly,
+  };
+}
+
+TaskScheduleType _taskScheduleType(AppScheduleType type) {
+  return switch (type) {
+    AppScheduleType.adHoc => TaskScheduleType.adHoc,
+    AppScheduleType.daily => TaskScheduleType.daily,
+    AppScheduleType.weekly => TaskScheduleType.weekly,
+    AppScheduleType.monthly => TaskScheduleType.monthly,
   };
 }
 

@@ -145,6 +145,9 @@ StockSku stockSkuFromJson(Map<String, dynamic> json) {
     stockCheckSchedule:
         StockCheckSchedule.fromApi(json['stockCheckSchedule'] as String?),
     stockCheckDay: (json['stockCheckDay'] as num?)?.toInt(),
+    stockCheckDate: json['stockCheckDate'] == null
+        ? null
+        : DateTime.parse(json['stockCheckDate'] as String),
     lastUpdatedAt: json['lastUpdatedAt'] as String? ?? '',
     lastUpdatedBy: json['lastUpdatedBy'] as String? ?? '',
     active: json['active'] as bool? ?? true,
@@ -157,7 +160,7 @@ class StockSkuChangeRequest {
   final String? skuId;
   final String skuName;
   final String changeType;
-  final String workflowStatus;
+  final StockWorkflowStatus workflowStatus;
   final Map<String, dynamic>? proposedData;
   final String requestedByName;
   final DateTime submittedAt;
@@ -185,7 +188,7 @@ class StockSkuChangeRequest {
       skuId: json['skuId'] as String?,
       skuName: json['skuName'] as String? ?? '',
       changeType: json['changeType'] as String? ?? '',
-      workflowStatus: json['workflowStatus'] as String? ?? 'PENDING',
+      workflowStatus: StockWorkflowStatus.fromApi(json['workflowStatus']),
       proposedData: json['proposedData'] as Map<String, dynamic>?,
       requestedByName: json['requestedByName'] as String? ?? '',
       submittedAt: DateTime.parse(json['submittedAt'] as String).toLocal(),
@@ -225,7 +228,7 @@ StockSubmission stockSubmissionFromJson(Map<String, dynamic> json) {
     ),
     remarks: (json['remarks'] as Map<String, dynamic>? ?? const {})
         .map((key, value) => MapEntry(key, value.toString())),
-    reviewStatus: json['reviewStatus'] as String? ?? 'Pending Review',
+    workflowStatus: StockWorkflowStatus.fromApi(json['workflowStatus']),
     reviewedBy: json['reviewedBy'] as String? ?? '',
     reviewedAt: json['reviewedAt'] as String? ?? '',
     reviewNote: json['reviewNote'] as String? ?? '',
@@ -245,7 +248,7 @@ StockReceivingRecord stockReceivingRecordFromJson(
     invoicePhotoName: json['invoicePhotoName'] as String,
     goodsPhotoName: json['goodsPhotoName'] as String,
     items: _list(json['items'], stockReceivingItemFromJson),
-    reviewStatus: json['reviewStatus'] as String? ?? 'Pending Review',
+    workflowStatus: StockWorkflowStatus.fromApi(json['workflowStatus']),
     reviewedBy: json['reviewedBy'] as String? ?? '',
     reviewedAt: json['reviewedAt'] as String? ?? '',
     reviewNote: json['reviewNote'] as String? ?? '',
@@ -300,6 +303,9 @@ Map<String, Object?> stockSkuToJson(StockSku sku) {
     'receivingChecklist': sku.receivingChecklist,
     'stockCheckSchedule': sku.stockCheckSchedule.apiValue,
     'stockCheckDay': sku.stockCheckDay,
+    'stockCheckDate': sku.stockCheckDate == null
+        ? null
+        : formatApiDate(sku.stockCheckDate!),
     'active': sku.active,
     'coolingPeriod': sku.coolingPeriod,
   };

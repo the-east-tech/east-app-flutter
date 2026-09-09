@@ -132,6 +132,8 @@ class _DailyStockCountPageState extends State<_DailyStockCountPage> {
   DateTime countCycleStart(StockSku sku, DateTime now) {
     final today = DateTime(now.year, now.month, now.day);
     switch (sku.stockCheckSchedule) {
+      case StockCheckSchedule.adHoc:
+        return sku.stockCheckDate ?? today;
       case StockCheckSchedule.daily:
         return today;
       case StockCheckSchedule.weekly:
@@ -159,6 +161,8 @@ class _DailyStockCountPageState extends State<_DailyStockCountPage> {
 
   DateTime countCycleEnd(StockSku sku, DateTime start) {
     switch (sku.stockCheckSchedule) {
+      case StockCheckSchedule.adHoc:
+        return start.add(const Duration(days: 1));
       case StockCheckSchedule.daily:
         return start.add(const Duration(days: 1));
       case StockCheckSchedule.weekly:
@@ -174,8 +178,7 @@ class _DailyStockCountPageState extends State<_DailyStockCountPage> {
   }
 
   bool submissionBlocksCount(StockSubmission submission) {
-    final status = submission.reviewStatus.trim().toUpperCase();
-    return status != 'REJECTED' && status != 'PENDING';
+    return submission.workflowStatus != StockWorkflowStatus.pending;
   }
 
   StockSubmission? latestSubmissionFor(
@@ -199,6 +202,12 @@ class _DailyStockCountPageState extends State<_DailyStockCountPage> {
     StockSku sku, {
     List<StockSubmission>? submissions,
   }) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    if (sku.stockCheckSchedule == StockCheckSchedule.adHoc &&
+        sku.stockCheckDate?.isAfter(today) == true) {
+      return false;
+    }
     final alreadySubmitted = latestSubmissionFor(
           sku,
           submissions: submissions,

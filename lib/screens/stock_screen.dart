@@ -23,6 +23,8 @@ import '../utils/app_diagnostics.dart';
 import '../widgets/app_components.dart';
 import '../widgets/app_feedback.dart';
 import '../widgets/app_number_pad.dart';
+import '../widgets/dashboard_menu.dart';
+import '../widgets/schedule_selector.dart';
 
 part 'stock_screen_common.dart';
 part 'stock_screen_contract.dart';

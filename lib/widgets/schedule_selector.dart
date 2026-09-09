@@ -36,7 +36,7 @@ class ScheduleSelector extends StatelessWidget {
           : '${text.t('One-time on')} ${_formatDate(date!)}.',
       AppScheduleType.daily => text.t('Repeats every day.'),
       AppScheduleType.weekly =>
-        '${text.t('Repeats every')} ${text.t(weekdays[((day ?? 1).clamp(1, 7)) - 1])}.',
+        '${text.t('Repeats every')} ${text.t(weekdays[(day ?? 1).clamp(1, 7).toInt() - 1])}.',
       AppScheduleType.monthly => day == null
           ? text.t('Repeats on the last day of every month.')
           : '${text.t('Repeats monthly on Day')} $day.',

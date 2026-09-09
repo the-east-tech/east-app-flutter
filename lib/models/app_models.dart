@@ -23,6 +23,24 @@ enum StockCheckSchedule {
   }
 }
 
+enum StockWorkflowStatus {
+  pending('PENDING', 'Pending'),
+  submitted('SUBMITTED', 'Submitted'),
+  done('DONE', 'Done');
+
+  final String apiValue;
+  final String label;
+
+  const StockWorkflowStatus(this.apiValue, this.label);
+
+  static StockWorkflowStatus fromApi(Object? value) {
+    return StockWorkflowStatus.values.firstWhere(
+      (status) => status.apiValue == value,
+      orElse: () => StockWorkflowStatus.submitted,
+    );
+  }
+}
+
 enum KnowledgeVideoLanguage {
   english('ENGLISH', 'English'),
   myanmar('MYANMAR', 'Myanmar');
@@ -410,7 +428,7 @@ class StockReceivingRecord {
   final String invoicePhotoName;
   final String goodsPhotoName;
   final List<StockReceivingItem> items;
-  final String reviewStatus;
+  final StockWorkflowStatus workflowStatus;
   final String reviewedBy;
   final String reviewedAt;
   final String reviewNote;
@@ -425,19 +443,18 @@ class StockReceivingRecord {
     required this.invoicePhotoName,
     required this.goodsPhotoName,
     required this.items,
-    this.reviewStatus = 'Pending Review',
+    this.workflowStatus = StockWorkflowStatus.submitted,
     this.reviewedBy = '',
     this.reviewedAt = '',
     this.reviewNote = '',
   });
 
-  bool get isApproved => reviewStatus == 'Approved';
-  bool get isRejected => reviewStatus == 'Rejected';
-  bool get isPendingReview =>
-      reviewStatus == 'Pending Review' || reviewStatus == 'Pending';
+  bool get isApproved => workflowStatus == StockWorkflowStatus.done;
+  bool get isRejected => workflowStatus == StockWorkflowStatus.pending;
+  bool get isPendingReview => workflowStatus == StockWorkflowStatus.submitted;
 
   StockReceivingRecord copyWith({
-    String? reviewStatus,
+    StockWorkflowStatus? workflowStatus,
     String? reviewedBy,
     String? reviewedAt,
     String? reviewNote,
@@ -452,7 +469,7 @@ class StockReceivingRecord {
       invoicePhotoName: invoicePhotoName,
       goodsPhotoName: goodsPhotoName,
       items: items,
-      reviewStatus: reviewStatus ?? this.reviewStatus,
+      workflowStatus: workflowStatus ?? this.workflowStatus,
       reviewedBy: reviewedBy ?? this.reviewedBy,
       reviewedAt: reviewedAt ?? this.reviewedAt,
       reviewNote: reviewNote ?? this.reviewNote,
@@ -510,7 +527,7 @@ class StockSubmission {
   final bool belowMinimumBalance;
   final Map<String, bool> checkedItems;
   final Map<String, String> remarks;
-  final String reviewStatus;
+  final StockWorkflowStatus workflowStatus;
   final String reviewedBy;
   final String reviewedAt;
   final String reviewNote;
@@ -535,20 +552,19 @@ class StockSubmission {
     required this.belowMinimumBalance,
     required this.checkedItems,
     required this.remarks,
-    this.reviewStatus = 'Pending Review',
+    this.workflowStatus = StockWorkflowStatus.submitted,
     this.reviewedBy = '',
     this.reviewedAt = '',
     this.reviewNote = '',
   });
 
-  bool get isApproved => reviewStatus == 'Approved';
-  bool get isRejected => reviewStatus == 'Rejected';
-  bool get isPendingReview =>
-      reviewStatus == 'Pending Review' || reviewStatus == 'Pending';
+  bool get isApproved => workflowStatus == StockWorkflowStatus.done;
+  bool get isRejected => workflowStatus == StockWorkflowStatus.pending;
+  bool get isPendingReview => workflowStatus == StockWorkflowStatus.submitted;
   double get increasedValue => currentBalanceValue - previousBalanceValue;
 
   StockSubmission copyWith({
-    String? reviewStatus,
+    StockWorkflowStatus? workflowStatus,
     String? reviewedBy,
     String? reviewedAt,
     String? reviewNote,
@@ -573,7 +589,7 @@ class StockSubmission {
       belowMinimumBalance: belowMinimumBalance,
       checkedItems: checkedItems,
       remarks: remarks,
-      reviewStatus: reviewStatus ?? this.reviewStatus,
+      workflowStatus: workflowStatus ?? this.workflowStatus,
       reviewedBy: reviewedBy ?? this.reviewedBy,
       reviewedAt: reviewedAt ?? this.reviewedAt,
       reviewNote: reviewNote ?? this.reviewNote,
