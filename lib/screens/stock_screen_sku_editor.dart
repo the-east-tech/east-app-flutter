@@ -441,6 +441,14 @@ class _SkuEditorFormState extends State<_SkuEditorForm> {
       'biji', 'unit',
     ];
     const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    final stockCheckDescription = switch (stockCheckSchedule) {
+      StockCheckSchedule.daily => text.t('Repeats every day.'),
+      StockCheckSchedule.weekly =>
+        '${text.t('Repeats every')} ${text.t(weekdays[stockCheckDay.clamp(1, 7).toInt() - 1])}.',
+      StockCheckSchedule.monthly => stockCheckDay == 0
+          ? text.t('Repeats on the last day of every month.')
+          : '${text.t('Repeats monthly on Day')} $stockCheckDay.',
+    };
 
     return Column(
       children: [
@@ -610,79 +618,115 @@ class _SkuEditorFormState extends State<_SkuEditorForm> {
               if (photoRequiredError)
                 _InlineError(text.t('Stock Thumbnail required')),
               const SizedBox(height: 14),
-              _FieldLabel(text.t('Stock Check')),
-              DropdownButtonFormField<StockCheckSchedule>(
-                initialValue: stockCheckSchedule,
-                isExpanded: true,
-                decoration: _inputDecoration(''),
-                items: StockCheckSchedule.values
-                    .map(
-                      (schedule) => DropdownMenuItem(
-                        value: schedule,
-                        child: Text(text.t(schedule.label)),
+              WhiteCard(
+                margin: EdgeInsets.zero,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      text.t('Stock Check'),
+                      style: const TextStyle(
+                        fontSize: AppTextSize.s18,
+                        fontWeight: FontWeight.w900,
                       ),
-                    )
-                    .toList(growable: false),
-                onChanged: (value) {
-                  if (value == null) return;
-                  setState(() {
-                    stockCheckSchedule = value;
-                    if (value == StockCheckSchedule.weekly) {
-                      stockCheckDay = stockCheckDay == 0
-                          ? 1
-                          : stockCheckDay.clamp(1, 7).toInt();
-                    } else if (value == StockCheckSchedule.monthly) {
-                      stockCheckDay = stockCheckDay > 28
-                          ? 0
-                          : stockCheckDay.clamp(0, 28).toInt();
-                    }
-                  });
-                },
-              ),
-              if (stockCheckSchedule == StockCheckSchedule.weekly) ...[
-                const SizedBox(height: 8),
-                DropdownButtonFormField<int>(
-                  initialValue: stockCheckDay.clamp(1, 7).toInt(),
-                  isExpanded: true,
-                  decoration: _inputDecoration(''),
-                  items: List.generate(
-                    7,
-                    (index) => DropdownMenuItem(
-                      value: index + 1,
-                      child: Text(text.t(weekdays[index])),
                     ),
-                  ),
-                  onChanged: (value) {
-                    if (value != null) setState(() => stockCheckDay = value);
-                  },
-                ),
-              ],
-              if (stockCheckSchedule == StockCheckSchedule.monthly) ...[
-                const SizedBox(height: 8),
-                DropdownButtonFormField<int>(
-                  initialValue: stockCheckDay > 28
-                      ? 0
-                      : stockCheckDay.clamp(0, 28).toInt(),
-                  isExpanded: true,
-                  decoration: _inputDecoration(''),
-                  items: [
-                    DropdownMenuItem(
-                      value: 0,
-                      child: Text(text.t('Last day')),
+                    const SizedBox(height: 10),
+                    DropdownButtonFormField<StockCheckSchedule>(
+                      initialValue: stockCheckSchedule,
+                      isExpanded: true,
+                      decoration: InputDecoration(
+                        labelText: text.t('Schedule Type'),
+                        prefixIcon: const Icon(Icons.event_repeat_rounded),
+                        border: const OutlineInputBorder(),
+                      ),
+                      items: StockCheckSchedule.values
+                          .map(
+                            (schedule) => DropdownMenuItem(
+                              value: schedule,
+                              child: Text(text.t(schedule.label)),
+                            ),
+                          )
+                          .toList(growable: false),
+                      onChanged: (value) {
+                        if (value == null) return;
+                        setState(() {
+                          stockCheckSchedule = value;
+                          if (value == StockCheckSchedule.weekly) {
+                            stockCheckDay = stockCheckDay == 0
+                                ? 1
+                                : stockCheckDay.clamp(1, 7).toInt();
+                          } else if (value == StockCheckSchedule.monthly) {
+                            stockCheckDay = stockCheckDay > 28
+                                ? 0
+                                : stockCheckDay.clamp(0, 28).toInt();
+                          }
+                        });
+                      },
                     ),
-                    ...List.generate(
-                      28,
-                      (index) => DropdownMenuItem(
-                        value: index + 1,
-                        child: Text('${text.t('Day')} ${index + 1}'),
+                    if (stockCheckSchedule == StockCheckSchedule.weekly) ...[
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<int>(
+                        initialValue: stockCheckDay.clamp(1, 7).toInt(),
+                        isExpanded: true,
+                        decoration: InputDecoration(
+                          labelText: text.t('Check day'),
+                          prefixIcon: const Icon(Icons.calendar_today_outlined),
+                          border: const OutlineInputBorder(),
+                        ),
+                        items: List.generate(
+                          7,
+                          (index) => DropdownMenuItem(
+                            value: index + 1,
+                            child: Text(text.t(weekdays[index])),
+                          ),
+                        ),
+                        onChanged: (value) {
+                          if (value != null) setState(() => stockCheckDay = value);
+                        },
+                      ),
+                    ],
+                    if (stockCheckSchedule == StockCheckSchedule.monthly) ...[
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<int>(
+                        initialValue: stockCheckDay > 28
+                            ? 0
+                            : stockCheckDay.clamp(0, 28).toInt(),
+                        isExpanded: true,
+                        decoration: InputDecoration(
+                          labelText: text.t('Check day'),
+                          prefixIcon: const Icon(Icons.calendar_today_outlined),
+                          border: const OutlineInputBorder(),
+                        ),
+                        items: [
+                          DropdownMenuItem(
+                            value: 0,
+                            child: Text(text.t('Last day')),
+                          ),
+                          ...List.generate(
+                            28,
+                            (index) => DropdownMenuItem(
+                              value: index + 1,
+                              child: Text('${text.t('Day')} ${index + 1}'),
+                            ),
+                          ),
+                        ],
+                        onChanged: (value) {
+                          if (value != null) setState(() => stockCheckDay = value);
+                        },
+                      ),
+                    ],
+                    const SizedBox(height: 10),
+                    Text(
+                      stockCheckDescription,
+                      style: const TextStyle(
+                        color: AppColours.textMuted,
+                        fontSize: AppTextSize.s13,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],
-                  onChanged: (value) {
-                    if (value != null) setState(() => stockCheckDay = value);
-                  },
                 ),
-              ],
+              ),
               const SizedBox(height: 14),
               _FieldLabel(text.t('Unit')),
               DropdownButtonFormField<String>(
