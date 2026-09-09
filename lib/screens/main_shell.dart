@@ -1590,11 +1590,14 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
                   ? pendingStockCheckCount
                   : 0;
           final stockBadgeCount = widget.session.user.role.isOwner
-              ? (homeReviewSummary?.outstandingPending ?? 0)
+              ? (homeReviewSummary?.outstandingPending ?? 0) +
+                  (homeReviewSummary?.readyToReceive ?? 0)
               : widget.role == UserRole.head
                   ? (homeReviewSummary?.dailyCountPending ?? 0) +
-                      (homeReviewSummary?.receivingPending ?? 0)
-                  : inventoryBadgeCount;
+                      (homeReviewSummary?.receivingPending ?? 0) +
+                      (homeReviewSummary?.readyToReceive ?? 0)
+                  : inventoryBadgeCount +
+                      (homeReviewSummary?.readyToReceive ?? 0);
           final taskBadgeCount =
               (homeReportDashboard?.pendingSalesApprovals ?? 0) +
               (homeReportDashboard?.pendingWasteApprovals ?? 0) +

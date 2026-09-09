@@ -23,8 +23,8 @@ class _StockHomePage extends StatelessWidget {
   bool get canManageSetup => isOwner || isHead;
   bool get canReview => isOwner || isHead;
 
-  Widget? approvalBadge(int count) {
-    if (!canReview || count <= 0) return null;
+  Widget? countBadge(int count) {
+    if (count <= 0) return null;
     return Badge.count(
       count: count,
       backgroundColor: AppColours.red,
@@ -50,7 +50,9 @@ class _StockHomePage extends StatelessWidget {
               title: text.t('Count'),
               subtitle: text.t('Stock Balance'),
               icon: Icons.fact_check_outlined,
-              badge: approvalBadge(reviewSummary?.dailyCountPending ?? 0),
+              badge: countBadge(
+                canReview ? (reviewSummary?.dailyCountPending ?? 0) : 0,
+              ),
               onTap: () => onOpenPage(StockPage.dailyCount),
             ),
             if (canReceiveStock)
@@ -58,7 +60,12 @@ class _StockHomePage extends StatelessWidget {
                 title: text.t('Receiving'),
                 subtitle: text.t('Invoice & goods check'),
                 icon: Icons.assignment_turned_in_outlined,
-                badge: approvalBadge(reviewSummary?.receivingPending ?? 0),
+                badge: countBadge(
+                  (reviewSummary?.readyToReceive ?? 0) +
+                      (canReview
+                          ? (reviewSummary?.receivingPending ?? 0)
+                          : 0),
+                ),
                 onTap: () => onOpenPage(StockPage.receiving),
               ),
             if (canPurchaseStock)
@@ -83,7 +90,7 @@ class _StockHomePage extends StatelessWidget {
                 subtitle: text.t('Create/list SKU'),
                 icon: Icons.widgets_outlined,
                 badge: isOwner
-                    ? approvalBadge(reviewSummary?.skuChangePending ?? 0)
+                    ? countBadge(reviewSummary?.skuChangePending ?? 0)
                     : null,
                 onTap: () => onOpenPage(StockPage.skuSetup),
               ),
