@@ -5,6 +5,7 @@ enum UserRole {
 }
 
 enum StockCheckSchedule {
+  adHoc('AD_HOC', 'Ad hoc'),
   daily('DAILY', 'Daily'),
   weekly('WEEKLY', 'Weekly'),
   monthly('MONTHLY', 'Monthly');
@@ -251,6 +252,7 @@ class StockSku {
   final List<String> receivingChecklist;
   final StockCheckSchedule stockCheckSchedule;
   final int? stockCheckDay;
+  final DateTime? stockCheckDate;
   final String lastUpdatedAt;
   final String lastUpdatedBy;
   final bool active;
@@ -277,6 +279,7 @@ class StockSku {
     this.receivingChecklist = const [],
     this.stockCheckSchedule = StockCheckSchedule.daily,
     this.stockCheckDay,
+    this.stockCheckDate,
     required this.lastUpdatedAt,
     required this.lastUpdatedBy,
     this.active = true,
@@ -330,6 +333,8 @@ class StockSku {
     List<String>? receivingChecklist,
     StockCheckSchedule? stockCheckSchedule,
     int? stockCheckDay,
+    bool clearStockCheckDay = false,
+    DateTime? stockCheckDate,
     String? lastUpdatedAt,
     String? lastUpdatedBy,
     bool? active,
@@ -360,9 +365,13 @@ class StockSku {
       location: location ?? this.location,
       receivingChecklist: receivingChecklist ?? this.receivingChecklist,
       stockCheckSchedule: nextSchedule,
-      stockCheckDay: nextSchedule == StockCheckSchedule.daily
+      stockCheckDay: nextSchedule == StockCheckSchedule.daily ||
+              nextSchedule == StockCheckSchedule.adHoc || clearStockCheckDay
           ? null
           : stockCheckDay ?? this.stockCheckDay,
+      stockCheckDate: nextSchedule == StockCheckSchedule.adHoc
+          ? stockCheckDate ?? this.stockCheckDate
+          : null,
       lastUpdatedAt: lastUpdatedAt ?? this.lastUpdatedAt,
       lastUpdatedBy: lastUpdatedBy ?? this.lastUpdatedBy,
       active: active ?? this.active,
