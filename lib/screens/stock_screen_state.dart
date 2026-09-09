@@ -299,6 +299,8 @@ class _StockScreenState extends State<StockScreen> {
           onReviewReceiving: reviewReceiving,
           onReviewStockCount: widget.onReviewStockCount,
           onBulkReviewStockCounts: widget.onBulkReviewStockCounts,
+          tags: widget.tags,
+          suppliers: widget.suppliers,
           canReviewSkuChanges: widget.isOwner,
           onSkuChangeReviewed: widget.onSkuChangeReviewed,
         ),
