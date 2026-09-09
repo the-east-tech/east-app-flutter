@@ -11,6 +11,7 @@ class ScheduleSelector extends StatelessWidget {
   final AppScheduleType value;
   final int? day;
   final DateTime? date;
+  final bool compact;
   final ValueChanged<AppScheduleType> onTypeChanged;
   final ValueChanged<int?> onDayChanged;
   final ValueChanged<DateTime?> onDateChanged;
@@ -21,6 +22,7 @@ class ScheduleSelector extends StatelessWidget {
     required this.value,
     required this.day,
     required this.date,
+    this.compact = false,
     required this.onTypeChanged,
     required this.onDayChanged,
     required this.onDateChanged,
@@ -56,11 +58,14 @@ class ScheduleSelector extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Wrap(
-            spacing: 8,
+            spacing: compact ? 6 : 8,
             runSpacing: 8,
             children: AppScheduleType.values.map((type) {
               return ChoiceChip(
                 label: Text(text.t(_label(type))),
+                labelPadding: compact
+                    ? const EdgeInsets.symmetric(horizontal: 2)
+                    : null,
                 selected: value == type,
                 onSelected: (_) => onTypeChanged(type),
               );
