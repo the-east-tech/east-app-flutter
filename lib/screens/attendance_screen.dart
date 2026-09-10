@@ -105,7 +105,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   bool get isOwner => widget.currentUser.role.isOwner;
   bool get isHead => widget.role == UserRole.head;
   bool get isManager => widget.role == UserRole.manager;
-  bool get canManageUsers => isHead || isManager;
+  bool get canManageUsers => isOwner || isHead || isManager;
   bool get canCreateUsers => canManageUsers;
   bool get canManageTenants => isOwner;
   bool get canManagePoints => isOwner || isHead;
@@ -818,7 +818,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
             : isManager
                 ? const {'SUPERVISOR', 'SENIOR_STAFF', 'STAFF', 'PART_TIME'}
                 : null,
-        allowPasswordReset: user.id != widget.currentUser.id,
+        allowPasswordReset: isOwner || user.id != widget.currentUser.id,
         allowStatusEdit:
             user.id != widget.currentUser.id && user.roleSystemKey != 'OWNER',
         onSaveUser: (draft) async {

@@ -32,6 +32,9 @@ class _TheEastAppState extends State<TheEastApp> {
 
   EastAppSession? session;
   AppLanguage language = AppLanguage.english;
+  String lastCompanyCode = 'EAST';
+  String lastEmployeeId = '';
+  String lastPassword = '';
   bool restoringSession = true;
   bool checkingSetup = true;
   bool setupRequired = false;
@@ -184,6 +187,12 @@ class _TheEastAppState extends State<TheEastApp> {
 
     String? token;
     try {
+      final storedCompanyCode = (await sessionStore.readCompanyCode())?.trim();
+      if (storedCompanyCode != null && storedCompanyCode.isNotEmpty) {
+        lastCompanyCode = storedCompanyCode;
+      }
+      lastEmployeeId = (await sessionStore.readEmployeeId())?.trim() ?? '';
+      lastPassword = await sessionStore.readPassword() ?? '';
       token = await sessionStore.readToken();
     } catch (error) {
       AppDiagnostics.instance.logWarning(
@@ -208,9 +217,20 @@ class _TheEastAppState extends State<TheEastApp> {
 
     try {
       final restored = await api.currentSession(token);
+      if (lastCompanyCode != restored.tenant.companyCode) {
+        try {
+          await sessionStore.writeCompanyCode(restored.tenant.companyCode);
+        } catch (error) {
+          AppDiagnostics.instance.logWarning(
+            'Failed to remember the restored company ID: $error',
+          );
+        }
+      }
       if (!mounted) return;
       setState(() {
         session = restored;
+        lastCompanyCode = restored.tenant.companyCode;
+        lastEmployeeId = restored.user.employeeId;
         restoringSession = false;
       });
     } on EastAppApiException catch (error) {
@@ -251,9 +271,17 @@ class _TheEastAppState extends State<TheEastApp> {
     });
   }
 
-  Future<void> handleSignedIn(EastAppSession signedInSession) async {
+  Future<void> handleSignedIn(
+    EastAppSession signedInSession,
+    String password,
+  ) async {
     try {
-      await sessionStore.writeToken(signedInSession.token);
+      await sessionStore.writeSession(
+        token: signedInSession.token,
+        companyCode: signedInSession.tenant.companyCode,
+        employeeId: signedInSession.user.employeeId,
+        password: password,
+      );
     } catch (error) {
       api.useToken(null);
       AppDiagnostics.instance.logWarning(
@@ -268,6 +296,9 @@ class _TheEastAppState extends State<TheEastApp> {
     if (!mounted) return;
     setState(() {
       session = signedInSession;
+      lastCompanyCode = signedInSession.tenant.companyCode;
+      lastEmployeeId = signedInSession.user.employeeId;
+      lastPassword = password;
       startupError = null;
     });
   }
@@ -409,6 +440,9 @@ class _TheEastAppState extends State<TheEastApp> {
       return LoginScreen(
         api: api,
         onSignedIn: handleSignedIn,
+        initialCompanyCode: lastCompanyCode,
+        initialEmployeeId: lastEmployeeId,
+        initialPassword: lastPassword,
         initialLanguage: language,
         onLanguageChanged: handleLanguageChanged,
       );
