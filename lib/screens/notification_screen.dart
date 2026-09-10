@@ -473,6 +473,7 @@ String activityRoleLabel(AppText text, String systemKey) {
     'MANAGER' => 'Manager',
     'HEAD' => 'Head',
     'OWNER' => 'Owner',
+    'SYSTEM' => 'System',
     _ => systemKey.replaceAll('_', ' '),
   };
   return text.t(label);

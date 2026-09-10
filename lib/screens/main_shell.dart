@@ -638,9 +638,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
       builder: (sheetContext) => AppSettingsSheet(
         language: language,
         translationDirection: widget.api.translationDirection,
-        canManageStorage: widget.session.user.role.isOwner &&
-            widget.session.user.employeeId == 'E0001' &&
-            widget.session.user.phoneE164 == '+60166016488',
+        canManageStorage: widget.session.can(EastAppPermission.storageAdmin),
         onStorageManagement: () {
           Navigator.of(sheetContext).pop();
           unawaited(

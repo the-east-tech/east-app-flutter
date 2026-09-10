@@ -11,7 +11,8 @@ enum EastAppPermission {
   taskContribute('TASK_CONTRIBUTE'),
   taskViewAll('TASK_VIEW_ALL'),
   taskManage('TASK_MANAGE'),
-  taskRate('TASK_RATE');
+  taskRate('TASK_RATE'),
+  storageAdmin('STORAGE_ADMIN');
 
   final String apiValue;
 

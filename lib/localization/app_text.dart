@@ -838,6 +838,7 @@ const Map<String, String> _myanmar = {
   'Reviewed At': 'စစ်ဆေးသည့်အချိန်',
   'Reviewed By': 'စစ်ဆေးသူ',
   'Role': 'ရာထူး',
+  'System': 'စနစ်',
   'SKU': 'SKU',
   'SKU Name': 'SKU အမည်',
   'SKU Photo': 'SKU ဓာတ်ပုံ',
@@ -1304,8 +1305,8 @@ const Map<String, String> _myanmar = {
   'Set User Inactive': 'အသုံးပြုသူကို Inactive သတ်မှတ်ရန်',
   'Update User?': 'အသုံးပြုသူကို ပြင်ဆင်မည်လား။',
   'Create User?': 'အသုံးပြုသူ ဖန်တီးမည်လား။',
-  'This will assign Owner access and a separate employee ID in every business.':
-      'လုပ်ငန်းတိုင်းတွင် Owner အသုံးပြုခွင့်နှင့် သီးခြားဝန်ထမ်း ID တစ်ခု သတ်မှတ်မည်။',
+  'This will assign Owner access and a separate employee ID in this business.':
+      'ဤလုပ်ငန်းတွင် Owner အသုံးပြုခွင့်နှင့် သီးခြားဝန်ထမ်း ID တစ်ခု သတ်မှတ်မည်။',
   'This will update the selected user account and access settings.':
       'ရွေးထားသော အသုံးပြုသူအကောင့်နှင့် အသုံးပြုခွင့် ဆက်တင်များကို ပြင်ဆင်မည်။',
   'User updated': 'အသုံးပြုသူ ပြင်ဆင်ပြီး',
@@ -1577,15 +1578,15 @@ const Map<String, String> _myanmar = {
   'Password must contain at least 4 characters.': 'စကားဝှက်တွင် အနည်းဆုံး စာလုံး ၄ လုံး ပါရမည်။',
   'Passwords do not match.': 'စကားဝှက်များ မကိုက်ညီပါ။',
   'Complete Initial Setup?': 'ကနဦးသတ်မှတ်မှုကို ပြီးစီးမည်လား။',
-  'This will create the first business and Owner account. The selected Google location will be used as the office reference for attendance distance.':
-      'ပထမလုပ်ငန်းနှင့် Owner အကောင့်ကို ဖန်တီးမည်။ ရွေးထားသော Google တည်နေရာကို တက်ရောက်မှုအကွာအဝေးအတွက် အလုပ်နေရာအညွှန်းအဖြစ် အသုံးပြုမည်။',
-  'Owner Account Created': 'Owner အကောင့် ဖန်တီးပြီး',
+  'This will create the first business and founding account. The selected Google location will be used as the office reference for attendance distance.':
+      'ပထမလုပ်ငန်းနှင့် စတင်တည်ထောင်သူအကောင့်ကို ဖန်တီးမည်။ ရွေးထားသော Google တည်နေရာကို တက်ရောက်မှုအကွာအဝေးအတွက် အလုပ်နေရာအညွှန်းအဖြစ် အသုံးပြုမည်။',
+  'Founding Account Created': 'စတင်တည်ထောင်သူအကောင့် ဖန်တီးပြီး',
   'Use the Company Code, Employee ID and password to sign in.':
       'ဝင်ရောက်ရန် Company Code၊ ဝန်ထမ်း ID နှင့် စကားဝှက်ကို အသုံးပြုပါ။',
   'Continue to Login': 'Login သို့ ဆက်ရန်',
   'Initial Setup': 'ကနဦး သတ်မှတ်မှု',
-  'Create the first business and Owner account. Employee ID is generated automatically.':
-      'ပထမလုပ်ငန်းနှင့် Owner အကောင့်ကို ဖန်တီးပါ။ ဝန်ထမ်း ID ကို အလိုအလျောက် ဖန်တီးပေးမည်။',
+  'Create the first business and founding account. Employee ID is generated automatically.':
+      'ပထမလုပ်ငန်းနှင့် စတင်တည်ထောင်သူအကောင့်ကို ဖန်တီးပါ။ ဝန်ထမ်း ID ကို အလိုအလျောက် ဖန်တီးပေးမည်။',
   'Setup Code': 'Setup Code',
   '10-character code': 'စာလုံး ၁၀ လုံးပါ ကုဒ်',
   'Business Name': 'လုပ်ငန်းအမည်',
@@ -1598,7 +1599,7 @@ const Map<String, String> _myanmar = {
   'Create a password': 'စကားဝှက် ဖန်တီးပါ',
   'Confirm Password': 'စကားဝှက် အတည်ပြုရန်',
   'Enter the password again': 'စကားဝှက်ကို ထပ်မံထည့်ပါ',
-  'Create Business & Owner': 'လုပ်ငန်းနှင့် Owner ဖန်တီးရန်',
+  'Create Business & Account': 'လုပ်ငန်းနှင့် အကောင့် ဖန်တီးရန်',
   'Backend unavailable': 'Backend အသုံးမပြုနိုင်ပါ',
   'Return to login': 'Login သို့ ပြန်ရန်',
   'Google Business Location': 'Google လုပ်ငန်းတည်နေရာ',
@@ -1647,8 +1648,8 @@ const Map<String, String> _myanmar = {
   'Update Business?': 'လုပ်ငန်းကို ပြင်ဆင်မည်လား။',
   'Create Business?': 'လုပ်ငန်း ဖန်တီးမည်လား။',
   'This updates only this business.': 'ဤလုပ်ငန်းကိုသာ ပြင်ဆင်မည်။',
-  'This creates a new isolated business, default roles and a separate Owner employee ID for every existing Owner.':
-      'သီးခြားလုပ်ငန်းအသစ်၊ မူလရာထူးများနှင့် ရှိပြီးသား Owner တစ်ဦးစီအတွက် သီးခြား Owner ဝန်ထမ်း ID ကို ဖန်တီးမည်။',
+  'This creates a new isolated business and a separate Owner employee ID only for the creator.':
+      'သီးခြားလုပ်ငန်းအသစ်နှင့် ဖန်တီးသူအတွက်သာ သီးခြား Owner ဝန်ထမ်း ID ကို ဖန်တီးမည်။',
   'Edit Business': 'လုပ်ငန်း ပြင်ဆင်ရန်',
   'Create Business': 'လုပ်ငန်း ဖန်တီးရန်',
   'Example: June Coffee': 'ဥပမာ - June Coffee',
@@ -2114,6 +2115,7 @@ const Map<String, String> _chinese = {
   'Reviewed At': '审核时间',
   'Reviewed By': '审核人',
   'Role': '角色',
+  'System': '系统',
   'SKU': 'SKU',
   'SKU Name': 'SKU名称',
   'SKU Photo': 'SKU照片',
@@ -2566,8 +2568,8 @@ const Map<String, String> _chinese = {
   'Set User Inactive': '将用户设为停用',
   'Update User?': '更新用户？',
   'Create User?': '创建用户？',
-  'This will assign Owner access and a separate employee ID in every business.':
-      '这将在每个业务中分配Owner权限及独立的员工编号。',
+  'This will assign Owner access and a separate employee ID in this business.':
+      '这将在当前业务中分配Owner权限及独立的员工编号。',
   'This will update the selected user account and access settings.':
       '这将更新所选用户账户及访问设置。',
   'User updated': '用户已更新',
@@ -2839,15 +2841,15 @@ const Map<String, String> _chinese = {
   'Password must contain at least 4 characters.': '密码必须至少包含4个字符。',
   'Passwords do not match.': '两次输入的密码不一致。',
   'Complete Initial Setup?': '完成初始设置？',
-  'This will create the first business and Owner account. The selected Google location will be used as the office reference for attendance distance.':
-      '这将创建第一个业务和Owner账户。所选Google位置将作为考勤距离的办公地点基准。',
-  'Owner Account Created': 'Owner账户已创建',
+  'This will create the first business and founding account. The selected Google location will be used as the office reference for attendance distance.':
+      '这将创建第一个业务及创始账户。所选Google位置将作为考勤距离的办公地点基准。',
+  'Founding Account Created': '创始账户已创建',
   'Use the Company Code, Employee ID and password to sign in.':
       '请使用公司代码、员工编号和密码登录。',
   'Continue to Login': '继续登录',
   'Initial Setup': '初始设置',
-  'Create the first business and Owner account. Employee ID is generated automatically.':
-      '创建第一个业务和Owner账户。员工编号将自动生成。',
+  'Create the first business and founding account. Employee ID is generated automatically.':
+      '创建第一个业务及创始账户。员工编号将自动生成。',
   'Setup Code': '设置代码',
   '10-character code': '10位代码',
   'Business Name': '业务名称',
@@ -2860,7 +2862,7 @@ const Map<String, String> _chinese = {
   'Create a password': '创建密码',
   'Confirm Password': '确认密码',
   'Enter the password again': '再次输入密码',
-  'Create Business & Owner': '创建业务和Owner',
+  'Create Business & Account': '创建业务及账户',
   'Backend unavailable': '后端不可用',
   'Return to login': '返回登录',
   'Google Business Location': 'Google业务位置',
@@ -2909,8 +2911,8 @@ const Map<String, String> _chinese = {
   'Update Business?': '更新业务？',
   'Create Business?': '创建业务？',
   'This updates only this business.': '这只会更新此业务。',
-  'This creates a new isolated business, default roles and a separate Owner employee ID for every existing Owner.':
-      '这将创建一个独立的新业务、默认角色，并为每位现有Owner创建独立的Owner员工编号。',
+  'This creates a new isolated business and a separate Owner employee ID only for the creator.':
+      '这将创建一个独立的新业务，并只为创建者生成独立的Owner员工编号。',
   'Edit Business': '编辑业务',
   'Create Business': '创建业务',
   'Example: June Coffee': '例如：June Coffee',
