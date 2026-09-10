@@ -40,7 +40,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
   Future<void> load() async {
     if (mounted) setState(() => loading = true);
     try {
-      final page = await widget.api.notifications(size: 100);
+      final page = await widget.api.notifications();
       if (!mounted) return;
       setState(() {
         items = page.content;
