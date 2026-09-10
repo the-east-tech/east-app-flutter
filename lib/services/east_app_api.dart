@@ -1,6 +1,3 @@
-Warning: truncated output (original token count: 26368)
-Total output lines: 3526
-
 import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
@@ -1714,7 +1711,62 @@ class EastAppApi {
   }
 
   Future<SopImpactAudit> knowledgeSopImpactAudit() async {
-    final …368 tokens truncated…requestJson(
+    final body = await _requestJson(
+      'GET',
+      '/api/v1/knowledge/audit/sops',
+    ) as Map<String, dynamic>;
+    return SopImpactAudit.fromJson(body);
+  }
+
+  Future<EastAppPage<EastAppActivityEvent>> recentActivity({
+    int page = 0,
+    int size = 5,
+  }) async {
+    final query = Uri(queryParameters: {
+      'page': '$page',
+      'size': '$size',
+    }).query;
+    final body = await _requestJson(
+      'GET',
+      '/api/v1/activity/recent?$query',
+    ) as Map<String, dynamic>;
+    return activityEventPageFromJson(body);
+  }
+
+  Future<EastAppPage<EastAppNotification>> notifications({
+    int page = 0,
+    int size = 50,
+  }) async {
+    final query = Uri(queryParameters: {
+      'page': '$page',
+      'size': '$size',
+    }).query;
+    final body = await _requestJson(
+      'GET',
+      '/api/v1/notifications?$query',
+    ) as Map<String, dynamic>;
+    return notificationPageFromJson(body);
+  }
+
+  Future<int> notificationUnreadCount() async {
+    final body = await _requestJson(
+      'GET',
+      '/api/v1/notifications/unread-count',
+      reportError: false,
+    ) as Map<String, dynamic>;
+    return (body['unreadCount'] as num).toInt();
+  }
+
+  Future<StorageOverview> storageOverview() async {
+    final body = await _requestJson(
+      'GET',
+      '/api/v1/storage-admin',
+    ) as Map<String, dynamic>;
+    return StorageOverview.fromJson(body);
+  }
+
+  Future<StorageCleanupResult> cleanupStorage(String key) async {
+    final body = await _requestJson(
       'POST',
       '/api/v1/storage-admin/cleanup/${Uri.encodeComponent(key)}',
       body: const {'confirmed': true},
@@ -3472,3 +3524,4 @@ final class _AsyncMemoryCache<T> {
     _inFlight = null;
   }
 }
+
