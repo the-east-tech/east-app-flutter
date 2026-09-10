@@ -331,10 +331,7 @@ class _CleanupCard extends StatelessWidget {
                   ),
                 ),
               ),
-              if (action.automatic)
-                const _StatusChip(label: 'Automatic')
-              else
-                _StatusChip(label: '${action.retentionDays} days'),
+              _StatusChip(label: '${action.retentionDays} days'),
             ],
           ),
           const SizedBox(height: 5),
@@ -355,7 +352,7 @@ class _CleanupCard extends StatelessWidget {
               OutlinedButton.icon(
                 onPressed: busy ? null : onDelete,
                 icon: const Icon(Icons.delete_sweep_outlined, size: 18),
-                label: Text(action.automatic ? 'Clean now' : 'Delete old'),
+                label: const Text('Delete old'),
               ),
             ],
           ),
