@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../localization/app_text_scope.dart';
 import '../models/storage_models.dart';
@@ -24,7 +25,7 @@ class StorageManagementScreen extends StatefulWidget {
 class _StorageManagementScreenState extends State<StorageManagementScreen> {
   StorageOverview? overview;
   bool loading = true;
-  String? cleaningKey;
+  String? cleaningTable;
 
   @override
   void initState() {
@@ -46,54 +47,116 @@ class _StorageManagementScreenState extends State<StorageManagementScreen> {
     }
   }
 
-  Future<void> cleanup(StorageCleanupAction action) async {
-    if (cleaningKey != null) return;
-    final confirmed = await confirmDataChange(
-      context,
-      action: 'Permanently delete old ${action.title.toLowerCase()}?',
-      confirmLabel: 'Delete permanently',
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            action.description,
-            style: const TextStyle(
-              color: AppColours.textMain,
-              fontSize: AppTextSize.s14,
-              height: 1.4,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 12),
-          const Text(
-            'This deletes matching old data across all company codes and cannot be undone. PostgreSQL will reuse the freed space, but the physical table size may not reduce immediately.',
-            style: TextStyle(
-              color: AppColours.red,
-              fontSize: AppTextSize.s13,
-              height: 1.4,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
-    );
-    if (!confirmed || !mounted) return;
+  Future<void> cleanup(StorageTableUsage table) async {
+    if (cleaningTable != null || table.deletableRows < 1) return;
+    final rowCount = await _chooseDeleteCount(table);
+    if (rowCount == null || !mounted) return;
 
-    setState(() => cleaningKey = action.key);
+    setState(() => cleaningTable = table.tableName);
     try {
-      final result = await widget.api.cleanupStorage(action.key);
+      final result = await widget.api.cleanupStorage(table.tableName, rowCount);
       if (!mounted) return;
       showSuccessSnackBar(
         context,
-        'Storage cleanup completed: ${result.deletedRows} rows deleted',
+        'Storage cleanup completed: ${result.deletedRows} oldest rows deleted from ${table.tableName}',
       );
       await load();
     } on EastAppApiException {
       // The shared API error dialog already explains the failure.
     } finally {
-      if (mounted) setState(() => cleaningKey = null);
+      if (mounted) setState(() => cleaningTable = null);
     }
+  }
+
+  Future<int?> _chooseDeleteCount(StorageTableUsage table) async {
+    final controller = TextEditingController(text: '1');
+    String? errorText;
+    final selected = await showDialog<int>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        final text = AppTextScope.of(dialogContext);
+        return StatefulBuilder(
+          builder: (context, setDialogState) => AlertDialog(
+            title: Row(
+              children: [
+                const Icon(
+                  Icons.warning_amber_rounded,
+                  color: AppColours.orange,
+                ),
+                const SizedBox(width: 10),
+                Expanded(child: Text(text.t('Delete oldest rows?'))),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    text.t(table.deleteDescription ?? ''),
+                    style: const TextStyle(
+                      color: AppColours.textMain,
+                      fontSize: AppTextSize.s14,
+                      height: 1.4,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: controller,
+                    autofocus: true,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    decoration: InputDecoration(
+                      labelText: text.t('Rows to delete'),
+                      helperText: '${text.t('Maximum safely deletable')}: '
+                          '${table.deletableRows}',
+                      errorText: errorText == null ? null : text.t(errorText!),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Text(
+                    text.t(
+                      'This permanently deletes the oldest selected rows across all company codes. Related dependent rows may also be deleted. This cannot be undone.',
+                    ),
+                    style: const TextStyle(
+                      color: AppColours.red,
+                      fontSize: AppTextSize.s13,
+                      height: 1.4,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: Text(text.t('Cancel')),
+              ),
+              FilledButton(
+                onPressed: () {
+                  final value = int.tryParse(controller.text);
+                  if (value == null ||
+                      value < 1 ||
+                      value > table.deletableRows) {
+                    setDialogState(
+                      () => errorText = 'Enter a valid row count.',
+                    );
+                    return;
+                  }
+                  Navigator.of(dialogContext).pop(value);
+                },
+                child: Text(text.t('Delete permanently')),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+    controller.dispose();
+    return selected;
   }
 
   @override
@@ -103,99 +166,80 @@ class _StorageManagementScreenState extends State<StorageManagementScreen> {
 
     return Scaffold(
       backgroundColor: AppColours.background,
-      body: SafeArea(
-        child: RefreshIndicator(
-          onRefresh: load,
-          child: ListView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(14, 8, 14, 28),
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+      body: AppProcessingOverlay(
+        isProcessing: cleaningTable != null,
+        child: SafeArea(
+          child: RefreshIndicator(
+            onRefresh: load,
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(14, 8, 14, 28),
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(top: 16),
+                      child: IconButton(
+                        onPressed: Navigator.of(context).pop,
+                        icon: const Icon(Icons.arrow_back_rounded),
+                      ),
+                    ),
+                    Expanded(
+                      child: PageTitle(
+                        title: text.t('Storage & Cleanup'),
+                        subtitle: text.t('Database use and manual cleanup'),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 16),
+                      child: IconButton(
+                        tooltip: text.t('Refresh'),
+                        onPressed: loading ? null : load,
+                        icon: const Icon(Icons.refresh_rounded),
+                      ),
+                    ),
+                  ],
+                ),
+                if (loading && value == null)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 120),
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                else if (value == null)
                   Padding(
-                    padding: const EdgeInsets.only(top: 16),
-                    child: IconButton(
-                      onPressed: Navigator.of(context).pop,
-                      icon: const Icon(Icons.arrow_back_rounded),
+                    padding: const EdgeInsets.only(top: 80),
+                    child: Center(
+                      child: OutlinedButton.icon(
+                        onPressed: load,
+                        icon: const Icon(Icons.refresh_rounded),
+                        label: Text(text.t('Try again')),
+                      ),
+                    ),
+                  )
+                else ...[
+                  _StorageSummary(overview: value),
+                  const SizedBox(height: 16),
+                  _SectionTitle(
+                    title: text.t('All database tables'),
+                    subtitle: text.t(
+                      'Exact row counts and table sizes. Oldest and latest use each table\'s most relevant date. Delete Old appears only where deletion is safe.',
                     ),
                   ),
-                  Expanded(
-                    child: PageTitle(
-                      title: text.t('Storage & Cleanup'),
-                      subtitle: text.t('Database use and manual cleanup'),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.only(top: 16),
-                    child: IconButton(
-                      tooltip: text.t('Refresh'),
-                      onPressed: loading ? null : load,
-                      icon: const Icon(Icons.refresh_rounded),
+                  const SizedBox(height: 10),
+                  ...value.tables.map(
+                    (table) => Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: _TableUsageCard(
+                        table: table,
+                        busy: cleaningTable != null,
+                        onDelete: () => cleanup(table),
+                      ),
                     ),
                   ),
                 ],
-              ),
-              if (loading && value == null)
-                const Padding(
-                  padding: EdgeInsets.only(top: 120),
-                  child: Center(child: CircularProgressIndicator()),
-                )
-              else if (value == null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 80),
-                  child: Center(
-                    child: OutlinedButton.icon(
-                      onPressed: load,
-                      icon: const Icon(Icons.refresh_rounded),
-                      label: Text(text.t('Try again')),
-                    ),
-                  ),
-                )
-              else ...[
-                _StorageSummary(overview: value),
-                const SizedBox(height: 16),
-                _SectionTitle(
-                  title: text.t('Operational cleanup'),
-                  subtitle: text.t(
-                    'Only growing history is removable. Setup and master data are protected.',
-                  ),
-                ),
-                const SizedBox(height: 10),
-                ...value.cleanupActions.map(
-                  (action) => Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: _CleanupCard(
-                      action: action,
-                      busy: cleaningKey != null,
-                      onDelete: () => cleanup(action),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                _SectionTitle(
-                  title: text.t('All database tables'),
-                  subtitle: text.t(
-                    'Rows are PostgreSQL estimates. Sizes include stored data and indexes.',
-                  ),
-                ),
-                const SizedBox(height: 10),
-                WhiteCard(
-                  padding: EdgeInsets.zero,
-                  child: Column(
-                    children: [
-                      for (var index = 0;
-                          index < value.tables.length;
-                          index++) ...[
-                        _TableUsageTile(table: value.tables[index]),
-                        if (index != value.tables.length - 1)
-                          const Divider(height: 1),
-                      ],
-                    ],
-                  ),
-                ),
               ],
-            ],
+            ),
           ),
         ),
       ),
@@ -302,14 +346,14 @@ class _SectionTitle extends StatelessWidget {
   }
 }
 
-class _CleanupCard extends StatelessWidget {
-  const _CleanupCard({
-    required this.action,
+class _TableUsageCard extends StatelessWidget {
+  const _TableUsageCard({
+    required this.table,
     required this.busy,
     required this.onDelete,
   });
 
-  final StorageCleanupAction action;
+  final StorageTableUsage table;
   final bool busy;
   final VoidCallback onDelete;
 
@@ -323,90 +367,10 @@ class _CleanupCard extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  action.title,
-                  style: const TextStyle(
-                    color: AppColours.textMain,
-                    fontSize: AppTextSize.s15,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-              _StatusChip(label: '${action.retentionDays} days'),
-            ],
-          ),
-          const SizedBox(height: 5),
-          Text(action.description, style: AppTextStyles.formHint),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'Related tables: ${formatBytes(action.currentBytes)}',
-                  style: const TextStyle(
-                    color: AppColours.textMuted,
-                    fontSize: AppTextSize.s12,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              OutlinedButton.icon(
-                onPressed: busy ? null : onDelete,
-                icon: const Icon(Icons.delete_sweep_outlined, size: 18),
-                label: const Text('Delete old'),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _StatusChip extends StatelessWidget {
-  const _StatusChip({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: AppColours.blue.withValues(alpha: 0.09),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        label,
-        style: const TextStyle(
-          color: AppColours.blue,
-          fontSize: AppTextSize.s11,
-          fontWeight: FontWeight.w800,
-        ),
-      ),
-    );
-  }
-}
-
-class _TableUsageTile extends StatelessWidget {
-  const _TableUsageTile({required this.table});
-
-  final StorageTableUsage table;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
                   table.tableName,
                   style: const TextStyle(
                     color: AppColours.textMain,
-                    fontSize: AppTextSize.s13,
+                    fontSize: AppTextSize.s14,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -426,19 +390,121 @@ class _TableUsageTile extends StatelessWidget {
             '${table.group} · ${table.dataUse}',
             style: AppTextStyles.formHint.copyWith(fontSize: AppTextSize.s12),
           ),
-          const SizedBox(height: 5),
+          const SizedBox(height: 9),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              _StatusChip(
+                icon: Icons.table_rows_rounded,
+                label: '${table.rowCount} rows',
+              ),
+              _StatusChip(
+                icon: Icons.history_rounded,
+                label: 'Oldest ${formatTableDate(table.oldestDate)}',
+              ),
+              _StatusChip(
+                icon: Icons.update_rounded,
+                label: 'Latest ${formatTableDate(table.latestDate)}',
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
           Text(
-            '~${table.estimatedRows} rows  ·  Data ${formatBytes(table.dataBytes)}  ·  Index ${formatBytes(table.indexBytes)}',
+            'Data ${formatBytes(table.dataBytes)}  ·  Index ${formatBytes(table.indexBytes)}',
             style: const TextStyle(
               color: AppColours.textMuted,
               fontSize: AppTextSize.s11,
               fontWeight: FontWeight.w600,
             ),
           ),
+          if (table.deleteAllowed) ...[
+            const SizedBox(height: 10),
+            const Divider(height: 1),
+            const SizedBox(height: 10),
+            Text(
+              AppTextScope.of(context).t(table.deleteDescription ?? ''),
+              style: AppTextStyles.formHint.copyWith(fontSize: AppTextSize.s12),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '${table.deletableRows} safely deletable',
+                    style: const TextStyle(
+                      color: AppColours.textMuted,
+                      fontSize: AppTextSize.s12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                OutlinedButton.icon(
+                  onPressed: busy || table.deletableRows < 1 ? null : onDelete,
+                  icon: const Icon(Icons.delete_sweep_outlined, size: 18),
+                  label: Text(AppTextScope.of(context).t('Delete Old')),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
   }
+}
+
+class _StatusChip extends StatelessWidget {
+  const _StatusChip({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppColours.blue.withValues(alpha: 0.09),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: AppColours.blue),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: const TextStyle(
+              color: AppColours.blue,
+              fontSize: AppTextSize.s11,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+String formatTableDate(DateTime? date) {
+  if (date == null) return '—';
+  const months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+  final day = date.day.toString().padLeft(2, '0');
+  final year = (date.year % 100).toString().padLeft(2, '0');
+  return '$day-${months[date.month - 1]}-$year';
 }
 
 String formatBytes(int bytes) {

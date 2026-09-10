@@ -3,14 +3,12 @@ class StorageOverview {
   final int databaseBytes;
   final int applicationTablesBytes;
   final List<StorageTableUsage> tables;
-  final List<StorageCleanupAction> cleanupActions;
 
   const StorageOverview({
     required this.measuredAt,
     required this.databaseBytes,
     required this.applicationTablesBytes,
     required this.tables,
-    required this.cleanupActions,
   });
 
   factory StorageOverview.fromJson(Map<String, dynamic> json) {
@@ -26,13 +24,6 @@ class StorageOverview {
             ),
           )
           .toList(growable: false),
-      cleanupActions: (json['cleanupActions'] as List<dynamic>)
-          .map(
-            (item) => StorageCleanupAction.fromJson(
-              item as Map<String, dynamic>,
-            ),
-          )
-          .toList(growable: false),
     );
   }
 }
@@ -41,19 +32,29 @@ class StorageTableUsage {
   final String tableName;
   final String group;
   final String dataUse;
-  final int estimatedRows;
+  final int rowCount;
+  final DateTime? oldestDate;
+  final DateTime? latestDate;
   final int dataBytes;
   final int indexBytes;
   final int totalBytes;
+  final bool deleteAllowed;
+  final int deletableRows;
+  final String? deleteDescription;
 
   const StorageTableUsage({
     required this.tableName,
     required this.group,
     required this.dataUse,
-    required this.estimatedRows,
+    required this.rowCount,
+    required this.oldestDate,
+    required this.latestDate,
     required this.dataBytes,
     required this.indexBytes,
     required this.totalBytes,
+    required this.deleteAllowed,
+    required this.deletableRows,
+    required this.deleteDescription,
   });
 
   factory StorageTableUsage.fromJson(Map<String, dynamic> json) {
@@ -61,11 +62,21 @@ class StorageTableUsage {
       tableName: json['tableName'] as String,
       group: json['group'] as String,
       dataUse: json['dataUse'] as String,
-      estimatedRows: (json['estimatedRows'] as num).toInt(),
+      rowCount: (json['rowCount'] as num).toInt(),
+      oldestDate: _dateOrNull(json['oldestDate']),
+      latestDate: _dateOrNull(json['latestDate']),
       dataBytes: (json['dataBytes'] as num).toInt(),
       indexBytes: (json['indexBytes'] as num).toInt(),
       totalBytes: (json['totalBytes'] as num).toInt(),
+      deleteAllowed: json['deleteAllowed'] as bool,
+      deletableRows: (json['deletableRows'] as num).toInt(),
+      deleteDescription: json['deleteDescription'] as String?,
     );
+  }
+
+  static DateTime? _dateOrNull(dynamic value) {
+    if (value is! String || value.isEmpty) return null;
+    return DateTime.parse(value);
   }
 }
 
@@ -85,32 +96,6 @@ class StorageCleanupResult {
       key: json['key'] as String,
       deletedRows: (json['deletedRows'] as num).toInt(),
       completedAt: DateTime.parse(json['completedAt'] as String),
-    );
-  }
-}
-
-class StorageCleanupAction {
-  final String key;
-  final String title;
-  final String description;
-  final int retentionDays;
-  final int currentBytes;
-
-  const StorageCleanupAction({
-    required this.key,
-    required this.title,
-    required this.description,
-    required this.retentionDays,
-    required this.currentBytes,
-  });
-
-  factory StorageCleanupAction.fromJson(Map<String, dynamic> json) {
-    return StorageCleanupAction(
-      key: json['key'] as String,
-      title: json['title'] as String,
-      description: json['description'] as String,
-      retentionDays: (json['retentionDays'] as num).toInt(),
-      currentBytes: (json['currentBytes'] as num).toInt(),
     );
   }
 }

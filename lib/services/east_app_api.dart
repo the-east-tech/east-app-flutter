@@ -1765,11 +1765,14 @@ class EastAppApi {
     return StorageOverview.fromJson(body);
   }
 
-  Future<StorageCleanupResult> cleanupStorage(String key) async {
+  Future<StorageCleanupResult> cleanupStorage(
+    String tableName,
+    int rowCount,
+  ) async {
     final body = await _requestJson(
       'POST',
-      '/api/v1/storage-admin/cleanup/${Uri.encodeComponent(key)}',
-      body: const {'confirmed': true},
+      '/api/v1/storage-admin/cleanup/${Uri.encodeComponent(tableName)}',
+      body: {'confirmed': true, 'rowCount': rowCount},
     ) as Map<String, dynamic>;
     return StorageCleanupResult.fromJson(body);
   }
@@ -3524,4 +3527,3 @@ final class _AsyncMemoryCache<T> {
     _inFlight = null;
   }
 }
-
