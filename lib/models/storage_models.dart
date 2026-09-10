@@ -95,7 +95,6 @@ class StorageCleanupAction {
   final String description;
   final int retentionDays;
   final int currentBytes;
-  final bool automatic;
 
   const StorageCleanupAction({
     required this.key,
@@ -103,7 +102,6 @@ class StorageCleanupAction {
     required this.description,
     required this.retentionDays,
     required this.currentBytes,
-    required this.automatic,
   });
 
   factory StorageCleanupAction.fromJson(Map<String, dynamic> json) {
@@ -113,7 +111,6 @@ class StorageCleanupAction {
       description: json['description'] as String,
       retentionDays: (json['retentionDays'] as num).toInt(),
       currentBytes: (json['currentBytes'] as num).toInt(),
-      automatic: json['automatic'] as bool,
     );
   }
 }
