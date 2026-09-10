@@ -25,11 +25,13 @@ class EastAppRole {
     );
   }
 
-  bool get isOwner => systemKey == 'OWNER';
-  bool get isHead => systemKey == 'OWNER' || systemKey == 'HEAD';
+  bool get isAdmin => systemKey == 'ADMIN';
+  bool get isOwner => isAdmin || systemKey == 'OWNER';
+  bool get isHead => isAdmin || systemKey == 'OWNER' || systemKey == 'HEAD';
 
   UserRole get appRole {
     switch (systemKey) {
+      case 'ADMIN':
       case 'OWNER':
       case 'HEAD':
         return UserRole.head;
