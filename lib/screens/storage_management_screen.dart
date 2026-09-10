@@ -123,7 +123,7 @@ class _StorageManagementScreenState extends State<StorageManagementScreen> {
                   Expanded(
                     child: PageTitle(
                       title: text.t('Storage & Cleanup'),
-                      subtitle: text.t('Database use and 30-day cleanup'),
+                      subtitle: text.t('Database use and manual cleanup'),
                     ),
                   ),
                   Padding(
