@@ -35,8 +35,8 @@ class _StockReceivingPageState extends State<_StockReceivingPage> {
   bool loadingStates = true;
   SupplierProfile? selectedSupplier;
   final Map<String, _ReceivingDraft> drafts = {};
-  String invoicePhotoName = '';
-  String goodsPhotoName = '';
+  String invoicePhotoPath = '';
+  String goodsPhotoPath = '';
 
   String get receivedBy {
     if (widget.role == UserRole.head) return headId;
@@ -142,8 +142,8 @@ class _StockReceivingPageState extends State<_StockReceivingPage> {
     setState(() {
       selectedSupplier = supplier;
       drafts.clear();
-      invoicePhotoName = '';
-      goodsPhotoName = '';
+      invoicePhotoPath = '';
+      goodsPhotoPath = '';
       skuSearchController.clear();
     });
   }
@@ -152,8 +152,8 @@ class _StockReceivingPageState extends State<_StockReceivingPage> {
     setState(() {
       selectedSupplier = null;
       drafts.clear();
-      invoicePhotoName = '';
-      goodsPhotoName = '';
+      invoicePhotoPath = '';
+      goodsPhotoPath = '';
       skuSearchController.clear();
     });
     unawaited(loadPurchaseStates());
@@ -167,11 +167,8 @@ class _StockReceivingPageState extends State<_StockReceivingPage> {
         title: text.t('Invoice Photo'),
         subtitle: text.t('Take a fresh photo of the supplier invoice.'),
         onCaptured: (filePath) async {
-          final storageKey = await _StockMediaScope.of(context)
-              .api
-              .uploadStockReceivingPhoto(filePath);
           if (!mounted) return;
-          setState(() => invoicePhotoName = storageKey);
+          setState(() => invoicePhotoPath = filePath);
           showSuccessSnackBar(context, text.t('Invoice photo captured'));
         },
       );
@@ -190,11 +187,8 @@ class _StockReceivingPageState extends State<_StockReceivingPage> {
           'Take one photo showing the goods received for this supplier.',
         ),
         onCaptured: (filePath) async {
-          final storageKey = await _StockMediaScope.of(context)
-              .api
-              .uploadStockReceivingPhoto(filePath);
           if (!mounted) return;
-          setState(() => goodsPhotoName = storageKey);
+          setState(() => goodsPhotoPath = filePath);
           showSuccessSnackBar(context, text.t('Goods received photo captured'));
         },
       );
@@ -365,7 +359,7 @@ class _StockReceivingPageState extends State<_StockReceivingPage> {
     final supplier = selectedSupplier;
     if (supplier == null) return;
     final text = AppTextScope.of(context);
-    if (invoicePhotoName.isEmpty || goodsPhotoName.isEmpty || drafts.isEmpty) {
+    if (invoicePhotoPath.isEmpty || goodsPhotoPath.isEmpty || drafts.isEmpty) {
       AppFeedback.warning();
       showWarningSnackBar(
         context,
@@ -383,6 +377,21 @@ class _StockReceivingPageState extends State<_StockReceivingPage> {
     );
     if (!confirmed || !mounted) return;
 
+    late final List<String> photoStorageKeys;
+    try {
+      photoStorageKeys = await Future.wait([
+        _StockMediaScope.of(context)
+            .api
+            .uploadStockReceivingPhoto(invoicePhotoPath),
+        _StockMediaScope.of(context)
+            .api
+            .uploadStockReceivingPhoto(goodsPhotoPath),
+      ]);
+    } on EastAppApiException {
+      return;
+    }
+    if (!mounted) return;
+
     final now = DateTime.now();
     final record = StockReceivingRecord(
       id: 'REC${now.microsecondsSinceEpoch}',
@@ -391,8 +400,8 @@ class _StockReceivingPageState extends State<_StockReceivingPage> {
       receivedBy: receivedBy,
       receivedAt: 'Submitted just now',
       capturedAt: now,
-      invoicePhotoName: invoicePhotoName,
-      goodsPhotoName: goodsPhotoName,
+      invoicePhotoName: photoStorageKeys[0],
+      goodsPhotoName: photoStorageKeys[1],
       items: drafts.values
           .map((draft) => draft.item)
           .toList(growable: false),
@@ -520,7 +529,7 @@ class _StockReceivingPageState extends State<_StockReceivingPage> {
             Expanded(
               child: _ReceivingPhotoButton(
                 label: 'Goods Photo',
-                done: goodsPhotoName.isNotEmpty,
+                done: goodsPhotoPath.isNotEmpty,
                 icon: Icons.inventory_2_outlined,
                 onTap: captureGoodsPhoto,
               ),
@@ -529,7 +538,7 @@ class _StockReceivingPageState extends State<_StockReceivingPage> {
             Expanded(
               child: _ReceivingPhotoButton(
                 label: 'Invoice Photo',
-                done: invoicePhotoName.isNotEmpty,
+                done: invoicePhotoPath.isNotEmpty,
                 icon: Icons.receipt_long_outlined,
                 onTap: captureInvoicePhoto,
               ),
@@ -572,8 +581,8 @@ class _StockReceivingPageState extends State<_StockReceivingPage> {
               '${text.t('Submit Receiving')} · ${drafts.length} ${text.t('SKU')}',
           icon: Icons.send_rounded,
           onPressed: drafts.isNotEmpty &&
-                  invoicePhotoName.isNotEmpty &&
-                  goodsPhotoName.isNotEmpty
+                  invoicePhotoPath.isNotEmpty &&
+                  goodsPhotoPath.isNotEmpty
               ? submitReceiving
               : null,
         ),

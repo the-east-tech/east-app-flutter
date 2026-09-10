@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -1415,6 +1416,7 @@ class _AdvertisementEditor extends StatefulWidget {
 class _AdvertisementEditorState extends State<_AdvertisementEditor> {
   final ImagePicker picker = ImagePicker();
   String? imageStorageKey;
+  String? pendingImagePath;
   DateTime? startsAt;
   DateTime? endsAt;
   int displayOrder = 0;
@@ -1469,20 +1471,14 @@ class _AdvertisementEditorState extends State<_AdvertisementEditor> {
     );
     if (selected == null || !mounted) return;
 
-    setState(() => busy = true);
-    try {
-      final uploaded = await widget.api.uploadReportImage(selected.path);
-      if (mounted) setState(() => imageStorageKey = uploaded);
-    } on EastAppApiException {
-      return;
-    } finally {
-      if (mounted) setState(() => busy = false);
-    }
+    setState(() => pendingImagePath = selected.path);
   }
 
   Future<void> save() async {
     if (busy) return;
-    if (imageStorageKey == null || startsAt == null || endsAt == null) {
+    if ((pendingImagePath == null && imageStorageKey == null) ||
+        startsAt == null ||
+        endsAt == null) {
       final text = AppTextScope.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -1507,10 +1503,13 @@ class _AdvertisementEditorState extends State<_AdvertisementEditor> {
 
     setState(() => busy = true);
     try {
+      final effectiveImageStorageKey = pendingImagePath == null
+          ? imageStorageKey!
+          : await widget.api.uploadReportImage(pendingImagePath!);
       late final Advertisement saved;
       if (widget.advertisement == null) {
         saved = await widget.api.createAdvertisement(
-          imageStorageKey: imageStorageKey!,
+          imageStorageKey: effectiveImageStorageKey,
           startsAt: startsAt!,
           endsAt: endsAt!,
           displayOrder: displayOrder,
@@ -1519,7 +1518,7 @@ class _AdvertisementEditorState extends State<_AdvertisementEditor> {
       } else {
         saved = await widget.api.updateAdvertisement(
           id: widget.advertisement!.id,
-          imageStorageKey: imageStorageKey!,
+          imageStorageKey: effectiveImageStorageKey,
           startsAt: startsAt!,
           endsAt: endsAt!,
           displayOrder: displayOrder,
@@ -1554,8 +1553,8 @@ class _AdvertisementEditorState extends State<_AdvertisementEditor> {
               onPressed: busy ? null : chooseImage,
               icon: const Icon(Icons.photo_library_outlined),
               label: Text(
-                text.t(imageStorageKey == null
-                    ? 'Upload advertisement image'
+                text.t(imageStorageKey == null && pendingImagePath == null
+                    ? 'Choose advertisement image'
                     : 'Replace image'),
               ),
             ),
@@ -1569,20 +1568,28 @@ class _AdvertisementEditorState extends State<_AdvertisementEditor> {
                 fontWeight: FontWeight.w700,
               ),
             ),
-            if (imageStorageKey != null) ...[
+            if (pendingImagePath != null || imageStorageKey != null) ...[
               const SizedBox(height: 12),
               ClipRRect(
                 borderRadius: BorderRadius.circular(14),
                 child: AspectRatio(
                   aspectRatio: _AdvertisementCarousel.bannerAspectRatio,
-                  child: Image.network(
-                    widget.api.reportMediaUrl(imageStorageKey!),
-                    headers: widget.api.authenticatedImageHeaders,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => const Center(
-                      child: Icon(Icons.broken_image_outlined),
-                    ),
-                  ),
+                  child: pendingImagePath != null
+                      ? Image.file(
+                          File(pendingImagePath!),
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) => const Center(
+                            child: Icon(Icons.broken_image_outlined),
+                          ),
+                        )
+                      : Image.network(
+                          widget.api.reportMediaUrl(imageStorageKey!),
+                          headers: widget.api.authenticatedImageHeaders,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) => const Center(
+                            child: Icon(Icons.broken_image_outlined),
+                          ),
+                        ),
                 ),
               ),
             ],
