@@ -10,7 +10,11 @@ import '../widgets/app_feedback.dart';
 
 class LoginScreen extends StatefulWidget {
   final EastAppApi api;
-  final Future<void> Function(EastAppSession session) onSignedIn;
+  final Future<void> Function(EastAppSession session, String password)
+      onSignedIn;
+  final String initialCompanyCode;
+  final String initialEmployeeId;
+  final String initialPassword;
   final AppLanguage initialLanguage;
   final ValueChanged<AppLanguage> onLanguageChanged;
 
@@ -18,6 +22,9 @@ class LoginScreen extends StatefulWidget {
     super.key,
     required this.api,
     required this.onSignedIn,
+    required this.initialCompanyCode,
+    required this.initialEmployeeId,
+    required this.initialPassword,
     required this.initialLanguage,
     required this.onLanguageChanged,
   });
@@ -27,9 +34,9 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final companyCodeController = TextEditingController(text: 'EAST');
-  final employeeIdController = TextEditingController();
-  final passwordController = TextEditingController();
+  late final TextEditingController companyCodeController;
+  late final TextEditingController employeeIdController;
+  late final TextEditingController passwordController;
 
   late AppLanguage language;
   bool signingIn = false;
@@ -40,6 +47,13 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   void initState() {
     super.initState();
+    companyCodeController = TextEditingController(
+      text: widget.initialCompanyCode,
+    );
+    employeeIdController = TextEditingController(
+      text: widget.initialEmployeeId,
+    );
+    passwordController = TextEditingController(text: widget.initialPassword);
     language = widget.initialLanguage;
   }
 
@@ -68,7 +82,7 @@ class _LoginScreenState extends State<LoginScreen> {
         employeeId: employeeId,
         password: password,
       );
-      await widget.onSignedIn(session);
+      await widget.onSignedIn(session, password);
       AppFeedback.loginSuccess();
     } on EastAppApiException catch (_) {
       if (!mounted) return;
