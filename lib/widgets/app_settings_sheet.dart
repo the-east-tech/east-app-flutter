@@ -15,6 +15,8 @@ class AppSettingsSheet extends StatefulWidget {
       onTranslationPreview;
   final Future<void> Function(TranslationDirection? direction)
       onTranslationChanged;
+  final bool canManageStorage;
+  final VoidCallback onStorageManagement;
 
   const AppSettingsSheet({
     super.key,
@@ -23,6 +25,8 @@ class AppSettingsSheet extends StatefulWidget {
     required this.onLanguageChanged,
     required this.onTranslationPreview,
     required this.onTranslationChanged,
+    required this.canManageStorage,
+    required this.onStorageManagement,
   });
 
   @override
@@ -348,94 +352,107 @@ class _AppSettingsSheetState extends State<AppSettingsSheet> {
               ),
               const SizedBox(height: 14),
               WhiteCard(
+                padding: const EdgeInsets.all(12),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      text.t('Localisation'),
-                      style: const TextStyle(
-                        color: AppColours.textMain,
-                        fontSize: AppTextSize.s17,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      text.t('Choose the language for fixed app labels.'),
-                      style: AppTextStyles.formHint,
-                    ),
-                    const SizedBox(height: 12),
-                    DropdownButtonFormField<AppLanguage>(
-                      key: ValueKey('localisation:${language.name}'),
-                      initialValue: language,
-                      isExpanded: true,
-                      decoration: AppInputStyle.decoration(
-                        text.t('Localisation'),
-                      ),
-                      items: AppLanguage.values
-                          .map(
-                            (item) => DropdownMenuItem<AppLanguage>(
-                              value: item,
-                              child: Text(item.displayName),
-                            ),
-                          )
-                          .toList(growable: false),
-                      onChanged: saving
-                          ? null
-                          : (value) {
-                              if (value == null || value == language) return;
-                              setState(() => language = value);
-                            },
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-              WhiteCard(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      text.t('Translate'),
-                      style: const TextStyle(
-                        color: AppColours.textMain,
-                        fontSize: AppTextSize.s17,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      text.t(
-                        'Translate user-entered content. The original and both translations are stored for reuse.',
-                      ),
-                      style: AppTextStyles.formHint,
-                    ),
-                    const SizedBox(height: 12),
-                    DropdownButtonFormField<String>(
-                      key: ValueKey('translation:$translationValue'),
-                      initialValue: translationValue,
-                      isExpanded: true,
-                      decoration: AppInputStyle.decoration(
-                        text.t('Translate'),
-                      ),
-                      items: [
-                        DropdownMenuItem<String>(
-                          value: 'ORIGINAL',
-                          child: Text(text.t('Original content (off)')),
-                        ),
-                        ...TranslationDirection.values.map(
-                          (direction) => DropdownMenuItem<String>(
-                            value: direction.name,
-                            child: Text(
-                              '${text.t(direction.source.label)} → ${text.t(direction.target.label)}',
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            text.t('Localisation'),
+                            style: const TextStyle(
+                              color: AppColours.textMain,
+                              fontSize: AppTextSize.s14,
+                              fontWeight: FontWeight.w800,
                             ),
                           ),
                         ),
+                        const SizedBox(width: 10),
+                        SizedBox(
+                          width: 190,
+                          child: DropdownButtonFormField<AppLanguage>(
+                            key: ValueKey('localisation:${language.name}'),
+                            initialValue: language,
+                            isExpanded: true,
+                            decoration: AppInputStyle.decoration(
+                              text.t('Localisation'),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
+                            ).copyWith(isDense: true),
+                            items: AppLanguage.values
+                                .map(
+                                  (item) => DropdownMenuItem<AppLanguage>(
+                                    value: item,
+                                    child: Text(item.displayName),
+                                  ),
+                                )
+                                .toList(growable: false),
+                            onChanged: saving
+                                ? null
+                                : (value) {
+                                    if (value == null || value == language) {
+                                      return;
+                                    }
+                                    setState(() => language = value);
+                                  },
+                          ),
+                        ),
                       ],
-                      onChanged: saving ? null : changeTranslation,
+                    ),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 9),
+                      child: Divider(height: 1),
+                    ),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            text.t('Translate'),
+                            style: const TextStyle(
+                              color: AppColours.textMain,
+                              fontSize: AppTextSize.s14,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        SizedBox(
+                          width: 190,
+                          child: DropdownButtonFormField<String>(
+                            key: ValueKey('translation:$translationValue'),
+                            initialValue: translationValue,
+                            isExpanded: true,
+                            decoration: AppInputStyle.decoration(
+                              text.t('Translate'),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
+                            ).copyWith(isDense: true),
+                            items: [
+                              DropdownMenuItem<String>(
+                                value: 'ORIGINAL',
+                                child: Text(text.t('Original content (off)')),
+                              ),
+                              ...TranslationDirection.values.map(
+                                (direction) => DropdownMenuItem<String>(
+                                  value: direction.name,
+                                  child: Text(
+                                    '${text.t(direction.source.label)} → ${text.t(direction.target.label)}',
+                                  ),
+                                ),
+                              ),
+                            ],
+                            onChanged: saving ? null : changeTranslation,
+                          ),
+                        ),
+                      ],
                     ),
                     if (saving) ...[
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 10),
                       const LinearProgressIndicator(minHeight: 3),
                       const SizedBox(height: 6),
                       Text(
@@ -446,6 +463,27 @@ class _AppSettingsSheetState extends State<AppSettingsSheet> {
                   ],
                 ),
               ),
+              if (widget.canManageStorage) ...[
+                const SizedBox(height: 12),
+                WhiteCard(
+                  padding: EdgeInsets.zero,
+                  child: ListTile(
+                    onTap: saving ? null : widget.onStorageManagement,
+                    leading: const Icon(
+                      Icons.storage_rounded,
+                      color: AppColours.blue,
+                    ),
+                    title: Text(
+                      text.t('Storage & Cleanup'),
+                      style: const TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                    subtitle: Text(
+                      text.t('Table sizes and operational data cleanup'),
+                    ),
+                    trailing: const Icon(Icons.chevron_right_rounded),
+                  ),
+                ),
+              ],
               const SizedBox(height: 16),
               Row(
                 children: [

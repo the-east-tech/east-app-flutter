@@ -1,3 +1,6 @@
+Warning: truncated output (original token count: 26368)
+Total output lines: 3526
+
 import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
@@ -19,6 +22,7 @@ import '../models/points_models.dart';
 import '../models/report_models.dart';
 import '../models/setup_models.dart';
 import '../models/stock_api_models.dart';
+import '../models/storage_models.dart';
 import '../models/app_models.dart';
 import '../models/translation_models.dart';
 import 'api_configuration.dart';
@@ -1710,50 +1714,12 @@ class EastAppApi {
   }
 
   Future<SopImpactAudit> knowledgeSopImpactAudit() async {
-    final body = await _requestJson(
-      'GET',
-      '/api/v1/knowledge/audit/sops',
+    final …368 tokens truncated…requestJson(
+      'POST',
+      '/api/v1/storage-admin/cleanup/${Uri.encodeComponent(key)}',
+      body: const {'confirmed': true},
     ) as Map<String, dynamic>;
-    return SopImpactAudit.fromJson(body);
-  }
-
-  Future<EastAppPage<EastAppActivityEvent>> recentActivity({
-    int page = 0,
-    int size = 5,
-  }) async {
-    final query = Uri(queryParameters: {
-      'page': '$page',
-      'size': '$size',
-    }).query;
-    final body = await _requestJson(
-      'GET',
-      '/api/v1/activity/recent?$query',
-    ) as Map<String, dynamic>;
-    return activityEventPageFromJson(body);
-  }
-
-  Future<EastAppPage<EastAppNotification>> notifications({
-    int page = 0,
-    int size = 50,
-  }) async {
-    final query = Uri(queryParameters: {
-      'page': '$page',
-      'size': '$size',
-    }).query;
-    final body = await _requestJson(
-      'GET',
-      '/api/v1/notifications?$query',
-    ) as Map<String, dynamic>;
-    return notificationPageFromJson(body);
-  }
-
-  Future<int> notificationUnreadCount() async {
-    final body = await _requestJson(
-      'GET',
-      '/api/v1/notifications/unread-count',
-      reportError: false,
-    ) as Map<String, dynamic>;
-    return (body['unreadCount'] as num).toInt();
+    return StorageCleanupResult.fromJson(body);
   }
 
   Future<EastAppNotification> notificationDetail(String notificationId) async {

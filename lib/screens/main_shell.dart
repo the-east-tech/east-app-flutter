@@ -32,6 +32,7 @@ import 'knowledge_screen.dart';
 import 'notification_screen.dart';
 import 'ranking_screen.dart';
 import 'stock_screen.dart';
+import 'storage_management_screen.dart';
 import 'task_hub_screen.dart';
 
 class MainShell extends StatefulWidget {
@@ -637,6 +638,19 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
       builder: (sheetContext) => AppSettingsSheet(
         language: language,
         translationDirection: widget.api.translationDirection,
+        canManageStorage: widget.session.user.role.isOwner &&
+            widget.session.user.employeeId == 'E0001' &&
+            widget.session.user.phoneE164 == '+60166016488',
+        onStorageManagement: () {
+          Navigator.of(sheetContext).pop();
+          unawaited(
+            Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => StorageManagementScreen(api: widget.api),
+              ),
+            ),
+          );
+        },
         onLanguageChanged: changeLanguage,
         onTranslationPreview: widget.api.previewContentTranslation,
         onTranslationChanged: (direction) async {
