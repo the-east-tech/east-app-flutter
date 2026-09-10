@@ -19,6 +19,7 @@ import '../models/points_models.dart';
 import '../models/report_models.dart';
 import '../models/setup_models.dart';
 import '../models/stock_api_models.dart';
+import '../models/storage_models.dart';
 import '../models/app_models.dart';
 import '../models/translation_models.dart';
 import 'api_configuration.dart';
@@ -1754,6 +1755,23 @@ class EastAppApi {
       reportError: false,
     ) as Map<String, dynamic>;
     return (body['unreadCount'] as num).toInt();
+  }
+
+  Future<StorageOverview> storageOverview() async {
+    final body = await _requestJson(
+      'GET',
+      '/api/v1/storage-admin',
+    ) as Map<String, dynamic>;
+    return StorageOverview.fromJson(body);
+  }
+
+  Future<StorageCleanupResult> cleanupStorage(String key) async {
+    final body = await _requestJson(
+      'POST',
+      '/api/v1/storage-admin/cleanup/${Uri.encodeComponent(key)}',
+      body: const {'confirmed': true},
+    ) as Map<String, dynamic>;
+    return StorageCleanupResult.fromJson(body);
   }
 
   Future<EastAppNotification> notificationDetail(String notificationId) async {
@@ -3506,3 +3524,4 @@ final class _AsyncMemoryCache<T> {
     _inFlight = null;
   }
 }
+
