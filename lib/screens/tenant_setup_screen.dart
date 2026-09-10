@@ -466,7 +466,7 @@ class _BusinessFormSheetState extends State<_BusinessFormSheet> {
       action: isEditing ? 'Update Business?' : 'Create Business?',
       details: isEditing
           ? 'This updates only this business.'
-          : 'This creates a new isolated business, default roles and a separate Owner employee ID for every existing Owner.',
+          : 'This creates a new isolated business and a separate Owner employee ID only for the creator.',
     );
     if (!confirmed || !mounted) return;
 

@@ -234,7 +234,7 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
       context,
       action: 'Complete Initial Setup?',
       details:
-          'This will create the first business and Owner account. The selected Google location will be used as the office reference for attendance distance.',
+          'This will create the first business and founding account. The selected Google location will be used as the office reference for attendance distance.',
     );
     if (!confirmed || !mounted) return;
 
@@ -268,7 +268,7 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
       builder: (dialogContext) {
         final text = AppTextScope.of(dialogContext);
         return AlertDialog(
-          title: Text(text.t('Owner Account Created')),
+          title: Text(text.t('Founding Account Created')),
           content: Text(
             '${result.businessName}\n'
             '${text.t('Company Code')}: ${result.companyCode}\n'
@@ -328,7 +328,7 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
                 const SizedBox(height: 4),
                 Text(
                   text.t(
-                    'Create the first business and Owner account. Employee ID is generated automatically.',
+                    'Create the first business and founding account. Employee ID is generated automatically.',
                   ),
                   textAlign: TextAlign.center,
                   style: const TextStyle(
@@ -448,7 +448,7 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
                             ),
                           )
                         : Text(
-                            text.t('Create Business & Owner'),
+                            text.t('Create Business & Account'),
                             style: const TextStyle(
                               fontSize: AppTextSize.s18,
                               fontWeight: FontWeight.w700,
