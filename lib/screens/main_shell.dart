@@ -357,15 +357,31 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     if (existingRequest != null) return existingRequest;
 
     final generation = homeDataGeneration;
+    EastAppPage<EastAppActivityEvent>? activity;
+    StockReviewSummary? summary;
+    ReportDashboard? reports;
+    var activityLoaded = false;
+    var summaryLoaded = widget.role == UserRole.staff;
+    var reportsLoaded = false;
+
     late final Future<void> request;
-    request = Future.wait<Object?>([
+    final loads = <Future<void>>[
       widget.api.recentActivity(
         page: 0,
         size: 5,
-      ),
-      widget.role == UserRole.staff
-          ? Future<StockReviewSummary?>.value(null)
-          : widget.api.todayStockReviewSummary(),
+      ).then<void>((value) {
+        activity = value;
+        activityLoaded = true;
+      }).onError<EastAppApiException>((_, _) {
+        // Keep the previous activity list, but let the other Home data refresh.
+      }),
+      if (widget.role != UserRole.staff)
+        widget.api.todayStockReviewSummary().then<void>((value) {
+          summary = value;
+          summaryLoaded = true;
+        }).onError<EastAppApiException>((_, _) {
+          // Keep the previous summary, but let the other Home data refresh.
+        }),
       widget.api.cachedReportDashboard(
         days: 7,
         tenantId: widget.session.tenant.id,
@@ -373,21 +389,29 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
           EastAppPermission.reportIntelligenceView,
         ),
         userId: widget.session.user.id,
-      ),
-    ]).then((results) {
+      ).then<void>((value) {
+        reports = value;
+        reportsLoaded = true;
+      }).onError<EastAppApiException>((_, _) {
+        // Keep the previous dashboard, but let the other Home data refresh.
+      }),
+    ];
+
+    request = Future.wait<void>(loads).then((_) {
       if (!mounted || generation != homeDataGeneration) return;
-      final activity = results[0] as EastAppPage<EastAppActivityEvent>;
-      final summary = results[1] as StockReviewSummary?;
-      final reports = results[2] as ReportDashboard?;
+      final fullyLoaded = activityLoaded && summaryLoaded && reportsLoaded;
       setState(() {
-        homeReviewSummary = summary;
-        if (reports != null) homeReportDashboard = reports;
-        homeRecentActivities = activity.content.take(5).toList(growable: false);
-        homeDataLoaded = true;
-        homeDataDayKey = dayKey;
+        if (activityLoaded) {
+          homeRecentActivities = activity?.content
+                  .take(5)
+                  .toList(growable: false) ??
+              const <EastAppActivityEvent>[];
+        }
+        if (summaryLoaded) homeReviewSummary = summary;
+        if (reportsLoaded && reports != null) homeReportDashboard = reports;
+        homeDataLoaded = fullyLoaded;
+        homeDataDayKey = fullyLoaded ? dayKey : null;
       });
-    }).onError<EastAppApiException>((_, _) {
-      // Global API error handling already presents the request failure.
     }).whenComplete(() {
       if (identical(homeDataRequest, request)) {
         homeDataRequest = null;
