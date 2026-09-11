@@ -558,7 +558,7 @@ class _ReportCard extends StatelessWidget {
   final String title;
   final String subtitle;
   final IconData icon;
-  final Color? accent;
+  final Color accent;
   final String metric;
   final String metricLabel;
   final List<_CardBadge> badges;
@@ -4867,7 +4867,7 @@ class _EvidenceCapture extends StatelessWidget {
   final String? photoPath;
   final String title;
   final String subtitle;
-  final Color accent;
+  final Color? accent;
   final VoidCallback onCapture;
 
   const _EvidenceCapture({
