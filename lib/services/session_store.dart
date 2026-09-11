@@ -27,14 +27,24 @@ class SessionStore {
     return _storage.write(key: _tokenKey, value: token);
   }
 
+  Future<void> writeLoginIdentity({
+    required String companyCode,
+    required String employeeId,
+  }) async {
+    await writeCompanyCode(companyCode);
+    await _storage.write(key: _employeeIdKey, value: employeeId);
+  }
+
   Future<void> writeSession({
     required String token,
     required String companyCode,
     required String employeeId,
     required String password,
   }) async {
-    await writeCompanyCode(companyCode);
-    await _storage.write(key: _employeeIdKey, value: employeeId);
+    await writeLoginIdentity(
+      companyCode: companyCode,
+      employeeId: employeeId,
+    );
     await _storage.write(key: _passwordKey, value: password);
     await writeToken(token);
   }
