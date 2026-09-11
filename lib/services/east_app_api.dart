@@ -890,31 +890,28 @@ class EastAppApi {
     return SalesReport.fromJson(body);
   }
 
-  Future<WasteReport> createWasteReport({
+  Future<List<WasteReport>> createWasteReports({
     required DateTime reportDate,
-    String? skuId,
-    required String itemName,
-    required double quantity,
-    required String unit,
-    required double estimatedUnitCostRm,
-    required String reason,
-    required String photoStorageKey,
+    required List<({String reason, String photoStorageKey})> evidence,
   }) async {
     final body = await _requestJson(
       'POST',
-      '/api/v1/reports/waste',
+      '/api/v1/reports/waste/batch',
       body: {
         'reportDate': formatApiDate(reportDate),
-        'skuId': skuId,
-        'itemName': itemName.trim(),
-        'quantity': quantity,
-        'unit': unit.trim(),
-        'estimatedUnitCostRm': estimatedUnitCostRm,
-        'reason': reason.trim(),
-        'photoStorageKey': photoStorageKey,
+        'evidence': evidence
+            .map(
+              (item) => {
+                'reason': item.reason.trim(),
+                'photoStorageKey': item.photoStorageKey,
+              },
+            )
+            .toList(growable: false),
       },
-    ) as Map<String, dynamic>;
-    return WasteReport.fromJson(body);
+    ) as List<dynamic>;
+    return body
+        .map((item) => WasteReport.fromJson(item as Map<String, dynamic>))
+        .toList(growable: false);
   }
 
   Future<List<WasteReport>> wasteReports({

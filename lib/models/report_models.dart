@@ -293,6 +293,7 @@ class InventoryRisk {
 }
 
 class WasteOverview {
+  final int reportCount;
   final double todayLossRm;
   final double periodLossRm;
   final double wasteToNetSalesPercent;
@@ -300,6 +301,7 @@ class WasteOverview {
   final double topWasteItemLossRm;
 
   const WasteOverview({
+    required this.reportCount,
     required this.todayLossRm,
     required this.periodLossRm,
     required this.wasteToNetSalesPercent,
@@ -309,6 +311,7 @@ class WasteOverview {
 
   factory WasteOverview.fromJson(Map<String, dynamic> json) {
     return WasteOverview(
+      reportCount: (json['reportCount'] as num? ?? 0).toInt(),
       todayLossRm: _double(json['todayLossRm']),
       periodLossRm: _double(json['periodLossRm']),
       wasteToNetSalesPercent: _double(json['wasteToNetSalesPercent']),
