@@ -1580,13 +1580,20 @@ const Map<String, String> _myanmar = {
   'Complete Initial Setup?': 'ကနဦးသတ်မှတ်မှုကို ပြီးစီးမည်လား။',
   'This will create the first business and founding account. The selected Google location will be used as the office reference for attendance distance.':
       'ပထမလုပ်ငန်းနှင့် စတင်တည်ထောင်သူအကောင့်ကို ဖန်တီးမည်။ ရွေးထားသော Google တည်နေရာကို တက်ရောက်မှုအကွာအဝေးအတွက် အလုပ်နေရာအညွှန်းအဖြစ် အသုံးပြုမည်။',
+  'This will create the first business and hidden administrator. The selected Google location will be used as the office reference for attendance distance.':
+      'ပထမလုပ်ငန်းနှင့် လျှို့ဝှက်စီမံခန့်ခွဲသူကို ဖန်တီးမည်။ ရွေးထားသော Google တည်နေရာကို တက်ရောက်မှုအကွာအဝေးအတွက် အလုပ်နေရာအညွှန်းအဖြစ် အသုံးပြုမည်။',
   'Founding Account Created': 'စတင်တည်ထောင်သူအကောင့် ဖန်တီးပြီး',
+  'Administrator Created': 'စီမံခန့်ခွဲသူ ဖန်တီးပြီး',
   'Use the Company Code, Employee ID and password to sign in.':
       'ဝင်ရောက်ရန် Company Code၊ ဝန်ထမ်း ID နှင့် စကားဝှက်ကို အသုံးပြုပါ။',
+  'Use the Company ID, Employee ID and password to sign in.':
+      'ဝင်ရောက်ရန် Company ID၊ ဝန်ထမ်း ID နှင့် စကားဝှက်ကို အသုံးပြုပါ။',
   'Continue to Login': 'Login သို့ ဆက်ရန်',
   'Initial Setup': 'ကနဦး သတ်မှတ်မှု',
   'Create the first business and founding account. Employee ID is generated automatically.':
       'ပထမလုပ်ငန်းနှင့် စတင်တည်ထောင်သူအကောင့်ကို ဖန်တီးပါ။ ဝန်ထမ်း ID ကို အလိုအလျောက် ဖန်တီးပေးမည်။',
+  'Create the first business and global hidden administrator. Each business keeps its own Employee ID Prefix.':
+      'ပထမလုပ်ငန်းနှင့် ကမ္ဘာလုံးဆိုင်ရာ လျှို့ဝှက်စီမံခန့်ခွဲသူကို ဖန်တီးပါ။ လုပ်ငန်းတိုင်းတွင် ကိုယ်ပိုင် ဝန်ထမ်း ID Prefix ရှိသည်။',
   'Setup Code': 'Setup Code',
   '10-character code': 'စာလုံး ၁၀ လုံးပါ ကုဒ်',
   'Business Name': 'လုပ်ငန်းအမည်',
@@ -1600,6 +1607,7 @@ const Map<String, String> _myanmar = {
   'Confirm Password': 'စကားဝှက် အတည်ပြုရန်',
   'Enter the password again': 'စကားဝှက်ကို ထပ်မံထည့်ပါ',
   'Create Business & Account': 'လုပ်ငန်းနှင့် အကောင့် ဖန်တီးရန်',
+  'Create Business & Admin': 'လုပ်ငန်းနှင့် Admin ဖန်တီးရန်',
   'Backend unavailable': 'Backend အသုံးမပြုနိုင်ပါ',
   'Return to login': 'Login သို့ ပြန်ရန်',
   'Google Business Location': 'Google လုပ်ငန်းတည်နေရာ',
@@ -2843,13 +2851,20 @@ const Map<String, String> _chinese = {
   'Complete Initial Setup?': '完成初始设置？',
   'This will create the first business and founding account. The selected Google location will be used as the office reference for attendance distance.':
       '这将创建第一个业务及创始账户。所选Google位置将作为考勤距离的办公地点基准。',
+  'This will create the first business and hidden administrator. The selected Google location will be used as the office reference for attendance distance.':
+      '这将创建第一个业务及隐藏管理员。所选Google位置将作为考勤距离的办公地点基准。',
   'Founding Account Created': '创始账户已创建',
+  'Administrator Created': '管理员已创建',
   'Use the Company Code, Employee ID and password to sign in.':
       '请使用公司代码、员工编号和密码登录。',
+  'Use the Company ID, Employee ID and password to sign in.':
+      '请使用公司ID、员工编号和密码登录。',
   'Continue to Login': '继续登录',
   'Initial Setup': '初始设置',
   'Create the first business and founding account. Employee ID is generated automatically.':
       '创建第一个业务及创始账户。员工编号将自动生成。',
+  'Create the first business and global hidden administrator. Each business keeps its own Employee ID Prefix.':
+      '创建第一个业务及全局隐藏管理员。每个业务保留自己的员工编号前缀。',
   'Setup Code': '设置代码',
   '10-character code': '10位代码',
   'Business Name': '业务名称',
@@ -2863,6 +2878,7 @@ const Map<String, String> _chinese = {
   'Confirm Password': '确认密码',
   'Enter the password again': '再次输入密码',
   'Create Business & Account': '创建业务及账户',
+  'Create Business & Admin': '创建业务及管理员',
   'Backend unavailable': '后端不可用',
   'Return to login': '返回登录',
   'Google Business Location': 'Google业务位置',
