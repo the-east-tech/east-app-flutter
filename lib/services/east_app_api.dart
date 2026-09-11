@@ -1772,8 +1772,14 @@ class EastAppApi {
   Future<StorageTableData> storageTableData(
     String tableName,
     int rowCount,
+    bool latestFirst,
   ) async {
-    final query = Uri(queryParameters: {'rowCount': '$rowCount'}).query;
+    final query = Uri(
+      queryParameters: {
+        'rowCount': '$rowCount',
+        'latestFirst': '$latestFirst',
+      },
+    ).query;
     final body = await _requestJson(
       'GET',
       '/api/v1/storage-admin/tables/${Uri.encodeComponent(tableName)}?$query',
