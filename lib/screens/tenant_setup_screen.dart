@@ -35,6 +35,7 @@ class TenantSetupScreen extends StatefulWidget {
 class _TenantSetupScreenState extends State<TenantSetupScreen> {
   final searchController = TextEditingController();
   EastAppTenant? currentBusiness;
+  List<EastAppTenant> businesses = const [];
   List<EastAppSession> ownerContexts = const [];
   bool loading = true;
   String? error;
@@ -71,11 +72,23 @@ class _TenantSetupScreenState extends State<TenantSetupScreen> {
             ? widget.api.availableContexts()
             : Future<List<EastAppSession>>.value(const <EastAppSession>[]),
       ]);
-      final current = results[0] as List<EastAppTenant>;
+      final loadedBusinesses = results[0] as List<EastAppTenant>;
       final contexts = results[1] as List<EastAppSession>;
+      final businessesById = <String, EastAppTenant>{
+        for (final tenant in loadedBusinesses) tenant.id: tenant,
+        for (final context in contexts) context.tenant.id: context.tenant,
+      };
+      EastAppTenant? loadedCurrent;
+      for (final tenant in businessesById.values) {
+        if (tenant.id == widget.currentTenant.id) {
+          loadedCurrent = tenant;
+          break;
+        }
+      }
       if (!mounted) return;
       setState(() {
-        currentBusiness = current.isEmpty ? widget.currentTenant : current.first;
+        currentBusiness = loadedCurrent ?? widget.currentTenant;
+        businesses = businessesById.values.toList(growable: false);
         ownerContexts = contexts;
         loading = false;
       });
@@ -88,18 +101,17 @@ class _TenantSetupScreenState extends State<TenantSetupScreen> {
     }
   }
 
-  List<EastAppSession> get filteredContexts {
+  List<EastAppTenant> get filteredBusinesses {
     final query = searchController.text.trim().toLowerCase();
-    final contexts = ownerContexts
-        .where((item) => item.tenant.id != widget.currentTenant.id)
+    final values = businesses
+        .where((item) => item.id != widget.currentTenant.id)
         .toList(growable: false);
-    if (query.isEmpty) return contexts;
-    return contexts.where((item) {
-      final tenant = item.tenant;
+    if (query.isEmpty) return values;
+    return values.where((tenant) {
       return tenant.businessName.toLowerCase().contains(query) ||
           tenant.companyCode.toLowerCase().contains(query) ||
           tenant.employeeIdPrefix.toLowerCase().contains(query) ||
-          item.user.employeeId.toLowerCase().contains(query);
+          (employeeIdFor(tenant.id) ?? '').toLowerCase().contains(query);
     }).toList(growable: false);
   }
 
@@ -111,6 +123,10 @@ class _TenantSetupScreenState extends State<TenantSetupScreen> {
 
   Future<void> openEditCurrentBusiness() async {
     final tenant = currentBusiness ?? widget.currentTenant;
+    await openEditBusiness(tenant);
+  }
+
+  Future<void> openEditBusiness(EastAppTenant tenant) async {
     final updated = await _showBusinessSheet(tenant: tenant);
     if (updated != null && mounted) {
       await loadBusinesses();
@@ -129,8 +145,16 @@ class _TenantSetupScreenState extends State<TenantSetupScreen> {
       builder: (_) => _BusinessFormSheet(
         tenant: tenant,
         api: widget.api,
+        current: tenant?.id == widget.currentTenant.id,
       ),
     );
+  }
+
+  EastAppSession? contextFor(String tenantId) {
+    for (final item in ownerContexts) {
+      if (item.tenant.id == tenantId) return item;
+    }
+    return null;
   }
 
   String? employeeIdFor(String tenantId) {
@@ -144,7 +168,7 @@ class _TenantSetupScreenState extends State<TenantSetupScreen> {
   Widget build(BuildContext context) {
     final text = AppTextScope.of(context);
     final current = currentBusiness ?? widget.currentTenant;
-    final otherContexts = filteredContexts;
+    final otherBusinesses = filteredBusinesses;
     return ListView(
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 24),
       children: [
@@ -237,28 +261,32 @@ class _TenantSetupScreenState extends State<TenantSetupScreen> {
               ),
             ),
             const SizedBox(height: 8),
-            if (otherContexts.isEmpty)
+            if (otherBusinesses.isEmpty)
               WhiteCard(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   child: Text(
-                    text.t('No other business context is assigned.'),
+                    text.t('No other businesses found.'),
                     textAlign: TextAlign.center,
                     style: const TextStyle(color: AppColours.textMuted),
                   ),
                 ),
               )
             else
-              ...otherContexts.map(
-                (item) => Padding(
+              ...otherBusinesses.map((tenant) {
+                final businessContext = contextFor(tenant.id);
+                return Padding(
                   padding: const EdgeInsets.only(bottom: 10),
                   child: _BusinessCard(
-                    tenant: item.tenant,
-                    employeeId: item.user.employeeId,
-                    onTap: () => widget.onSwitchBusiness(item),
+                    tenant: tenant,
+                    employeeId: businessContext?.user.employeeId,
+                    onTap: tenant.active && businessContext != null
+                        ? () => widget.onSwitchBusiness(businessContext)
+                        : () => openEditBusiness(tenant),
+                    onEdit: () => openEditBusiness(tenant),
                   ),
-                ),
-              ),
+                );
+              }),
           ],
         ],
       ],
@@ -271,10 +299,12 @@ class _BusinessCard extends StatelessWidget {
   final String? employeeId;
   final bool current;
   final VoidCallback onTap;
+  final VoidCallback? onEdit;
 
   const _BusinessCard({
     required this.tenant,
     required this.onTap,
+    this.onEdit,
     this.employeeId,
     this.current = false,
   });
@@ -321,6 +351,7 @@ class _BusinessCard extends StatelessWidget {
                         tenant.companyCode,
                         '${text.t('Prefix')} ${tenant.employeeIdPrefix}',
                         ?employeeId,
+                        text.t(tenant.active ? 'Active' : 'Inactive'),
                       ].join(' · '),
                       style: const TextStyle(
                         fontSize: AppTextSize.s12,
@@ -343,9 +374,24 @@ class _BusinessCard extends StatelessWidget {
                   ],
                 ),
               ),
-              Icon(
-                current ? Icons.edit_outlined : Icons.swap_horiz_rounded,
-                color: AppColours.textMuted,
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (onEdit != null)
+                    IconButton(
+                      tooltip: text.t('Edit Business'),
+                      onPressed: onEdit,
+                      icon: const Icon(Icons.edit_outlined),
+                    ),
+                  Icon(
+                    current
+                        ? Icons.edit_outlined
+                        : tenant.active
+                            ? Icons.swap_horiz_rounded
+                            : Icons.block_rounded,
+                    color: AppColours.textMuted,
+                  ),
+                ],
               ),
             ],
           ),
@@ -358,10 +404,12 @@ class _BusinessCard extends StatelessWidget {
 class _BusinessFormSheet extends StatefulWidget {
   final EastAppTenant? tenant;
   final EastAppApi api;
+  final bool current;
 
   const _BusinessFormSheet({
     required this.tenant,
     required this.api,
+    this.current = false,
   });
 
   @override
@@ -465,7 +513,9 @@ class _BusinessFormSheetState extends State<_BusinessFormSheet> {
       context,
       action: isEditing ? 'Update Business?' : 'Create Business?',
       details: isEditing
-          ? 'This updates only this business.'
+          ? active
+              ? 'This updates only this business.'
+              : 'This business will become inactive and cannot be opened until reactivated.'
           : 'This creates a new isolated business and a separate Owner employee ID only for the creator.',
     );
     if (!confirmed || !mounted) return;
@@ -595,6 +645,27 @@ class _BusinessFormSheetState extends State<_BusinessFormSheet> {
               onSelect: selectBusinessLocation,
               errorText: locationError,
             ),
+            if (isEditing) ...[
+              const SizedBox(height: 12),
+              SwitchListTile.adaptive(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                title: Text(
+                  text.t(active ? 'Active' : 'Inactive'),
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+                subtitle: Text(
+                  text.t(
+                    widget.current
+                        ? 'Switch to another business before setting this one inactive.'
+                        : 'Inactive businesses cannot be opened until reactivated.',
+                  ),
+                ),
+                value: active,
+                onChanged: saving || widget.current
+                    ? null
+                    : (value) => setState(() => active = value),
+              ),
+            ],
             const SizedBox(height: 18),
             PrimaryButton(
               text: text.t(

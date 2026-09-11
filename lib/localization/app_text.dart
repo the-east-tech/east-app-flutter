@@ -538,6 +538,13 @@ const Map<String, String> _myanmar = {
   '\$label required': '\$label ဖြည့်ရန်လိုအပ်သည်',
   'Access SOPs, recipes, and ingredients': 'SOP၊ ချက်နည်းနှင့် ပါဝင်ပစ္စည်းများကို ကြည့်ရှုရန်',
   'Active': 'အသုံးပြုနေသည်',
+  'Switch to another business before setting this one inactive.':
+      'ဤလုပ်ငန်းကို အသုံးမပြုရန် သတ်မှတ်မီ အခြားလုပ်ငန်းသို့ ပြောင်းပါ။',
+  'Inactive businesses cannot be opened until reactivated.':
+      'အသုံးမပြုထားသော လုပ်ငန်းများကို ပြန်လည်အသုံးပြုရန် မသတ်မှတ်မချင်း ဖွင့်၍မရပါ။',
+  'No other businesses found.': 'အခြားလုပ်ငန်းများ မတွေ့ပါ။',
+  'This business will become inactive and cannot be opened until reactivated.':
+      'ဤလုပ်ငန်းကို အသုံးမပြုရန် သတ်မှတ်မည်ဖြစ်ပြီး ပြန်လည်အသုံးပြုရန် မသတ်မှတ်မချင်း ဖွင့်၍မရပါ။',
   'Advertisement': 'ကြော်ငြာ',
   'Actor': 'လုပ်ဆောင်သူ',
   'Actors': 'လုပ်ဆောင်သူများ',
@@ -1845,6 +1852,13 @@ const Map<String, String> _chinese = {
   '\$label required': '\$label为必填项',
   'Access SOPs, recipes, and ingredients': '查看SOP、食谱和食材',
   'Active': '启用',
+  'Switch to another business before setting this one inactive.':
+      '请先切换到其他业务，再停用此业务。',
+  'Inactive businesses cannot be opened until reactivated.':
+      '停用的业务在重新启用前无法打开。',
+  'No other businesses found.': '未找到其他业务。',
+  'This business will become inactive and cannot be opened until reactivated.':
+      '此业务将被停用，在重新启用前无法打开。',
   'Advertisement': '广告',
   'Actor': '操作人',
   'Actors': '操作人',
