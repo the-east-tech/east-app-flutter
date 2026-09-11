@@ -31,11 +31,20 @@ class InitialSetupScreen extends StatefulWidget {
 }
 
 class _InitialSetupScreenState extends State<InitialSetupScreen> {
+  static const adminCompanyId = 'ADMIN';
+  static const adminEmployeeId = 'ADMIN';
+  static const adminFullName = 'SUDO';
+
   final setupCodeController = TextEditingController();
   final businessNameController = TextEditingController();
   final companyCodeController = TextEditingController();
-  final employeePrefixController = TextEditingController();
-  final fullNameController = TextEditingController();
+  final adminCompanyIdController = TextEditingController(
+    text: adminCompanyId,
+  );
+  final adminEmployeeIdController = TextEditingController(
+    text: adminEmployeeId,
+  );
+  final fullNameController = TextEditingController(text: adminFullName);
   final phoneController = TextEditingController();
   final passwordController = TextEditingController();
   final confirmPasswordController = TextEditingController();
@@ -60,7 +69,8 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
     setupCodeController.dispose();
     businessNameController.dispose();
     companyCodeController.dispose();
-    employeePrefixController.dispose();
+    adminCompanyIdController.dispose();
+    adminEmployeeIdController.dispose();
     fullNameController.dispose();
     phoneController.dispose();
     passwordController.dispose();
@@ -168,8 +178,8 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
     final setupCode = setupCodeController.text.trim().toUpperCase();
     final businessName = businessNameController.text.trim();
     final companyCode = companyCodeController.text.trim().toUpperCase();
-    final employeePrefix = employeePrefixController.text.trim().toUpperCase();
-    final fullName = fullNameController.text.trim();
+    final employeePrefix = _employeePrefixFor(companyCode);
+    const fullName = adminFullName;
     final phoneE164 = buildE164(phoneCountry, phoneController.text);
     final password = passwordController.text;
     final confirmation = confirmPasswordController.text;
@@ -178,7 +188,6 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
       setupCode,
       businessName,
       companyCode,
-      employeePrefix,
       fullName,
       phoneController.text.trim(),
       password,
@@ -198,13 +207,6 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
       showErrorSnackBar(
         context,
         text.t('Company Code must contain 2–32 letters, numbers, _ or -.'),
-      );
-      return;
-    }
-    if (!RegExp(r'^[A-Z]{1,3}$').hasMatch(employeePrefix)) {
-      showErrorSnackBar(
-        context,
-        text.t('Employee ID Prefix must contain 1–3 letters.'),
       );
       return;
     }
@@ -235,7 +237,7 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
       context,
       action: 'Complete Initial Setup?',
       details:
-          'This will create the first business and founding account. The selected Google location will be used as the office reference for attendance distance.',
+          'This will create the first business and hidden administrator. The selected Google location will be used as the office reference for attendance distance.',
     );
     if (!confirmed || !mounted) return;
 
@@ -269,12 +271,12 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
       builder: (dialogContext) {
         final text = AppTextScope.of(dialogContext);
         return AlertDialog(
-          title: Text(text.t('Founding Account Created')),
+          title: Text(text.t('Administrator Created')),
           content: Text(
             '${result.businessName}\n'
-            '${text.t('Company Code')}: ${result.companyCode}\n'
+            '${text.t('Company ID')}: ${result.companyCode}\n'
             '${text.t('Employee ID')}: ${result.employeeId}\n\n'
-            '${text.t('Use the Company Code, Employee ID and password to sign in.')}',
+            '${text.t('Use the Company ID, Employee ID and password to sign in.')}',
           ),
           actions: [
             TextButton(
@@ -329,7 +331,7 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
                 const SizedBox(height: 4),
                 Text(
                   text.t(
-                    'Create the first business and founding account. Employee ID is generated automatically.',
+                    'Create the first business and hidden administrator. Login is fixed as ADMIN / ADMIN.',
                   ),
                   textAlign: TextAlign.center,
                   style: const TextStyle(
@@ -366,11 +368,26 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
                   textCapitalization: TextCapitalization.characters,
                 ),
                 const SizedBox(height: 12),
-                _SetupField(
-                  label: 'Employee ID Prefix',
-                  controller: employeePrefixController,
-                  hint: 'Example: E',
-                  textCapitalization: TextCapitalization.characters,
+                Row(
+                  children: [
+                    Expanded(
+                      child: _SetupField(
+                        label: 'Company ID',
+                        controller: adminCompanyIdController,
+                        hint: adminCompanyId,
+                        readOnly: true,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _SetupField(
+                        label: 'Employee ID',
+                        controller: adminEmployeeIdController,
+                        hint: adminEmployeeId,
+                        readOnly: true,
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 12),
                 GooglePlaceSelectionCard(
@@ -382,7 +399,7 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
                   label: 'Full Name',
                   controller: fullNameController,
                   hint: 'Full name',
-                  textCapitalization: TextCapitalization.words,
+                  readOnly: true,
                 ),
                 const SizedBox(height: 12),
                 PhoneNumberField(
@@ -449,7 +466,7 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
                             ),
                           )
                         : Text(
-                            text.t('Create Business & Account'),
+                            text.t('Create Business & Admin'),
                             style: const TextStyle(
                               fontSize: AppTextSize.s18,
                               fontWeight: FontWeight.w700,
@@ -489,6 +506,12 @@ String _formatSetupCodeExpiry(DateTime value) {
       '$hour:$minute $period';
 }
 
+String _employeePrefixFor(String companyCode) {
+  final letters = companyCode.replaceAll(RegExp(r'[^A-Z]'), '');
+  if (letters.isEmpty) return 'X';
+  return letters.length <= 3 ? letters : letters.substring(0, 3);
+}
+
 class _SetupField extends StatelessWidget {
   final String label;
   final TextEditingController controller;
@@ -498,6 +521,7 @@ class _SetupField extends StatelessWidget {
   final TextInputAction? textInputAction;
   final ValueChanged<String>? onSubmitted;
   final Widget? suffixIcon;
+  final bool readOnly;
 
   const _SetupField({
     required this.label,
@@ -508,6 +532,7 @@ class _SetupField extends StatelessWidget {
     this.textInputAction,
     this.onSubmitted,
     this.suffixIcon,
+    this.readOnly = false,
   });
 
   @override
@@ -524,6 +549,7 @@ class _SetupField extends StatelessWidget {
           textCapitalization: textCapitalization,
           textInputAction: textInputAction,
           onSubmitted: onSubmitted,
+          readOnly: readOnly,
           autocorrect: false,
           enableSuggestions: !obscureText,
           style: AppTextStyles.formValue,
