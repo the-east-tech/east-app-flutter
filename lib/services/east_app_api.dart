@@ -1769,6 +1769,18 @@ class EastAppApi {
     return StorageOverview.fromJson(body);
   }
 
+  Future<StorageTableData> storageTableData(
+    String tableName,
+    int rowCount,
+  ) async {
+    final query = Uri(queryParameters: {'rowCount': '$rowCount'}).query;
+    final body = await _requestJson(
+      'GET',
+      '/api/v1/storage-admin/tables/${Uri.encodeComponent(tableName)}?$query',
+    ) as Map<String, dynamic>;
+    return StorageTableData.fromJson(body);
+  }
+
   Future<StorageCleanupResult> cleanupStorage(
     String tableName,
     int rowCount,

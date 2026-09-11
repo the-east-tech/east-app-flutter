@@ -26,6 +26,7 @@ class _StorageManagementScreenState extends State<StorageManagementScreen> {
   StorageOverview? overview;
   bool loading = true;
   String? cleaningTable;
+  String? viewingTable;
 
   @override
   void initState() {
@@ -48,7 +49,9 @@ class _StorageManagementScreenState extends State<StorageManagementScreen> {
   }
 
   Future<void> cleanup(StorageTableUsage table) async {
-    if (cleaningTable != null || table.deletableRows < 1) return;
+    if (cleaningTable != null || viewingTable != null || table.deletableRows < 1) {
+      return;
+    }
     final rowCount = await _chooseDeleteCount(table);
     if (rowCount == null || !mounted) return;
 
@@ -66,6 +69,221 @@ class _StorageManagementScreenState extends State<StorageManagementScreen> {
     } finally {
       if (mounted) setState(() => cleaningTable = null);
     }
+  }
+
+  Future<void> viewTable(StorageTableUsage table) async {
+    final value = overview;
+    if (value == null ||
+        cleaningTable != null ||
+        viewingTable != null ||
+        table.rowCount < 1) {
+      return;
+    }
+    final rowCount = await _chooseViewCount(table, value.maxViewRows);
+    if (rowCount == null || !mounted) return;
+
+    StorageTableData? tableData;
+    setState(() => viewingTable = table.tableName);
+    try {
+      tableData = await widget.api.storageTableData(table.tableName, rowCount);
+    } on EastAppApiException {
+      // The shared API error dialog already explains the failure.
+    } finally {
+      if (mounted) setState(() => viewingTable = null);
+    }
+    if (tableData != null && mounted) {
+      await _showTableData(tableData);
+    }
+  }
+
+  Future<int?> _chooseViewCount(
+    StorageTableUsage table,
+    int maxViewRows,
+  ) async {
+    final maximum = table.rowCount < maxViewRows ? table.rowCount : maxViewRows;
+    final initial = maximum < 10 ? maximum : 10;
+    final controller = TextEditingController(text: '$initial');
+    String? errorText;
+    final selected = await showDialog<int>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        final text = AppTextScope.of(dialogContext);
+        return StatefulBuilder(
+          builder: (context, setDialogState) => AlertDialog(
+            title: Text(text.t('View table rows')),
+            content: TextField(
+              controller: controller,
+              autofocus: true,
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              decoration: InputDecoration(
+                labelText: text.t('Rows to view'),
+                helperText: '${text.t('Maximum per view')}: $maximum',
+                errorText: errorText == null ? null : text.t(errorText!),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: Text(text.t('Cancel')),
+              ),
+              FilledButton(
+                onPressed: () {
+                  final value = int.tryParse(controller.text);
+                  if (value == null || value < 1 || value > maximum) {
+                    setDialogState(
+                      () => errorText = 'Enter a valid row count.',
+                    );
+                    return;
+                  }
+                  Navigator.of(dialogContext).pop(value);
+                },
+                child: Text(text.t('View')),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+    controller.dispose();
+    return selected;
+  }
+
+  Future<void> _showTableData(StorageTableData table) async {
+    final verticalController = ScrollController();
+    final horizontalController = ScrollController();
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        final text = AppTextScope.of(dialogContext);
+        return Dialog.fullscreen(
+          child: Scaffold(
+            backgroundColor: AppColours.background,
+            appBar: AppBar(
+              title: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(table.tableName),
+                  Text(
+                    '${table.returnedRows} ${text.t('rows')}',
+                    style: const TextStyle(fontSize: AppTextSize.s12),
+                  ),
+                ],
+              ),
+              actions: [
+                IconButton(
+                  tooltip: text.t('Close'),
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              ],
+            ),
+            body: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    text.t(
+                      'Rows are oldest first where a date is available. Sensitive values are redacted and binary data is shown by byte size.',
+                    ),
+                    style: AppTextStyles.formHint,
+                  ),
+                  const SizedBox(height: 10),
+                  Expanded(
+                    child: Scrollbar(
+                      controller: verticalController,
+                      thumbVisibility: true,
+                      child: SingleChildScrollView(
+                        controller: verticalController,
+                        child: Scrollbar(
+                          controller: horizontalController,
+                          thumbVisibility: true,
+                          notificationPredicate: (notification) =>
+                              notification.metrics.axis == Axis.horizontal,
+                          child: SingleChildScrollView(
+                            controller: horizontalController,
+                            scrollDirection: Axis.horizontal,
+                            child: DataTable(
+                              border: TableBorder.all(color: AppColours.border),
+                              columnSpacing: 18,
+                              horizontalMargin: 12,
+                              dataRowMinHeight: 48,
+                              dataRowMaxHeight: 132,
+                              columns: table.columns
+                                  .map(
+                                    (column) => DataColumn(
+                                      label: SizedBox(
+                                        width: 190,
+                                        child: Column(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              column.name,
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.w800,
+                                              ),
+                                            ),
+                                            Text(
+                                              '${column.dataType}${column.nullable ? ' · NULL' : ''}',
+                                              style: AppTextStyles.formHint
+                                                  .copyWith(
+                                                fontSize: AppTextSize.s10,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  )
+                                  .toList(growable: false),
+                              rows: table.rows
+                                  .map(
+                                    (row) => DataRow(
+                                      cells: row
+                                          .map(
+                                            (value) => DataCell(
+                                              SizedBox(
+                                                width: 190,
+                                                child: SelectableText(
+                                                  value ?? 'NULL',
+                                                  maxLines: 6,
+                                                  style: TextStyle(
+                                                    color: value == null
+                                                        ? AppColours.textMuted
+                                                        : AppColours.textMain,
+                                                    fontSize: AppTextSize.s12,
+                                                    fontStyle: value == null
+                                                        ? FontStyle.italic
+                                                        : FontStyle.normal,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          )
+                                          .toList(growable: false),
+                                    ),
+                                  )
+                                  .toList(growable: false),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+    verticalController.dispose();
+    horizontalController.dispose();
   }
 
   Future<int?> _chooseDeleteCount(StorageTableUsage table) async {
@@ -163,11 +381,19 @@ class _StorageManagementScreenState extends State<StorageManagementScreen> {
   Widget build(BuildContext context) {
     final text = AppTextScope.of(context);
     final value = overview;
+    final deletableTables = value?.tables
+            .where((table) => table.deleteAllowed)
+            .toList(growable: false) ??
+        const <StorageTableUsage>[];
+    final nonDeletableTables = value?.tables
+            .where((table) => !table.deleteAllowed)
+            .toList(growable: false) ??
+        const <StorageTableUsage>[];
 
     return Scaffold(
       backgroundColor: AppColours.background,
       body: AppProcessingOverlay(
-        isProcessing: cleaningTable != null,
+        isProcessing: cleaningTable != null || viewingTable != null,
         child: SafeArea(
           child: RefreshIndicator(
             onRefresh: load,
@@ -221,18 +447,38 @@ class _StorageManagementScreenState extends State<StorageManagementScreen> {
                   _StorageSummary(overview: value),
                   const SizedBox(height: 16),
                   _SectionTitle(
-                    title: text.t('All database tables'),
+                    title: text.t('Deletable tables'),
                     subtitle: text.t(
-                      'Exact row counts and table sizes. Oldest and latest use each table\'s most relevant date. Delete Old appears only where deletion is safe.',
+                      'Only safely eligible rows can be deleted. View shows table columns and selected rows.',
                     ),
                   ),
                   const SizedBox(height: 10),
-                  ...value.tables.map(
+                  ...deletableTables.map(
                     (table) => Padding(
                       padding: const EdgeInsets.only(bottom: 10),
                       child: _TableUsageCard(
                         table: table,
-                        busy: cleaningTable != null,
+                        busy: cleaningTable != null || viewingTable != null,
+                        onView: () => viewTable(table),
+                        onDelete: () => cleanup(table),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  _SectionTitle(
+                    title: text.t('Non-deletable tables'),
+                    subtitle: text.t(
+                      'Direct deletion is protected. Child rows may still be removed through a safely deleted parent.',
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  ...nonDeletableTables.map(
+                    (table) => Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: _TableUsageCard(
+                        table: table,
+                        busy: cleaningTable != null || viewingTable != null,
+                        onView: () => viewTable(table),
                         onDelete: () => cleanup(table),
                       ),
                     ),
@@ -350,11 +596,13 @@ class _TableUsageCard extends StatelessWidget {
   const _TableUsageCard({
     required this.table,
     required this.busy,
+    required this.onView,
     required this.onDelete,
   });
 
   final StorageTableUsage table;
   final bool busy;
+  final VoidCallback onView;
   final VoidCallback onDelete;
 
   @override
@@ -420,33 +668,43 @@ class _TableUsageCard extends StatelessWidget {
           ),
           if (table.deleteAllowed) ...[
             const SizedBox(height: 10),
-            const Divider(height: 1),
-            const SizedBox(height: 10),
             Text(
               AppTextScope.of(context).t(table.deleteDescription ?? ''),
               style: AppTextStyles.formHint.copyWith(fontSize: AppTextSize.s12),
             ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    '${table.deletableRows} safely deletable',
-                    style: const TextStyle(
-                      color: AppColours.textMuted,
-                      fontSize: AppTextSize.s12,
-                      fontWeight: FontWeight.w700,
-                    ),
+          ],
+          const SizedBox(height: 10),
+          const Divider(height: 1),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  table.deleteAllowed
+                      ? '${table.deletableRows} safely deletable'
+                      : 'Direct deletion protected',
+                  style: const TextStyle(
+                    color: AppColours.textMuted,
+                    fontSize: AppTextSize.s12,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
+              ),
+              OutlinedButton.icon(
+                onPressed: busy || table.rowCount < 1 ? null : onView,
+                icon: const Icon(Icons.table_view_outlined, size: 18),
+                label: Text(AppTextScope.of(context).t('View')),
+              ),
+              if (table.deleteAllowed) ...[
+                const SizedBox(width: 8),
                 OutlinedButton.icon(
                   onPressed: busy || table.deletableRows < 1 ? null : onDelete,
                   icon: const Icon(Icons.delete_sweep_outlined, size: 18),
-                  label: Text(AppTextScope.of(context).t('Delete Old')),
+                  label: Text(AppTextScope.of(context).t('Delete')),
                 ),
               ],
-            ),
-          ],
+            ],
+          ),
         ],
       ),
     );
