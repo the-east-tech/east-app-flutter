@@ -1468,7 +1468,7 @@ class _WorkflowPill extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
-        text.t(status == 'SUBMITTED' ? 'Pending' : _titleCase(status)),
+        text.t(_titleCase(status)),
         style: TextStyle(
           color: colour,
           fontSize: AppTextSize.s10,
@@ -1480,15 +1480,15 @@ class _WorkflowPill extends StatelessWidget {
 }
 
 Color _workflowColour(String status) => switch (status.toUpperCase()) {
-      'APPROVED' => AppColours.green,
-      'REJECTED' => AppColours.red,
-      'SUBMITTED' => AppColours.orange,
+      'DONE' => AppColours.green,
+      'PENDING' => AppColours.red,
+      'SUBMITTED' => AppColours.blue,
       _ => AppColours.blue,
     };
 
 IconData _workflowIcon(String status) => switch (status.toUpperCase()) {
-      'APPROVED' => Icons.verified_rounded,
-      'REJECTED' => Icons.cancel_rounded,
+      'DONE' => Icons.verified_rounded,
+      'PENDING' => Icons.cancel_rounded,
       'SUBMITTED' => Icons.hourglass_top_rounded,
       _ => Icons.edit_note_rounded,
     };
@@ -2003,7 +2003,7 @@ class _SalesSheetState extends State<_SalesSheet> {
 
   Future<void> amend() async {
     final reportId = report.id;
-    if (!canAmend || reportId == null || report.workflowStatus != 'APPROVED') {
+    if (!canAmend || reportId == null || report.workflowStatus != 'DONE') {
       return;
     }
     final warningAccepted = await confirmDataChange(
@@ -2242,7 +2242,7 @@ class _SalesSheetState extends State<_SalesSheet> {
         ),
         const SizedBox(height: 14),
         buildVoidBillsSection(editable),
-        if (canAmend && report.workflowStatus == 'APPROVED') ...[
+        if (canAmend && report.workflowStatus == 'DONE') ...[
           const SizedBox(height: 14),
           SizedBox(
             width: double.infinity,
@@ -4066,7 +4066,7 @@ class _ApprovalsSheetState extends State<_ApprovalsSheet> {
         final completed = await _runReportAction<bool>(context, () async {
           await widget.api.reviewReport(
             reportId: item.id,
-            status: approve ? 'APPROVED' : 'REJECTED',
+            status: approve ? 'DONE' : 'PENDING',
             note: note,
           );
           await widget.onChanged();
@@ -4581,14 +4581,14 @@ class _StatusBanner extends StatelessWidget {
     final text = AppTextScope.of(context);
     final normalised = status.toUpperCase();
     final colour = switch (normalised) {
-      'APPROVED' => AppColours.green,
-      'REJECTED' => AppColours.red,
-      'SUBMITTED' => AppColours.orange,
+      'DONE' => AppColours.green,
+      'PENDING' => AppColours.red,
+      'SUBMITTED' => AppColours.blue,
       _ => AppColours.blue,
     };
     final icon = switch (normalised) {
-      'APPROVED' => Icons.verified_rounded,
-      'REJECTED' => Icons.cancel_rounded,
+      'DONE' => Icons.verified_rounded,
+      'PENDING' => Icons.cancel_rounded,
       'SUBMITTED' => Icons.hourglass_top_rounded,
       _ => Icons.edit_note_rounded,
     };
@@ -5052,9 +5052,10 @@ class _StatusChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final text = AppTextScope.of(context);
     final colour = switch (status.toUpperCase()) {
-      'APPROVED' || 'RESOLVED' => AppColours.green,
-      'REJECTED' => AppColours.red,
-      'SUBMITTED' || 'OPEN' => AppColours.orange,
+      'DONE' || 'RESOLVED' => AppColours.green,
+      'PENDING' => AppColours.red,
+      'SUBMITTED' => AppColours.blue,
+      'OPEN' => AppColours.orange,
       _ => AppColours.blue,
     };
     return Container(

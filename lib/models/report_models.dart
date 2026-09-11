@@ -470,14 +470,14 @@ class SalesReport {
     required this.voidBills,
   });
 
-  bool get isEditable => workflowStatus == 'DRAFT' || workflowStatus == 'REJECTED';
+  bool get isEditable => workflowStatus == 'PENDING';
   bool get canSubmit => id != null && isEditable && staffOnDuty > 0;
 
   factory SalesReport.fromJson(Map<String, dynamic> json) {
     return SalesReport(
       id: json['id'] as String?,
       reportDate: DateTime.parse(json['reportDate'] as String),
-      workflowStatus: json['workflowStatus'] as String,
+      workflowStatus: _reportWorkflowStatus(json['workflowStatus']),
       cashTotalRm: _double(json['cashTotalRm']),
       cashReceivedByUserId: json['cashReceivedByUserId'] as String?,
       cashReceivedBy: json['cashReceivedBy'] as String? ?? '',
@@ -577,7 +577,7 @@ class WasteReport {
     return WasteReport(
       id: json['id'] as String,
       reportDate: DateTime.parse(json['reportDate'] as String),
-      workflowStatus: json['workflowStatus'] as String,
+      workflowStatus: _reportWorkflowStatus(json['workflowStatus']),
       skuId: json['skuId'] as String?,
       itemName: json['itemName'] as String,
       quantity: _double(json['quantity']),
@@ -623,13 +623,13 @@ class DailyPhotoReport {
     required this.photos,
   });
 
-  bool get isEditable => workflowStatus == 'DRAFT' || workflowStatus == 'REJECTED';
+  bool get isEditable => workflowStatus == 'PENDING';
 
   factory DailyPhotoReport.fromJson(Map<String, dynamic> json) {
     return DailyPhotoReport(
       id: json['id'] as String?,
       reportDate: DateTime.parse(json['reportDate'] as String),
-      workflowStatus: json['workflowStatus'] as String,
+      workflowStatus: _reportWorkflowStatus(json['workflowStatus']),
       userId: json['userId'] as String,
       userName: json['userName'] as String,
       photoCount: (json['photoCount'] as num).toInt(),
@@ -756,6 +756,13 @@ class ReportApproval {
 }
 
 double _double(Object? value) => (value as num?)?.toDouble() ?? 0;
+
+String _reportWorkflowStatus(Object? value) => switch (value) {
+      'DRAFT' || 'REJECTED' => 'PENDING',
+      'APPROVED' => 'DONE',
+      String status => status,
+      _ => 'PENDING',
+    };
 
 DateTime? _dateTime(Object? value) {
   if (value == null) return null;
