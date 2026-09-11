@@ -6,6 +6,7 @@ import 'localization/app_language.dart';
 import 'localization/app_text_scope.dart';
 import 'models/auth_models.dart';
 import 'models/people_models.dart';
+import 'models/setup_models.dart';
 import 'screens/initial_setup_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/main_shell.dart';
