@@ -107,6 +107,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   final PushNotificationService pushNotifications = PushNotificationService();
   Future<void>? notificationCountRequest;
   int notificationUnreadCount = 0;
+  int notificationBannerSequence = 0;
 
   @override
   void initState() {
@@ -205,17 +206,48 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
       // iOS presents the native foreground banner and sound configured by FCM.
       return;
     }
-    unawaited(AppFeedback.success());
+    unawaited(AppFeedback.notification());
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('New business activity'),
-        action: SnackBarAction(
-          label: 'View',
-          onPressed: () => openNotifications(notificationId: notificationId),
+    final messenger = ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..hideCurrentMaterialBanner();
+    final sequence = ++notificationBannerSequence;
+    messenger.showMaterialBanner(
+      MaterialBanner(
+        backgroundColor: AppColours.textMain,
+        leading: const Icon(
+          Icons.notifications_active_rounded,
+          color: Colors.white,
         ),
+        content: const Text(
+          'New business activity',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              messenger.hideCurrentMaterialBanner();
+              openNotifications(notificationId: notificationId);
+            },
+            child: const Text(
+              'View',
+              style: TextStyle(
+                color: AppColours.blueSoft,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
       ),
     );
+    Future<void>.delayed(const Duration(seconds: 4), () {
+      if (mounted && notificationBannerSequence == sequence) {
+        messenger.hideCurrentMaterialBanner();
+      }
+    });
   }
 
   void handleNotificationOpened(String? notificationId) {

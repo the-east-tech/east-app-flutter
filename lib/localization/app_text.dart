@@ -611,6 +611,8 @@ const Map<String, String> _myanmar = {
   'Notifications': 'အသိပေးချက်များ',
   'Business changes from other people': 'အခြားသူများ၏ လုပ်ငန်းပြောင်းလဲမှုများ',
   'No notifications yet.': 'အသိပေးချက် မရှိသေးပါ။',
+  'All notifications will be removed from this inbox.':
+      'ဤဝင်စာပုံးမှ အသိပေးချက်အားလုံးကို ဖယ်ရှားပါမည်။',
   'No recent activity yet.': 'လတ်တလော လုပ်ဆောင်ချက် မရှိသေးပါ။',
   'Remove': 'ဖယ်ရှားရန်',
   'Activity Details': 'လုပ်ဆောင်ချက် အသေးစိတ်',
@@ -1897,6 +1899,7 @@ const Map<String, String> _chinese = {
   'Notifications': '通知',
   'Business changes from other people': '其他人员的业务变更',
   'No notifications yet.': '暂无通知。',
+  'All notifications will be removed from this inbox.': '所有通知将从收件箱中移除。',
   'No recent activity yet.': '暂无最近动态。',
   'Remove': '移除',
   'Activity Details': '动态详情',
