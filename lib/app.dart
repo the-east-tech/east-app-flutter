@@ -6,6 +6,7 @@ import 'localization/app_language.dart';
 import 'localization/app_text_scope.dart';
 import 'models/auth_models.dart';
 import 'models/people_models.dart';
+import 'models/setup_models.dart';
 import 'screens/initial_setup_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/main_shell.dart';
@@ -23,8 +24,10 @@ class TheEastApp extends StatefulWidget {
   State<TheEastApp> createState() => _TheEastAppState();
 }
 
-class _TheEastAppState extends State<TheEastApp> {
+class _TheEastAppState extends State<TheEastApp>
+    with WidgetsBindingObserver {
   static const minimumProcessingDuration = Duration(milliseconds: 400);
+  static const adminLoginId = 'ADMIN';
 
   final EastAppApi api = EastAppApi();
   final SessionStore sessionStore = SessionStore();
@@ -45,10 +48,12 @@ class _TheEastAppState extends State<TheEastApp> {
   bool processingRequest = false;
   DateTime? processingStartedAt;
   Timer? processingDismissTimer;
+  int apiErrorPresentationGeneration = 0;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     api.onSessionInvalidated = handleSessionInvalidated;
     api.onApiError = handleApiError;
     api.onProcessingChanged = handleProcessingChanged;
@@ -66,11 +71,19 @@ class _TheEastAppState extends State<TheEastApp> {
   }
 
   void handleApiError(EastAppApiException error) {
-    if (error.invalidatesSession || apiErrorDialogOpen) return;
+    if (error.invalidatesSession ||
+        apiErrorDialogOpen ||
+        WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
+      return;
+    }
+    final presentationGeneration = apiErrorPresentationGeneration;
     apiErrorDialogOpen = true;
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final context = navigatorKey.currentContext;
-      if (!mounted || context == null) {
+      if (!mounted ||
+          context == null ||
+          presentationGeneration != apiErrorPresentationGeneration ||
+          WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
         apiErrorDialogOpen = false;
         return;
       }
@@ -80,6 +93,13 @@ class _TheEastAppState extends State<TheEastApp> {
         apiErrorDialogOpen = false;
       }
     });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) return;
+    apiErrorPresentationGeneration++;
+    api.invalidateInFlightErrorNotifications();
   }
 
   void handleProcessingChanged(bool value) {
@@ -114,6 +134,7 @@ class _TheEastAppState extends State<TheEastApp> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     processingDismissTimer?.cancel();
     api.close();
     super.dispose();
@@ -169,13 +190,19 @@ class _TheEastAppState extends State<TheEastApp> {
     }
   }
 
-  void handleInitialSetupCompleted() {
+  void handleInitialSetupCompleted(
+    EastAppInitialSetupResult result,
+    String password,
+  ) {
     setState(() {
       setupRequired = false;
       initialSetupCode = null;
       initialSetupCodeExpiresAt = null;
       startupError = null;
       session = null;
+      lastCompanyCode = result.companyCode;
+      lastEmployeeId = result.employeeId;
+      lastPassword = password;
     });
   }
 
@@ -217,20 +244,26 @@ class _TheEastAppState extends State<TheEastApp> {
 
     try {
       final restored = await api.currentSession(token);
-      if (lastCompanyCode != restored.tenant.companyCode) {
+      final loginCompanyCode = _loginCompanyCode(restored);
+      final loginEmployeeId = _loginEmployeeId(restored);
+      if (lastCompanyCode != loginCompanyCode ||
+          lastEmployeeId != loginEmployeeId) {
         try {
-          await sessionStore.writeCompanyCode(restored.tenant.companyCode);
+          await sessionStore.writeLoginIdentity(
+            companyCode: loginCompanyCode,
+            employeeId: loginEmployeeId,
+          );
         } catch (error) {
           AppDiagnostics.instance.logWarning(
-            'Failed to remember the restored company ID: $error',
+            'Failed to remember the restored login identity: $error',
           );
         }
       }
       if (!mounted) return;
       setState(() {
         session = restored;
-        lastCompanyCode = restored.tenant.companyCode;
-        lastEmployeeId = restored.user.employeeId;
+        lastCompanyCode = loginCompanyCode;
+        lastEmployeeId = loginEmployeeId;
         restoringSession = false;
       });
     } on EastAppApiException catch (error) {
@@ -275,11 +308,13 @@ class _TheEastAppState extends State<TheEastApp> {
     EastAppSession signedInSession,
     String password,
   ) async {
+    final loginCompanyCode = _loginCompanyCode(signedInSession);
+    final loginEmployeeId = _loginEmployeeId(signedInSession);
     try {
       await sessionStore.writeSession(
         token: signedInSession.token,
-        companyCode: signedInSession.tenant.companyCode,
-        employeeId: signedInSession.user.employeeId,
+        companyCode: loginCompanyCode,
+        employeeId: loginEmployeeId,
         password: password,
       );
     } catch (error) {
@@ -296,11 +331,23 @@ class _TheEastAppState extends State<TheEastApp> {
     if (!mounted) return;
     setState(() {
       session = signedInSession;
-      lastCompanyCode = signedInSession.tenant.companyCode;
-      lastEmployeeId = signedInSession.user.employeeId;
+      lastCompanyCode = loginCompanyCode;
+      lastEmployeeId = loginEmployeeId;
       lastPassword = password;
       startupError = null;
     });
+  }
+
+  String _loginCompanyCode(EastAppSession value) {
+    return value.can(EastAppPermission.storageAdmin)
+        ? adminLoginId
+        : value.tenant.companyCode;
+  }
+
+  String _loginEmployeeId(EastAppSession value) {
+    return value.can(EastAppPermission.storageAdmin)
+        ? adminLoginId
+        : value.user.employeeId;
   }
 
   void handleCurrentUserChanged(EastAppUser user) {

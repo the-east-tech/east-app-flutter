@@ -93,12 +93,13 @@ class _TaskHubScreenState extends State<TaskHubScreen> {
   @override
   void initState() {
     super.initState();
-    unawaited(loadDashboard());
+    unawaited(loadDashboard(reportError: false));
   }
 
   Future<void> loadDashboard({
     bool showLoading = true,
     bool forceRefresh = false,
+    bool reportError = true,
   }) async {
     if (showLoading && mounted) setState(() => loading = true);
     try {
@@ -108,6 +109,7 @@ class _TaskHubScreenState extends State<TaskHubScreen> {
         managementView: isManagement,
         userId: widget.currentUser.id,
         forceRefresh: forceRefresh,
+        reportError: reportError,
       );
       if (!mounted) return;
       setState(() {
@@ -228,6 +230,32 @@ class _TaskHubScreenState extends State<TaskHubScreen> {
             _AnimatedSection(
               delay: 180,
               child: _ReportCard(
+                title: 'Waste',
+                subtitle: 'Capture photo evidence with a reason for each record',
+                icon: Icons.delete_sweep_rounded,
+                accent: AppColours.orange,
+                metric: isManagement
+                    ? '${data?.waste?.reportCount ?? 0}'
+                    : 'Submit',
+                metricLabel: isManagement
+                    ? '$periodDays-day waste reports'
+                    : 'Waste evidence',
+                badges: const [
+                  _CardBadge('Photo + reason', Icons.camera_alt_outlined),
+                  _CardBadge('Maximum 10', Icons.photo_library_outlined),
+                ],
+                onTap: showWaste,
+                onAction: showCreateWaste,
+                actionTooltip: 'Create Waste Report',
+                onApproval: canReview ? showWasteApprovals : null,
+                approvalCount: data?.pendingWasteApprovals ?? 0,
+                approvalTooltip: 'Open Waste Approvals',
+              ),
+            ),
+            const SizedBox(height: 12),
+            _AnimatedSection(
+              delay: 240,
+              child: _ReportCard(
                 title: 'Inventory',
                 subtitle: isManagement
                     ? 'Calculated stock health, capital exposure and reorder priorities'
@@ -253,40 +281,6 @@ class _TaskHubScreenState extends State<TaskHubScreen> {
                 onTap: isManagement
                     ? showInventory
                     : () => showTemporaryDisabledMessage(context),
-              ),
-            ),
-            const SizedBox(height: 12),
-            _AnimatedSection(
-              delay: 240,
-              child: _ReportCard(
-                title: 'Waste',
-                subtitle: 'Capture evidence and calculate the real cost of wastage',
-                icon: Icons.delete_sweep_rounded,
-                accent: AppColours.orange,
-                metric: isManagement
-                    ? 'RM ${_money(data?.waste?.periodLossRm ?? 0)}'
-                    : 'Submit',
-                metricLabel: isManagement
-                    ? '$periodDays-day estimated loss'
-                    : 'Waste evidence',
-                badges: isManagement && data?.waste != null
-                    ? [
-                        _CardBadge(
-                          '${data!.waste!.wasteToNetSalesPercent.toStringAsFixed(1)}% of sales',
-                          Icons.percent_rounded,
-                        ),
-                        _CardBadge(
-                          data.waste!.topWasteItem,
-                          Icons.warning_amber_rounded,
-                        ),
-                      ]
-                    : const [
-                        _CardBadge('Photo required', Icons.camera_alt_outlined),
-                      ],
-                onTap: showWaste,
-                onApproval: canReview ? showWasteApprovals : null,
-                approvalCount: data?.pendingWasteApprovals ?? 0,
-                approvalTooltip: 'Open Waste Approvals',
               ),
             ),
             const SizedBox(height: 12),
@@ -386,33 +380,24 @@ class _TaskHubScreenState extends State<TaskHubScreen> {
   }
 
   Future<void> showWaste() async {
-    List<WasteReport> records;
-    try {
-      final loaded = await _runReportAction<List<WasteReport>>(
-        context,
-        () => widget.api.wasteReports(
-          from: DateTime.now().subtract(const Duration(days: 29)),
-          to: DateTime.now(),
-          tenantId: widget.tenantId,
-        ),
-      );
-      if (loaded == null) return;
-      records = loaded;
-    } on EastAppApiException {
-      return;
-    }
     if (!mounted) return;
-    await _showReportSheet<void>(
+    await _showReportPage<void>(
       context,
-      title: 'Waste Intelligence',
-      icon: Icons.delete_sweep_rounded,
-      builder: (sheetContext) => _WasteSheet(
+      title: 'Waste Reports',
+      builder: (_) => _WasteHistorySheet(
         api: widget.api,
-        records: records,
-        stockSkus: widget.stockSkus.where((sku) => sku.active).toList(),
-        isManagement: isManagement,
-        onChanged: handleChanged,
-        onCreate: () => unawaited(showUpcomingFeature(sheetContext)),
+        tenantId: widget.tenantId,
+      ),
+    );
+  }
+
+  Future<void> showCreateWaste() async {
+    await _showReportPage<void>(
+      context,
+      title: 'New Waste Report',
+      builder: (_) => _WasteForm(
+        api: widget.api,
+        onSaved: handleChanged,
       ),
     );
   }
@@ -2428,144 +2413,448 @@ class _InventorySheet extends StatelessWidget {
   }
 }
 
-class _WasteSheet extends StatelessWidget {
+class _WasteHistorySheet extends StatefulWidget {
   final EastAppApi api;
-  final List<WasteReport> records;
-  final List<StockSku> stockSkus;
-  final bool isManagement;
-  final Future<void> Function() onChanged;
-  final VoidCallback onCreate;
+  final String tenantId;
 
-  const _WasteSheet({
+  const _WasteHistorySheet({
     required this.api,
-    required this.records,
-    required this.stockSkus,
-    required this.isManagement,
-    required this.onChanged,
-    required this.onCreate,
+    required this.tenantId,
   });
+
+  @override
+  State<_WasteHistorySheet> createState() => _WasteHistorySheetState();
+}
+
+class _WasteHistorySheetState extends State<_WasteHistorySheet> {
+  late DateTimeRange selectedRange;
+  List<WasteReport> records = const [];
+  bool loading = false;
+  bool hasLoaded = false;
+  DateTime? updatedAt;
+
+  @override
+  void initState() {
+    super.initState();
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    selectedRange = DateTimeRange(
+      start: today.subtract(const Duration(days: 6)),
+      end: today,
+    );
+  }
+
+  String get rangeLabel =>
+      '${_formatDate(selectedRange.start)} — ${_formatDate(selectedRange.end)}';
+
+  String get cacheKey => EastAppApi.wasteHistoryCacheKey(
+        widget.tenantId,
+        selectedRange.start,
+        selectedRange.end,
+      );
+
+  Future<void> selectDateRange() async {
+    if (loading) return;
+    final text = AppTextScope.of(context);
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final selected = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(today.year - 2, 1, 1),
+      lastDate: today,
+      initialDateRange: selectedRange,
+      helpText: text.t('Select Waste report dates'),
+      saveText: text.t('Use Range'),
+    );
+    if (selected == null || !mounted) return;
+    final inclusiveDays = selected.end.difference(selected.start).inDays + 1;
+    if (inclusiveDays > 30) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(text.t('Select a maximum of 30 days.'))),
+      );
+      return;
+    }
+    setState(() {
+      selectedRange = selected;
+      records = const [];
+      hasLoaded = false;
+      updatedAt = widget.api.featureCacheUpdatedAt(cacheKey);
+    });
+  }
+
+  Future<void> load({bool forceRefresh = false}) async {
+    if (loading) return;
+    setState(() => loading = true);
+    try {
+      final value = await widget.api.wasteReports(
+        from: selectedRange.start,
+        to: selectedRange.end,
+        tenantId: widget.tenantId,
+        forceRefresh: forceRefresh,
+      );
+      if (!mounted) return;
+      setState(() {
+        records = value;
+        hasLoaded = true;
+        updatedAt = widget.api.featureCacheUpdatedAt(cacheKey);
+      });
+    } on EastAppApiException {
+      // Keep the previously loaded range visible after a handled API failure.
+    } finally {
+      if (mounted) setState(() => loading = false);
+    }
+  }
+
+  Future<void> openRecord(WasteReport report) {
+    return _showReportPage<void>(
+      context,
+      title: 'Waste · ${_formatDate(report.reportDate)}',
+      builder: (_) => _WasteSubmittedDetail(
+        api: widget.api,
+        report: report,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final text = AppTextScope.of(context);
-    final total = records.fold<double>(0, (sum, item) => sum + item.estimatedLossRm);
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(14, 14, 14, 30),
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: _MiniInsight(
-                title: '30-day Loss',
-                value: 'RM ${_money(total)}',
-                icon: Icons.payments_outlined,
-                colour: AppColours.orange,
+    return RefreshIndicator(
+      onRefresh: hasLoaded ? () => load(forceRefresh: true) : () async {},
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(14, 14, 14, 32),
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF6B2800), AppColours.orange],
               ),
+              borderRadius: BorderRadius.circular(22),
             ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _MiniInsight(
-                title: 'Records',
-                value: '${records.length}',
-                icon: Icons.receipt_long_outlined,
-                colour: AppColours.purple,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        SizedBox(
-          width: double.infinity,
-          child: FilledButton.icon(
-            onPressed: onCreate,
-            icon: const Icon(Icons.add_a_photo_outlined),
-            label: Text(text.t('Add Waste Record')),
-          ),
-        ),
-        const SizedBox(height: 14),
-        Text(
-          text.t('Recent Waste Evidence'),
-          style: const TextStyle(
-            fontSize: AppTextSize.s17,
-            fontWeight: FontWeight.w900,
-          ),
-        ),
-        const SizedBox(height: 8),
-        if (records.isEmpty)
-          WhiteCard(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Center(
-                child: Text(
-                  text.t('No waste records yet'),
-                  style: const TextStyle(color: AppColours.textMuted),
-                ),
-              ),
-            ),
-          )
-        else
-          ...records.map(
-            (item) => WhiteCard(
-              margin: const EdgeInsets.only(bottom: 10),
-              padding: const EdgeInsets.all(14),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _RemoteReportImage(
-                    api: api,
-                    storageKey: item.photoStorageKey,
-                    width: 72,
-                    height: 72,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                text.content(item.itemName),
-                                style: const TextStyle(
-                                  fontSize: AppTextSize.s15,
-                                  fontWeight: FontWeight.w900,
-                                ),
-                              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            text.t('Waste Report Loader'),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: AppTextSize.s20,
+                              fontWeight: FontWeight.w900,
                             ),
-                            Text(
-                              'RM ${_money(item.estimatedLossRm)}',
-                              style: const TextStyle(
-                                color: AppColours.orange,
-                                fontWeight: FontWeight.w900,
-                              ),
+                          ),
+                          Text(
+                            text.t(
+                              'Select up to 30 days, then load submitted reports.',
                             ),
-                          ],
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: AppTextSize.s12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (hasLoaded)
+                      IconButton.filledTonal(
+                        tooltip: text.t('Refresh loaded range'),
+                        onPressed: loading
+                            ? null
+                            : () => load(forceRefresh: true),
+                        style: IconButton.styleFrom(
+                          backgroundColor:
+                              Colors.white.withValues(alpha: .16),
+                          foregroundColor: Colors.white,
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '${_compact(item.quantity)} ${item.unit} · ${item.submittedByName}',
-                          style: const TextStyle(
-                            color: AppColours.textMuted,
-                            fontSize: AppTextSize.s12,
-                            fontWeight: FontWeight.w700,
+                        icon: loading
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Icon(Icons.refresh_rounded),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: loading ? null : selectDateRange,
+                    icon: const Icon(Icons.date_range_rounded),
+                    label: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            rangeLabel,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w800,
+                            ),
                           ),
                         ),
-                        const SizedBox(height: 6),
-                        Text(
-                          text.content(item.reason),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 7),
-                        _StatusChip(item.workflowStatus),
+                        const Icon(Icons.chevron_right_rounded),
                       ],
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      side: BorderSide(
+                        color: Colors.white.withValues(alpha: .35),
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 13,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: loading ? null : () => load(),
+                    icon: loading
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AppColours.orange,
+                            ),
+                          )
+                        : const Icon(Icons.download_rounded),
+                    label: Text(
+                      text.t(
+                        loading
+                            ? 'Loading...'
+                            : hasLoaded
+                                ? 'Reload Report'
+                                : 'Load Report',
+                      ),
+                    ),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: AppColours.orange,
+                    ),
+                  ),
+                ),
+                if (hasLoaded) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    text.t(_lastUpdatedText(updatedAt)),
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: AppTextSize.s10,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                 ],
-              ),
+              ],
             ),
           ),
+          const SizedBox(height: 12),
+          if (!hasLoaded)
+            WhiteCard(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  children: [
+                    const Icon(
+                      Icons.manage_search_rounded,
+                      size: 48,
+                      color: AppColours.textMuted,
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      text.t('Select a date range, then tap Load Report.'),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w900,
+                        color: AppColours.textMuted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else if (records.isEmpty)
+            WhiteCard(
+              child: Padding(
+                padding: const EdgeInsets.all(28),
+                child: Column(
+                  children: [
+                    const Icon(
+                      Icons.delete_sweep_outlined,
+                      size: 48,
+                      color: AppColours.textMuted,
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      text.t(
+                        'No submitted Waste reports in this date range',
+                      ),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontWeight: FontWeight.w900),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else
+            ...records.map(
+              (item) => WhiteCard(
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: EdgeInsets.zero,
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(18),
+                    onTap: () => openRecord(item),
+                    child: Padding(
+                      padding: const EdgeInsets.all(14),
+                      child: Row(
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(14),
+                            child: _RemoteReportImage(
+                              api: widget.api,
+                              storageKey: item.photoStorageKey,
+                              width: 62,
+                              height: 62,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  text.content(item.reason),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: AppTextSize.s14,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  '${_formatDate(item.reportDate)} · ${item.submittedByName}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: AppColours.textMuted,
+                                    fontSize: AppTextSize.s11,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          _WorkflowPill(status: item.workflowStatus),
+                          const SizedBox(width: 4),
+                          const Icon(Icons.chevron_right_rounded),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WasteEvidenceCard extends StatelessWidget {
+  final EastAppApi api;
+  final WasteReport report;
+
+  const _WasteEvidenceCard({required this.api, required this.report});
+
+  @override
+  Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
+    return WhiteCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(14),
+            child: _RemoteReportImage(
+              api: api,
+              storageKey: report.photoStorageKey,
+              width: double.infinity,
+              height: 260,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            text.t('Reason'),
+            style: const TextStyle(
+              color: AppColours.orange,
+              fontSize: AppTextSize.s12,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            text.content(report.reason),
+            style: const TextStyle(
+              fontSize: AppTextSize.s16,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WasteSubmittedDetail extends StatelessWidget {
+  final EastAppApi api;
+  final WasteReport report;
+
+  const _WasteSubmittedDetail({required this.api, required this.report});
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 32),
+      children: [
+        _StatusBanner(status: report.workflowStatus, note: report.reviewNote),
+        const SizedBox(height: 12),
+        _WasteEvidenceCard(api: api, report: report),
+        const SizedBox(height: 12),
+        WhiteCard(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              _approvalDetailRow('Report Date', _formatDate(report.reportDate)),
+              _approvalDetailRow('Submitted By', report.submittedByName),
+              _approvalDetailRow(
+                'Submitted At',
+                report.submittedAt == null
+                    ? '-'
+                    : _formatDateTime(report.submittedAt!),
+              ),
+            ],
+          ),
+        ),
       ],
     );
   }
@@ -2573,14 +2862,10 @@ class _WasteSheet extends StatelessWidget {
 
 class _WasteForm extends StatefulWidget {
   final EastAppApi api;
-  final List<StockSku> stockSkus;
-  final DateTime earliestDate;
   final Future<void> Function() onSaved;
 
   const _WasteForm({
     required this.api,
-    required this.stockSkus,
-    required this.earliestDate,
     required this.onSaved,
   });
 
@@ -2588,115 +2873,106 @@ class _WasteForm extends StatefulWidget {
   State<_WasteForm> createState() => _WasteFormState();
 }
 
+class _WastePhotoDraft {
+  String photoPath;
+  final TextEditingController reasonController = TextEditingController();
+
+  _WastePhotoDraft(this.photoPath);
+
+  void dispose() => reasonController.dispose();
+}
+
 class _WasteFormState extends State<_WasteForm> {
-  final itemController = TextEditingController();
-  final quantityController = TextEditingController();
-  final unitController = TextEditingController();
-  final costController = TextEditingController();
-  final reasonController = TextEditingController();
-  StockSku? selectedSku;
-  String? photoPath;
+  static const maximumPhotos = 10;
+
+  final List<_WastePhotoDraft> drafts = [];
   String? validation;
-  DateTime reportDate = DateTime.now();
 
   @override
   void dispose() {
-    itemController.dispose();
-    quantityController.dispose();
-    unitController.dispose();
-    costController.dispose();
-    reasonController.dispose();
+    for (final draft in drafts) {
+      draft.dispose();
+    }
     super.dispose();
   }
 
-  void selectSku(StockSku? sku) {
-    setState(() {
-      selectedSku = sku;
-      if (sku != null) {
-        itemController.text = sku.name;
-        unitController.text = sku.unit;
-        final average = (sku.minimumPriceRm + sku.maximumPriceRm) / 2;
-        costController.text = average.toStringAsFixed(2);
-      }
-    });
-  }
-
-  Future<void> selectDate() async {
-    final selected = await _pickReportDate(
-      context,
-      initialDate: reportDate,
-      earliestDate: widget.earliestDate,
-    );
-    if (selected == null || !mounted) return;
-    setState(() => reportDate = selected);
-  }
-
-  Future<void> capture() async {
+  Future<String?> capturePhoto(int number) async {
     final path = await Navigator.of(context).push<String>(
       MaterialPageRoute(
-        builder: (_) => const _ReportCameraPage(title: 'Waste Evidence'),
+        builder: (_) => _ReportCameraPage(title: 'Waste Photo $number'),
       ),
     );
-    if (!mounted || path == null) return;
+    return mounted ? path : null;
+  }
+
+  Future<void> addPhoto() async {
+    if (drafts.length >= maximumPhotos) return;
+    final path = await capturePhoto(drafts.length + 1);
+    if (path == null || !mounted) return;
     setState(() {
-      photoPath = path;
+      drafts.add(_WastePhotoDraft(path));
       validation = null;
     });
   }
 
+  Future<void> retakePhoto(int index) async {
+    final path = await capturePhoto(index + 1);
+    if (path == null || !mounted || index >= drafts.length) return;
+    setState(() {
+      drafts[index].photoPath = path;
+      validation = null;
+    });
+  }
+
+  void removePhoto(int index) {
+    final removed = drafts.removeAt(index);
+    removed.dispose();
+    setState(() => validation = null);
+  }
+
   Future<void> submit() async {
-    final quantity = double.tryParse(quantityController.text.trim());
-    final unitCost = double.tryParse(costController.text.trim());
-    if (photoPath == null) {
-      setState(() => validation = 'Take a clear waste photo.');
+    if (drafts.isEmpty) {
+      setState(() => validation = 'Add at least one waste photo.');
       return;
     }
-    if (itemController.text.trim().isEmpty) {
-      setState(() => validation = 'Select a SKU or enter the item name.');
+    final missingReason = drafts.indexWhere(
+      (draft) => draft.reasonController.text.trim().isEmpty,
+    );
+    if (missingReason >= 0) {
+      setState(
+        () => validation = 'Add a reason for photo ${missingReason + 1}.',
+      );
       return;
     }
-    if (quantity == null || quantity <= 0) {
-      setState(() => validation = 'Enter a valid waste quantity.');
-      return;
-    }
-    if (unitController.text.trim().isEmpty) {
-      setState(() => validation = 'Unit is compulsory.');
-      return;
-    }
-    if (unitCost == null || unitCost < 0) {
-      setState(() => validation = 'Enter a valid estimated unit cost.');
-      return;
-    }
-    if (reasonController.text.trim().isEmpty) {
-      setState(() => validation = 'Waste reason is compulsory.');
-      return;
-    }
-    final estimatedLoss = quantity * unitCost;
     final text = AppTextScope.of(context);
     final confirmed = await confirmDataChange(
       context,
       action: text.t('Submit waste report?'),
       details: text.t(
-        '${itemController.text.trim()} · ${_compact(quantity)} ${unitController.text.trim()} · Estimated loss RM ${_money(estimatedLoss)}.',
+        '${drafts.length} waste photo${drafts.length == 1 ? '' : 's'} with a reason for each.',
       ),
     );
     if (!confirmed || !mounted) return;
     try {
-      await _runReportAction<void>(context, () async {
-        final storageKey = await widget.api.uploadReportImage(photoPath!);
-        await widget.api.createWasteReport(
-          reportDate: reportDate,
-          skuId: selectedSku?.id,
-          itemName: itemController.text,
-          quantity: quantity,
-          unit: unitController.text,
-          estimatedUnitCostRm: unitCost,
-          reason: reasonController.text,
-          photoStorageKey: storageKey,
+      final submitted = await _runReportAction<bool>(context, () async {
+        final evidence = <({String reason, String photoStorageKey})>[];
+        for (final draft in drafts) {
+          final storageKey = await widget.api.uploadReportImage(
+            draft.photoPath,
+          );
+          evidence.add((
+            reason: draft.reasonController.text.trim(),
+            photoStorageKey: storageKey,
+          ));
+        }
+        await widget.api.createWasteReports(
+          reportDate: DateTime.now(),
+          evidence: evidence,
         );
         await widget.onSaved();
+        return true;
       });
-      if (!mounted) return;
+      if (!mounted || submitted != true) return;
       showSuccessSnackBar(context, text.t('Waste report submitted'));
       Navigator.of(context).pop();
     } on EastAppApiException {
@@ -2710,99 +2986,156 @@ class _WasteFormState extends State<_WasteForm> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 30),
       children: [
-        _EvidenceCapture(
-          photoPath: photoPath,
-          title: 'Waste Photo',
-          subtitle: 'Photo evidence is compulsory for every waste record.',
-          onCapture: capture,
-        ),
-        const SizedBox(height: 10),
-        _ReportDateSelector(date: reportDate, onTap: selectDate),
-        const SizedBox(height: 14),
         WhiteCard(
           padding: const EdgeInsets.all(16),
-          child: Column(
+          child: Row(
             children: [
-              DropdownButtonFormField<StockSku?>(
-                initialValue: selectedSku,
-                isExpanded: true,
-                decoration: AppInputStyle.decoration(text.t('Optional stock item')).copyWith(
-                  labelText: text.t('SKU'),
-                  prefixIcon: const Icon(Icons.inventory_2_outlined),
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: AppColours.orangeSoft,
+                  borderRadius: BorderRadius.circular(14),
                 ),
-                items: [
-                  DropdownMenuItem<StockSku?>(
-                    value: null,
-                    child: Text(text.t('Non-SKU item')),
-                  ),
-                  ...widget.stockSkus.map(
-                    (sku) => DropdownMenuItem<StockSku?>(
-                      value: sku,
-                      child: Text(text.content(sku.name)),
-                    ),
-                  ),
-                ],
-                onChanged: selectSku,
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: itemController,
-                decoration: AppInputStyle.decoration(text.t('Item name')).copyWith(
-                  labelText: text.t('Item'),
+                child: const Icon(
+                  Icons.photo_library_outlined,
+                  color: AppColours.orange,
                 ),
               ),
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: quantityController,
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      decoration: AppInputStyle.decoration('0').copyWith(
-                        labelText: text.t('Quantity'),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      text.t('Waste Photos'),
+                      style: const TextStyle(
+                        fontSize: AppTextSize.s17,
+                        fontWeight: FontWeight.w900,
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: TextField(
-                      controller: unitController,
-                      decoration: AppInputStyle.decoration(text.t('kg / pcs')).copyWith(
-                        labelText: text.t('Unit'),
+                    Text(
+                      text.t('Photo and reason only. Nothing is uploaded before Submit.'),
+                      style: const TextStyle(
+                        color: AppColours.textMuted,
+                        fontSize: AppTextSize.s12,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              _AmountField(
-                controller: costController,
-                label: 'Estimated Unit Cost',
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: reasonController,
-                minLines: 3,
-                maxLines: 5,
-                decoration: AppInputStyle.decoration(text.t('Why was this item wasted?')).copyWith(
-                  labelText: text.t('Reason'),
-                  alignLabelWithHint: true,
+                  ],
                 ),
               ),
-              if (validation != null) ...[
-                const SizedBox(height: 10),
-                _ValidationText(validation!),
-              ],
-              const SizedBox(height: 14),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: submit,
-                  icon: const Icon(Icons.send_rounded),
-                  label: Text(text.t('Submit Waste Report')),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColours.orangeSoft,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  '${drafts.length}/$maximumPhotos',
+                  style: const TextStyle(
+                    color: AppColours.orange,
+                    fontWeight: FontWeight.w900,
+                  ),
                 ),
               ),
             ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        if (drafts.isEmpty)
+          _EvidenceCapture(
+            photoPath: null,
+            title: 'Add Waste Photo',
+            subtitle: 'Take up to 10 photos and add one reason for each.',
+            accent: AppColours.orange,
+            onCapture: addPhoto,
+          )
+        else
+          ...drafts.asMap().entries.expand(
+            (entry) => [
+              _EvidenceCapture(
+                photoPath: entry.value.photoPath,
+                title: 'Waste Photo ${entry.key + 1}',
+                subtitle: 'Tap to retake',
+                accent: AppColours.orange,
+                onCapture: () => retakePhoto(entry.key),
+              ),
+              const SizedBox(height: 10),
+              WhiteCard(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            '${text.t('Reason')} ${entry.key + 1}',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: text.t('Remove'),
+                          onPressed: () => removePhoto(entry.key),
+                          icon: const Icon(Icons.delete_outline_rounded),
+                          color: AppColours.red,
+                        ),
+                      ],
+                    ),
+                    TextField(
+                      controller: entry.value.reasonController,
+                      minLines: 3,
+                      maxLines: 5,
+                      maxLength: 500,
+                      onChanged: (_) {
+                        if (validation != null) {
+                          setState(() => validation = null);
+                        }
+                      },
+                      decoration: AppInputStyle.decoration(
+                        text.t('Why was this wasted?'),
+                      ).copyWith(
+                        labelText: text.t('Reason'),
+                        alignLabelWithHint: true,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+            ],
+          ),
+        if (drafts.isNotEmpty && drafts.length < maximumPhotos)
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: addPhoto,
+              icon: const Icon(Icons.add_a_photo_outlined),
+              label: Text(text.t('Add Another Photo')),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColours.orange,
+              ),
+            ),
+          ),
+        if (validation != null) ...[
+          const SizedBox(height: 10),
+          _ValidationText(validation!),
+        ],
+        const SizedBox(height: 14),
+        SizedBox(
+          width: double.infinity,
+          child: FilledButton.icon(
+            onPressed: submit,
+            icon: const Icon(Icons.send_rounded),
+            label: Text(text.t('Submit Waste Report')),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColours.orange,
+            ),
           ),
         ),
       ],
@@ -4124,42 +4457,7 @@ class _ApprovalEvidenceView extends StatelessWidget {
           ),
         ],
         if (wasteReport != null) ...[
-          WhiteCard(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(14),
-                  child: _RemoteReportImage(
-                    api: api,
-                    storageKey: wasteReport.photoStorageKey,
-                    width: double.infinity,
-                    height: 220,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  text.content(wasteReport.itemName),
-                  style: const TextStyle(
-                    fontSize: AppTextSize.s18,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  text.t(
-                    '${_editableNumber(wasteReport.quantity)} ${wasteReport.unit} · RM ${_money(wasteReport.estimatedLossRm)} estimated loss',
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  text.content(wasteReport.reason),
-                  style: const TextStyle(color: AppColours.textMuted),
-                ),
-              ],
-            ),
-          ),
+          _WasteEvidenceCard(api: api, report: wasteReport),
         ],
         if (photoReport != null) ...[
           WhiteCard(
@@ -4569,12 +4867,14 @@ class _EvidenceCapture extends StatelessWidget {
   final String? photoPath;
   final String title;
   final String subtitle;
+  final Color? accent;
   final VoidCallback onCapture;
 
   const _EvidenceCapture({
     required this.photoPath,
     required this.title,
     required this.subtitle,
+    this.accent,
     required this.onCapture,
   });
 
@@ -4597,11 +4897,13 @@ class _EvidenceCapture extends StatelessWidget {
                   Image.file(File(photoPath!), fit: BoxFit.cover)
                 else
                   Container(
-                    decoration: const BoxDecoration(
+                    decoration: BoxDecoration(
                       gradient: LinearGradient(
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
-                        colors: [Color(0xFF15285F), Color(0xFF1557F2)],
+                        colors: accent == null
+                            ? const [Color(0xFF15285F), Color(0xFF1557F2)]
+                            : [accent!.withValues(alpha: .72), accent!],
                       ),
                     ),
                   ),
@@ -4632,7 +4934,7 @@ class _EvidenceCapture extends StatelessWidget {
                           photoPath == null
                               ? Icons.add_a_photo_rounded
                               : Icons.cameraswitch_rounded,
-                          color: AppColours.blue,
+                          color: accent ?? AppColours.blue,
                         ),
                       ),
                       const SizedBox(height: 10),

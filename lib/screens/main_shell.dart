@@ -107,6 +107,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   final PushNotificationService pushNotifications = PushNotificationService();
   Future<void>? notificationCountRequest;
   int notificationUnreadCount = 0;
+  int notificationBannerSequence = 0;
 
   @override
   void initState() {
@@ -205,17 +206,48 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
       // iOS presents the native foreground banner and sound configured by FCM.
       return;
     }
-    unawaited(AppFeedback.success());
+    unawaited(AppFeedback.notification());
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('New business activity'),
-        action: SnackBarAction(
-          label: 'View',
-          onPressed: () => openNotifications(notificationId: notificationId),
+    final messenger = ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..hideCurrentMaterialBanner();
+    final sequence = ++notificationBannerSequence;
+    messenger.showMaterialBanner(
+      MaterialBanner(
+        backgroundColor: AppColours.textMain,
+        leading: const Icon(
+          Icons.notifications_active_rounded,
+          color: Colors.white,
         ),
+        content: const Text(
+          'New business activity',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              messenger.hideCurrentMaterialBanner();
+              openNotifications(notificationId: notificationId);
+            },
+            child: const Text(
+              'View',
+              style: TextStyle(
+                color: AppColours.blueSoft,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
       ),
     );
+    Future<void>.delayed(const Duration(seconds: 4), () {
+      if (mounted && notificationBannerSequence == sequence) {
+        messenger.hideCurrentMaterialBanner();
+      }
+    });
   }
 
   void handleNotificationOpened(String? notificationId) {
@@ -325,15 +357,31 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     if (existingRequest != null) return existingRequest;
 
     final generation = homeDataGeneration;
+    EastAppPage<EastAppActivityEvent>? activity;
+    StockReviewSummary? summary;
+    ReportDashboard? reports;
+    var activityLoaded = false;
+    var summaryLoaded = widget.role == UserRole.staff;
+    var reportsLoaded = false;
+
     late final Future<void> request;
-    request = Future.wait<Object?>([
+    final loads = <Future<void>>[
       widget.api.recentActivity(
         page: 0,
         size: 5,
-      ),
-      widget.role == UserRole.staff
-          ? Future<StockReviewSummary?>.value(null)
-          : widget.api.todayStockReviewSummary(),
+      ).then<void>((value) {
+        activity = value;
+        activityLoaded = true;
+      }).onError<EastAppApiException>((_, _) {
+        // Keep the previous activity list, but let the other Home data refresh.
+      }),
+      if (widget.role != UserRole.staff)
+        widget.api.todayStockReviewSummary().then<void>((value) {
+          summary = value;
+          summaryLoaded = true;
+        }).onError<EastAppApiException>((_, _) {
+          // Keep the previous summary, but let the other Home data refresh.
+        }),
       widget.api.cachedReportDashboard(
         days: 7,
         tenantId: widget.session.tenant.id,
@@ -341,21 +389,29 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
           EastAppPermission.reportIntelligenceView,
         ),
         userId: widget.session.user.id,
-      ),
-    ]).then((results) {
+      ).then<void>((value) {
+        reports = value;
+        reportsLoaded = true;
+      }).onError<EastAppApiException>((_, _) {
+        // Keep the previous dashboard, but let the other Home data refresh.
+      }),
+    ];
+
+    request = Future.wait<void>(loads).then((_) {
       if (!mounted || generation != homeDataGeneration) return;
-      final activity = results[0] as EastAppPage<EastAppActivityEvent>;
-      final summary = results[1] as StockReviewSummary?;
-      final reports = results[2] as ReportDashboard?;
+      final fullyLoaded = activityLoaded && summaryLoaded && reportsLoaded;
       setState(() {
-        homeReviewSummary = summary;
-        if (reports != null) homeReportDashboard = reports;
-        homeRecentActivities = activity.content.take(5).toList(growable: false);
-        homeDataLoaded = true;
-        homeDataDayKey = dayKey;
+        if (activityLoaded) {
+          homeRecentActivities = activity?.content
+                  .take(5)
+                  .toList(growable: false) ??
+              const <EastAppActivityEvent>[];
+        }
+        if (summaryLoaded) homeReviewSummary = summary;
+        if (reportsLoaded && reports != null) homeReportDashboard = reports;
+        homeDataLoaded = fullyLoaded;
+        homeDataDayKey = fullyLoaded ? dayKey : null;
       });
-    }).onError<EastAppApiException>((_, _) {
-      // Global API error handling already presents the request failure.
     }).whenComplete(() {
       if (identical(homeDataRequest, request)) {
         homeDataRequest = null;
@@ -638,9 +694,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
       builder: (sheetContext) => AppSettingsSheet(
         language: language,
         translationDirection: widget.api.translationDirection,
-        canManageStorage: widget.session.user.role.isOwner &&
-            widget.session.user.employeeId == 'E0001' &&
-            widget.session.user.phoneE164 == '+60166016488',
+        canManageStorage: widget.session.can(EastAppPermission.storageAdmin),
         onStorageManagement: () {
           Navigator.of(sheetContext).pop();
           unawaited(

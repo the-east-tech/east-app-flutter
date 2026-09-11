@@ -611,6 +611,8 @@ const Map<String, String> _myanmar = {
   'Notifications': 'အသိပေးချက်များ',
   'Business changes from other people': 'အခြားသူများ၏ လုပ်ငန်းပြောင်းလဲမှုများ',
   'No notifications yet.': 'အသိပေးချက် မရှိသေးပါ။',
+  'All notifications will be removed from this inbox.':
+      'ဤဝင်စာပုံးမှ အသိပေးချက်အားလုံးကို ဖယ်ရှားပါမည်။',
   'No recent activity yet.': 'လတ်တလော လုပ်ဆောင်ချက် မရှိသေးပါ။',
   'Remove': 'ဖယ်ရှားရန်',
   'Activity Details': 'လုပ်ဆောင်ချက် အသေးစိတ်',
@@ -838,6 +840,7 @@ const Map<String, String> _myanmar = {
   'Reviewed At': 'စစ်ဆေးသည့်အချိန်',
   'Reviewed By': 'စစ်ဆေးသူ',
   'Role': 'ရာထူး',
+  'System': 'စနစ်',
   'SKU': 'SKU',
   'SKU Name': 'SKU အမည်',
   'SKU Photo': 'SKU ဓာတ်ပုံ',
@@ -1304,8 +1307,8 @@ const Map<String, String> _myanmar = {
   'Set User Inactive': 'အသုံးပြုသူကို Inactive သတ်မှတ်ရန်',
   'Update User?': 'အသုံးပြုသူကို ပြင်ဆင်မည်လား။',
   'Create User?': 'အသုံးပြုသူ ဖန်တီးမည်လား။',
-  'This will assign Owner access and a separate employee ID in every business.':
-      'လုပ်ငန်းတိုင်းတွင် Owner အသုံးပြုခွင့်နှင့် သီးခြားဝန်ထမ်း ID တစ်ခု သတ်မှတ်မည်။',
+  'This will assign Owner access and a separate employee ID in this business.':
+      'ဤလုပ်ငန်းတွင် Owner အသုံးပြုခွင့်နှင့် သီးခြားဝန်ထမ်း ID တစ်ခု သတ်မှတ်မည်။',
   'This will update the selected user account and access settings.':
       'ရွေးထားသော အသုံးပြုသူအကောင့်နှင့် အသုံးပြုခွင့် ဆက်တင်များကို ပြင်ဆင်မည်။',
   'User updated': 'အသုံးပြုသူ ပြင်ဆင်ပြီး',
@@ -1340,7 +1343,11 @@ const Map<String, String> _myanmar = {
   'Inactive': 'အသုံးမပြုနေ',
   'Action taken': 'လုပ်ဆောင်ခဲ့မှု',
   'Add Complaint': 'တိုင်ကြားချက် ထည့်ရန်',
+  'Add Another Photo': 'နောက်ထပ်ဓာတ်ပုံ ထည့်ရန်',
+  'Add Waste Photo': 'စွန့်ပစ်မှုဓာတ်ပုံ ထည့်ရန်',
   'Add Waste Record': 'စွန့်ပစ်မှုမှတ်တမ်း ထည့်ရန်',
+  'Add at least one waste photo.':
+      'စွန့်ပစ်မှုဓာတ်ပုံ အနည်းဆုံး တစ်ပုံ ထည့်ပါ။',
   'Age': 'အသက်',
   'All reports reviewed': 'အစီရင်ခံစာအားလုံး စစ်ဆေးပြီး',
   'Any unsaved values on this screen will be replaced.':
@@ -1357,6 +1364,7 @@ const Map<String, String> _myanmar = {
   'Complaint updated': 'တိုင်ကြားချက် ပြင်ဆင်ပြီး',
   'Complete all pending items': 'စောင့်ဆိုင်းနေသော ပစ္စည်းအားလုံးကို ပြီးစီးပါ',
   'Copy': 'ကူးယူရန်',
+  'Create Waste Report': 'စွန့်ပစ်မှုအစီရင်ခံစာ ဖန်တီးရန်',
   'Customer Gender': 'ဖောက်သည် လိင်',
   'Daily Sales Input': 'နေ့စဉ် အရောင်းထည့်သွင်းမှု',
   'Daily photos submitted': 'နေ့စဉ်ဓာတ်ပုံများ တင်ပြပြီး',
@@ -1379,6 +1387,8 @@ const Map<String, String> _myanmar = {
   'Item': 'ပစ္စည်း',
   'Item name': 'ပစ္စည်းအမည်',
   'Male': 'အမျိုးသား',
+  'Maximum 10': 'အများဆုံး ၁၀',
+  'New Waste Report': 'စွန့်ပစ်မှုအစီရင်ခံစာ အသစ်',
   'No advertisements yet.': 'ကြော်ငြာ မရှိသေးပါ။',
   'No caption needed. Take at least five operational photos each day.':
       'စာတန်းမလိုပါ။ နေ့စဉ် လုပ်ငန်းဓာတ်ပုံ အနည်းဆုံး ၅ ပုံ ရိုက်ပါ။',
@@ -1388,6 +1398,8 @@ const Map<String, String> _myanmar = {
   'No photos taken today': 'ယနေ့ ဓာတ်ပုံ မရိုက်ရသေးပါ',
   'No submitted Sales reports in this date range':
       'ဤရက်အပိုင်းအခြားတွင် တင်ပြထားသော အရောင်းအစီရင်ခံစာ မရှိပါ',
+  'No submitted Waste reports in this date range':
+      'ဤရက်အပိုင်းအခြားတွင် တင်ပြထားသော စွန့်ပစ်မှုအစီရင်ခံစာ မရှိပါ',
   'No void bills recorded.': 'ပယ်ဖျက်ဘေလ် မှတ်တမ်းမရှိပါ။',
   'No waste records yet': 'စွန့်ပစ်မှုမှတ်တမ်း မရှိသေးပါ',
   'Non-SKU item': 'SKU မဟုတ်သော ပစ္စည်း',
@@ -1398,6 +1410,9 @@ const Map<String, String> _myanmar = {
   'Optional stock item': 'ကုန်ပစ္စည်း (ရွေးချယ်နိုင်)',
   'Other': 'အခြား',
   'Position': 'နေရာ',
+  'Photo + reason': 'ဓာတ်ပုံ + အကြောင်းရင်း',
+  'Photo and reason only. Nothing is uploaded before Submit.':
+      'ဓာတ်ပုံနှင့် အကြောင်းရင်းသာ။ Submit မနှိပ်မချင်း မည်သည့်အရာမျှ မတင်ပါ။',
   'Priority Risks': 'ဦးစားပေး အန္တရာယ်များ',
   'Proceed': 'ဆက်လုပ်ရန်',
   'Quantity': 'အရေအတွက်',
@@ -1417,6 +1432,7 @@ const Map<String, String> _myanmar = {
   'Sales Submission Details': 'အရောင်းတင်ပြမှု အသေးစိတ်',
   'Sales report submitted': 'အရောင်းအစီရင်ခံစာ တင်ပြပြီး',
   'Select Sales report dates': 'အရောင်းအစီရင်ခံစာ ရက်များရွေးပါ',
+  'Select Waste report dates': 'စွန့်ပစ်မှုအစီရင်ခံစာ ရက်များရွေးပါ',
   'Select a date range, then tap Load Report.':
       'ရက်အပိုင်းအခြား ရွေးပြီး အစီရင်ခံစာ ရယူရန်ကို နှိပ်ပါ။',
   'Select a maximum of 30 days.': 'အများဆုံး ရက် ၃၀ ရွေးပါ။',
@@ -1448,9 +1464,15 @@ const Map<String, String> _myanmar = {
   'Void bill created': 'ပယ်ဖျက်ဘေလ် ဖန်တီးပြီး',
   'Void bill recorded': 'ပယ်ဖျက်ဘေလ် မှတ်တမ်းတင်ပြီး',
   'Waste report submitted': 'စွန့်ပစ်မှုအစီရင်ခံစာ တင်ပြပြီး',
+  'Waste Photos': 'စွန့်ပစ်မှုဓာတ်ပုံများ',
+  'Waste Report Loader': 'စွန့်ပစ်မှုအစီရင်ခံစာ ရယူရန်',
+  'Waste Reports': 'စွန့်ပစ်မှုအစီရင်ခံစာများ',
   'What action was taken?': 'မည်သည့်လုပ်ဆောင်မှု ပြုလုပ်ခဲ့သနည်း။',
   'What did the customer complain about?': 'ဖောက်သည်က မည်သည့်အကြောင်း တိုင်ကြားခဲ့သနည်း။',
   'Why was this item wasted?': 'ဤပစ္စည်းကို အဘယ်ကြောင့် စွန့်ပစ်ခဲ့သနည်း။',
+  'Why was this wasted?': 'ဤအရာကို အဘယ်ကြောင့် စွန့်ပစ်ခဲ့သနည်း။',
+  'Take up to 10 photos and add one reason for each.':
+      'ဓာတ်ပုံ ၁၀ ပုံအထိ ရိုက်ပြီး ပုံတစ်ပုံစီအတွက် အကြောင်းရင်း ထည့်ပါ။',
   'e.g. V-001283': 'ဥပမာ V-001283',
   'kg / pcs': 'kg / pcs',
   'Take a clear photo of the void bill.': 'ပယ်ဖျက်ဘေလ်ကို ရှင်းလင်းစွာ ဓာတ်ပုံရိုက်ပါ။',
@@ -1577,15 +1599,22 @@ const Map<String, String> _myanmar = {
   'Password must contain at least 4 characters.': 'စကားဝှက်တွင် အနည်းဆုံး စာလုံး ၄ လုံး ပါရမည်။',
   'Passwords do not match.': 'စကားဝှက်များ မကိုက်ညီပါ။',
   'Complete Initial Setup?': 'ကနဦးသတ်မှတ်မှုကို ပြီးစီးမည်လား။',
-  'This will create the first business and Owner account. The selected Google location will be used as the office reference for attendance distance.':
-      'ပထမလုပ်ငန်းနှင့် Owner အကောင့်ကို ဖန်တီးမည်။ ရွေးထားသော Google တည်နေရာကို တက်ရောက်မှုအကွာအဝေးအတွက် အလုပ်နေရာအညွှန်းအဖြစ် အသုံးပြုမည်။',
-  'Owner Account Created': 'Owner အကောင့် ဖန်တီးပြီး',
+  'This will create the first business and founding account. The selected Google location will be used as the office reference for attendance distance.':
+      'ပထမလုပ်ငန်းနှင့် စတင်တည်ထောင်သူအကောင့်ကို ဖန်တီးမည်။ ရွေးထားသော Google တည်နေရာကို တက်ရောက်မှုအကွာအဝေးအတွက် အလုပ်နေရာအညွှန်းအဖြစ် အသုံးပြုမည်။',
+  'This will create the first business and hidden administrator. The selected Google location will be used as the office reference for attendance distance.':
+      'ပထမလုပ်ငန်းနှင့် လျှို့ဝှက်စီမံခန့်ခွဲသူကို ဖန်တီးမည်။ ရွေးထားသော Google တည်နေရာကို တက်ရောက်မှုအကွာအဝေးအတွက် အလုပ်နေရာအညွှန်းအဖြစ် အသုံးပြုမည်။',
+  'Founding Account Created': 'စတင်တည်ထောင်သူအကောင့် ဖန်တီးပြီး',
+  'Administrator Created': 'စီမံခန့်ခွဲသူ ဖန်တီးပြီး',
   'Use the Company Code, Employee ID and password to sign in.':
       'ဝင်ရောက်ရန် Company Code၊ ဝန်ထမ်း ID နှင့် စကားဝှက်ကို အသုံးပြုပါ။',
+  'Use the Company ID, Employee ID and password to sign in.':
+      'ဝင်ရောက်ရန် Company ID၊ ဝန်ထမ်း ID နှင့် စကားဝှက်ကို အသုံးပြုပါ။',
   'Continue to Login': 'Login သို့ ဆက်ရန်',
   'Initial Setup': 'ကနဦး သတ်မှတ်မှု',
-  'Create the first business and Owner account. Employee ID is generated automatically.':
-      'ပထမလုပ်ငန်းနှင့် Owner အကောင့်ကို ဖန်တီးပါ။ ဝန်ထမ်း ID ကို အလိုအလျောက် ဖန်တီးပေးမည်။',
+  'Create the first business and founding account. Employee ID is generated automatically.':
+      'ပထမလုပ်ငန်းနှင့် စတင်တည်ထောင်သူအကောင့်ကို ဖန်တီးပါ။ ဝန်ထမ်း ID ကို အလိုအလျောက် ဖန်တီးပေးမည်။',
+  'Create the first business and global hidden administrator. Each business keeps its own Employee ID Prefix.':
+      'ပထမလုပ်ငန်းနှင့် ကမ္ဘာလုံးဆိုင်ရာ လျှို့ဝှက်စီမံခန့်ခွဲသူကို ဖန်တီးပါ။ လုပ်ငန်းတိုင်းတွင် ကိုယ်ပိုင် ဝန်ထမ်း ID Prefix ရှိသည်။',
   'Setup Code': 'Setup Code',
   '10-character code': 'စာလုံး ၁၀ လုံးပါ ကုဒ်',
   'Business Name': 'လုပ်ငန်းအမည်',
@@ -1598,7 +1627,8 @@ const Map<String, String> _myanmar = {
   'Create a password': 'စကားဝှက် ဖန်တီးပါ',
   'Confirm Password': 'စကားဝှက် အတည်ပြုရန်',
   'Enter the password again': 'စကားဝှက်ကို ထပ်မံထည့်ပါ',
-  'Create Business & Owner': 'လုပ်ငန်းနှင့် Owner ဖန်တီးရန်',
+  'Create Business & Account': 'လုပ်ငန်းနှင့် အကောင့် ဖန်တီးရန်',
+  'Create Business & Admin': 'လုပ်ငန်းနှင့် Admin ဖန်တီးရန်',
   'Backend unavailable': 'Backend အသုံးမပြုနိုင်ပါ',
   'Return to login': 'Login သို့ ပြန်ရန်',
   'Google Business Location': 'Google လုပ်ငန်းတည်နေရာ',
@@ -1647,8 +1677,8 @@ const Map<String, String> _myanmar = {
   'Update Business?': 'လုပ်ငန်းကို ပြင်ဆင်မည်လား။',
   'Create Business?': 'လုပ်ငန်း ဖန်တီးမည်လား။',
   'This updates only this business.': 'ဤလုပ်ငန်းကိုသာ ပြင်ဆင်မည်။',
-  'This creates a new isolated business, default roles and a separate Owner employee ID for every existing Owner.':
-      'သီးခြားလုပ်ငန်းအသစ်၊ မူလရာထူးများနှင့် ရှိပြီးသား Owner တစ်ဦးစီအတွက် သီးခြား Owner ဝန်ထမ်း ID ကို ဖန်တီးမည်။',
+  'This creates a new isolated business and a separate Owner employee ID only for the creator.':
+      'သီးခြားလုပ်ငန်းအသစ်နှင့် ဖန်တီးသူအတွက်သာ သီးခြား Owner ဝန်ထမ်း ID ကို ဖန်တီးမည်။',
   'Edit Business': 'လုပ်ငန်း ပြင်ဆင်ရန်',
   'Create Business': 'လုပ်ငန်း ဖန်တီးရန်',
   'Example: June Coffee': 'ဥပမာ - June Coffee',
@@ -1888,6 +1918,7 @@ const Map<String, String> _chinese = {
   'Notifications': '通知',
   'Business changes from other people': '其他人员的业务变更',
   'No notifications yet.': '暂无通知。',
+  'All notifications will be removed from this inbox.': '所有通知将从收件箱中移除。',
   'No recent activity yet.': '暂无最近动态。',
   'Remove': '移除',
   'Activity Details': '动态详情',
@@ -2114,6 +2145,7 @@ const Map<String, String> _chinese = {
   'Reviewed At': '审核时间',
   'Reviewed By': '审核人',
   'Role': '角色',
+  'System': '系统',
   'SKU': 'SKU',
   'SKU Name': 'SKU名称',
   'SKU Photo': 'SKU照片',
@@ -2566,8 +2598,8 @@ const Map<String, String> _chinese = {
   'Set User Inactive': '将用户设为停用',
   'Update User?': '更新用户？',
   'Create User?': '创建用户？',
-  'This will assign Owner access and a separate employee ID in every business.':
-      '这将在每个业务中分配Owner权限及独立的员工编号。',
+  'This will assign Owner access and a separate employee ID in this business.':
+      '这将在当前业务中分配Owner权限及独立的员工编号。',
   'This will update the selected user account and access settings.':
       '这将更新所选用户账户及访问设置。',
   'User updated': '用户已更新',
@@ -2602,7 +2634,10 @@ const Map<String, String> _chinese = {
   'Inactive': '停用',
   'Action taken': '已采取的行动',
   'Add Complaint': '添加投诉',
+  'Add Another Photo': '添加另一张照片',
+  'Add Waste Photo': '添加损耗照片',
   'Add Waste Record': '添加损耗记录',
+  'Add at least one waste photo.': '请至少添加一张损耗照片。',
   'Age': '年龄',
   'All reports reviewed': '所有报告均已审核',
   'Any unsaved values on this screen will be replaced.':
@@ -2619,6 +2654,7 @@ const Map<String, String> _chinese = {
   'Complaint updated': '投诉已更新',
   'Complete all pending items': '完成所有待处理项目',
   'Copy': '复制',
+  'Create Waste Report': '创建损耗报告',
   'Customer Gender': '客户性别',
   'Daily Sales Input': '每日销售输入',
   'Daily photos submitted': '每日照片已提交',
@@ -2641,6 +2677,8 @@ const Map<String, String> _chinese = {
   'Item': '项目',
   'Item name': '项目名称',
   'Male': '男',
+  'Maximum 10': '最多10张',
+  'New Waste Report': '新建损耗报告',
   'No advertisements yet.': '暂无广告。',
   'No caption needed. Take at least five operational photos each day.':
       '无需说明文字。每天至少拍摄五张运营照片。',
@@ -2650,6 +2688,8 @@ const Map<String, String> _chinese = {
   'No photos taken today': '今天尚未拍照',
   'No submitted Sales reports in this date range':
       '此日期范围内没有已提交的销售报告',
+  'No submitted Waste reports in this date range':
+      '此日期范围内没有已提交的损耗报告',
   'No void bills recorded.': '没有作废账单记录。',
   'No waste records yet': '暂无损耗记录',
   'Non-SKU item': '非SKU项目',
@@ -2660,6 +2700,9 @@ const Map<String, String> _chinese = {
   'Optional stock item': '库存项目（可选）',
   'Other': '其他',
   'Position': '位置',
+  'Photo + reason': '照片 + 原因',
+  'Photo and reason only. Nothing is uploaded before Submit.':
+      '只需照片和原因。点击提交前不会上传任何内容。',
   'Priority Risks': '优先风险',
   'Proceed': '继续',
   'Quantity': '数量',
@@ -2679,6 +2722,7 @@ const Map<String, String> _chinese = {
   'Sales Submission Details': '销售提交详情',
   'Sales report submitted': '销售报告已提交',
   'Select Sales report dates': '选择销售报告日期',
+  'Select Waste report dates': '选择损耗报告日期',
   'Select a date range, then tap Load Report.':
       '选择日期范围，然后点击加载报告。',
   'Select a maximum of 30 days.': '最多选择30天。',
@@ -2710,9 +2754,15 @@ const Map<String, String> _chinese = {
   'Void bill created': '作废账单已创建',
   'Void bill recorded': '作废账单已记录',
   'Waste report submitted': '损耗报告已提交',
+  'Waste Photos': '损耗照片',
+  'Waste Report Loader': '损耗报告加载器',
+  'Waste Reports': '损耗报告',
   'What action was taken?': '采取了什么行动？',
   'What did the customer complain about?': '客户投诉了什么？',
   'Why was this item wasted?': '为什么损耗此项目？',
+  'Why was this wasted?': '为什么会产生此损耗？',
+  'Take up to 10 photos and add one reason for each.':
+      '最多拍摄10张照片，并为每张填写原因。',
   'e.g. V-001283': '例如 V-001283',
   'kg / pcs': '公斤 / 件',
   'Take a clear photo of the void bill.': '请清晰拍摄作废账单。',
@@ -2839,15 +2889,22 @@ const Map<String, String> _chinese = {
   'Password must contain at least 4 characters.': '密码必须至少包含4个字符。',
   'Passwords do not match.': '两次输入的密码不一致。',
   'Complete Initial Setup?': '完成初始设置？',
-  'This will create the first business and Owner account. The selected Google location will be used as the office reference for attendance distance.':
-      '这将创建第一个业务和Owner账户。所选Google位置将作为考勤距离的办公地点基准。',
-  'Owner Account Created': 'Owner账户已创建',
+  'This will create the first business and founding account. The selected Google location will be used as the office reference for attendance distance.':
+      '这将创建第一个业务及创始账户。所选Google位置将作为考勤距离的办公地点基准。',
+  'This will create the first business and hidden administrator. The selected Google location will be used as the office reference for attendance distance.':
+      '这将创建第一个业务及隐藏管理员。所选Google位置将作为考勤距离的办公地点基准。',
+  'Founding Account Created': '创始账户已创建',
+  'Administrator Created': '管理员已创建',
   'Use the Company Code, Employee ID and password to sign in.':
       '请使用公司代码、员工编号和密码登录。',
+  'Use the Company ID, Employee ID and password to sign in.':
+      '请使用公司ID、员工编号和密码登录。',
   'Continue to Login': '继续登录',
   'Initial Setup': '初始设置',
-  'Create the first business and Owner account. Employee ID is generated automatically.':
-      '创建第一个业务和Owner账户。员工编号将自动生成。',
+  'Create the first business and founding account. Employee ID is generated automatically.':
+      '创建第一个业务及创始账户。员工编号将自动生成。',
+  'Create the first business and global hidden administrator. Each business keeps its own Employee ID Prefix.':
+      '创建第一个业务及全局隐藏管理员。每个业务保留自己的员工编号前缀。',
   'Setup Code': '设置代码',
   '10-character code': '10位代码',
   'Business Name': '业务名称',
@@ -2860,7 +2917,8 @@ const Map<String, String> _chinese = {
   'Create a password': '创建密码',
   'Confirm Password': '确认密码',
   'Enter the password again': '再次输入密码',
-  'Create Business & Owner': '创建业务和Owner',
+  'Create Business & Account': '创建业务及账户',
+  'Create Business & Admin': '创建业务及管理员',
   'Backend unavailable': '后端不可用',
   'Return to login': '返回登录',
   'Google Business Location': 'Google业务位置',
@@ -2909,8 +2967,8 @@ const Map<String, String> _chinese = {
   'Update Business?': '更新业务？',
   'Create Business?': '创建业务？',
   'This updates only this business.': '这只会更新此业务。',
-  'This creates a new isolated business, default roles and a separate Owner employee ID for every existing Owner.':
-      '这将创建一个独立的新业务、默认角色，并为每位现有Owner创建独立的Owner员工编号。',
+  'This creates a new isolated business and a separate Owner employee ID only for the creator.':
+      '这将创建一个独立的新业务，并只为创建者生成独立的Owner员工编号。',
   'Edit Business': '编辑业务',
   'Create Business': '创建业务',
   'Example: June Coffee': '例如：June Coffee',

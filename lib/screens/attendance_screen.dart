@@ -2904,7 +2904,7 @@ class _UserFormSheetState extends State<_UserFormSheet> {
       action: text.t(isEditing ? 'Update User?' : 'Create User?'),
       details: text.t(selected.systemKey == 'OWNER' &&
               (!isEditing || widget.user?.roleSystemKey != 'OWNER')
-          ? 'This will assign Owner access and a separate employee ID in every business.'
+          ? 'This will assign Owner access and a separate employee ID in this business.'
           : isEditing
               ? 'This will update the selected user account and access settings.'
               : 'This will create an employee ID only inside ${widget.tenant.businessName}.'),

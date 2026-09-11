@@ -53,7 +53,7 @@ class _ReportIntelligencePanelState extends State<ReportIntelligencePanel>
     )..repeat(reverse: true);
     dashboard = widget.initialDashboard;
     lastUpdatedAt = widget.api.featureCacheUpdatedAt(cacheKey);
-    if (dashboard == null) unawaited(loadDashboard());
+    if (dashboard == null) unawaited(loadDashboard(reportError: false));
   }
 
   @override
@@ -64,7 +64,7 @@ class _ReportIntelligencePanelState extends State<ReportIntelligencePanel>
       periodDays = 7;
       dashboard = widget.initialDashboard;
       lastUpdatedAt = widget.api.featureCacheUpdatedAt(cacheKey);
-      if (dashboard == null) unawaited(loadDashboard());
+      if (dashboard == null) unawaited(loadDashboard(reportError: false));
       return;
     }
     if (periodDays == 7 &&
@@ -81,7 +81,10 @@ class _ReportIntelligencePanelState extends State<ReportIntelligencePanel>
     super.dispose();
   }
 
-  Future<void> loadDashboard({bool forceRefresh = false}) async {
+  Future<void> loadDashboard({
+    bool forceRefresh = false,
+    bool reportError = true,
+  }) async {
     final generation = ++loadGeneration;
     if (mounted) setState(() => loading = true);
     try {
@@ -91,6 +94,7 @@ class _ReportIntelligencePanelState extends State<ReportIntelligencePanel>
         managementView: true,
         userId: '',
         forceRefresh: forceRefresh,
+        reportError: reportError,
       );
       if (!mounted || generation != loadGeneration) return;
       setState(() {
