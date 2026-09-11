@@ -15,7 +15,8 @@ class InitialSetupScreen extends StatefulWidget {
   final EastAppApi api;
   final String? setupCode;
   final DateTime? setupCodeExpiresAt;
-  final VoidCallback onCompleted;
+  final void Function(EastAppInitialSetupResult result, String password)
+      onCompleted;
 
   const InitialSetupScreen({
     super.key,
@@ -253,7 +254,7 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
       if (!mounted) return;
       await _showCreatedAccount(result);
       if (!mounted) return;
-      widget.onCompleted();
+      widget.onCompleted(result, password);
     } on EastAppApiException catch (_) {
       // The global API error dialog contains the backend details.
     } finally {
