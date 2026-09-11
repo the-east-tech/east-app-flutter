@@ -1801,6 +1801,14 @@ class EastAppApi {
     );
   }
 
+  Future<void> dismissAllNotifications() async {
+    await _requestJson(
+      'DELETE',
+      '/api/v1/notifications',
+      expectBody: false,
+    );
+  }
+
   Future<void> registerPushDevice({
     required String token,
     required String platform,

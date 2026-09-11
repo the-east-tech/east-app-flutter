@@ -30,6 +30,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
   List<EastAppNotification> items = const [];
   bool loading = true;
   bool openingInitial = false;
+  bool clearingAll = false;
 
   @override
   void initState() {
@@ -119,6 +120,30 @@ class _NotificationScreenState extends State<NotificationScreen> {
     widget.onChanged();
   }
 
+  Future<void> clearAll() async {
+    if (clearingAll || items.isEmpty) return;
+    final confirmed = await confirmDataChange(
+      context,
+      action: 'Clear All',
+      details: 'All notifications will be removed from this inbox.',
+      confirmLabel: 'Clear',
+    );
+    if (!confirmed || !mounted) return;
+    setState(() => clearingAll = true);
+    try {
+      await widget.api.dismissAllNotifications();
+      if (!mounted) return;
+      setState(() {
+        items = const [];
+        clearingAll = false;
+      });
+      widget.onChanged();
+      AppFeedback.tap();
+    } on EastAppApiException {
+      if (mounted) setState(() => clearingAll = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final text = AppTextScope.of(context);
@@ -147,6 +172,15 @@ class _NotificationScreenState extends State<NotificationScreen> {
                       subtitle: text.t('Business changes from other people'),
                     ),
                   ),
+                  if (items.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 16),
+                      child: TextButton.icon(
+                        onPressed: clearingAll ? null : clearAll,
+                        icon: const Icon(Icons.delete_sweep_outlined, size: 19),
+                        label: Text(text.t('Clear All')),
+                      ),
+                    ),
                 ],
               ),
               const SizedBox(height: 8),

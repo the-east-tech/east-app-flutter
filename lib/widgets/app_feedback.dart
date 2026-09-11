@@ -61,6 +61,13 @@ class AppFeedback {
     ]);
   }
 
+  static Future<void> notification() async {
+    await Future.wait([
+      HapticFeedback.mediumImpact(),
+      _playAlert(),
+    ]);
+  }
+
   static Future<void> error() async {
     await Future.wait([
       HapticFeedback.vibrate(),

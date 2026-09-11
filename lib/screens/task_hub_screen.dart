@@ -412,7 +412,20 @@ class _TaskHubScreenState extends State<TaskHubScreen> {
         stockSkus: widget.stockSkus.where((sku) => sku.active).toList(),
         isManagement: isManagement,
         onChanged: handleChanged,
-        onCreate: () => unawaited(showUpcomingFeature(sheetContext)),
+        onCreate: () async {
+          Navigator.of(sheetContext).pop();
+          await _showReportSheet<void>(
+            context,
+            title: 'New Waste Record',
+            icon: Icons.add_a_photo_outlined,
+            builder: (_) => _WasteForm(
+              api: widget.api,
+              stockSkus: widget.stockSkus.where((sku) => sku.active).toList(),
+              earliestDate: earliestEditableDate,
+              onSaved: handleChanged,
+            ),
+          );
+        },
       ),
     );
   }
