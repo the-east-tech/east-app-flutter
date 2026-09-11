@@ -2,12 +2,14 @@ class StorageOverview {
   final DateTime measuredAt;
   final int databaseBytes;
   final int applicationTablesBytes;
+  final int maxViewRows;
   final List<StorageTableUsage> tables;
 
   const StorageOverview({
     required this.measuredAt,
     required this.databaseBytes,
     required this.applicationTablesBytes,
+    required this.maxViewRows,
     required this.tables,
   });
 
@@ -17,6 +19,7 @@ class StorageOverview {
       databaseBytes: (json['databaseBytes'] as num).toInt(),
       applicationTablesBytes:
           (json['applicationTablesBytes'] as num).toInt(),
+      maxViewRows: (json['maxViewRows'] as num?)?.toInt() ?? 100,
       tables: (json['tables'] as List<dynamic>)
           .map(
             (item) => StorageTableUsage.fromJson(
@@ -24,6 +27,64 @@ class StorageOverview {
             ),
           )
           .toList(growable: false),
+    );
+  }
+}
+
+class StorageTableData {
+  final String tableName;
+  final int requestedRows;
+  final int returnedRows;
+  final List<StorageTableColumn> columns;
+  final List<List<String?>> rows;
+
+  const StorageTableData({
+    required this.tableName,
+    required this.requestedRows,
+    required this.returnedRows,
+    required this.columns,
+    required this.rows,
+  });
+
+  factory StorageTableData.fromJson(Map<String, dynamic> json) {
+    return StorageTableData(
+      tableName: json['tableName'] as String,
+      requestedRows: (json['requestedRows'] as num).toInt(),
+      returnedRows: (json['returnedRows'] as num).toInt(),
+      columns: (json['columns'] as List<dynamic>)
+          .map(
+            (item) => StorageTableColumn.fromJson(
+              item as Map<String, dynamic>,
+            ),
+          )
+          .toList(growable: false),
+      rows: (json['rows'] as List<dynamic>)
+          .map(
+            (row) => (row as List<dynamic>)
+                .map((value) => value?.toString())
+                .toList(growable: false),
+          )
+          .toList(growable: false),
+    );
+  }
+}
+
+class StorageTableColumn {
+  final String name;
+  final String dataType;
+  final bool nullable;
+
+  const StorageTableColumn({
+    required this.name,
+    required this.dataType,
+    required this.nullable,
+  });
+
+  factory StorageTableColumn.fromJson(Map<String, dynamic> json) {
+    return StorageTableColumn(
+      name: json['name'] as String,
+      dataType: json['dataType'] as String,
+      nullable: json['nullable'] as bool,
     );
   }
 }
