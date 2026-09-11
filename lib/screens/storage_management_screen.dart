@@ -79,32 +79,37 @@ class _StorageManagementScreenState extends State<StorageManagementScreen> {
         table.rowCount < 1) {
       return;
     }
-    final rowCount = await _chooseViewCount(table, value.maxViewRows);
-    if (rowCount == null || !mounted) return;
+    final selection = await _chooseViewOptions(table, value.maxViewRows);
+    if (selection == null || !mounted) return;
 
     StorageTableData? tableData;
     setState(() => viewingTable = table.tableName);
     try {
-      tableData = await widget.api.storageTableData(table.tableName, rowCount);
+      tableData = await widget.api.storageTableData(
+        table.tableName,
+        selection.rowCount,
+        selection.latestFirst,
+      );
     } on EastAppApiException {
       // The shared API error dialog already explains the failure.
     } finally {
       if (mounted) setState(() => viewingTable = null);
     }
     if (tableData != null && mounted) {
-      await _showTableData(tableData);
+      await _showTableData(tableData, selection.latestFirst);
     }
   }
 
-  Future<int?> _chooseViewCount(
+  Future<({int rowCount, bool latestFirst})?> _chooseViewOptions(
     StorageTableUsage table,
     int maxViewRows,
   ) async {
     final maximum = table.rowCount < maxViewRows ? table.rowCount : maxViewRows;
     final initial = maximum < 10 ? maximum : 10;
     final controller = TextEditingController(text: '$initial');
+    var latestFirst = true;
     String? errorText;
-    final selected = await showDialog<int>(
+    final selected = await showDialog<({int rowCount, bool latestFirst})>(
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) {
@@ -112,16 +117,40 @@ class _StorageManagementScreenState extends State<StorageManagementScreen> {
         return StatefulBuilder(
           builder: (context, setDialogState) => AlertDialog(
             title: Text(text.t('View table rows')),
-            content: TextField(
-              controller: controller,
-              autofocus: true,
-              keyboardType: TextInputType.number,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              decoration: InputDecoration(
-                labelText: text.t('Rows to view'),
-                helperText: '${text.t('Maximum per view')}: $maximum',
-                errorText: errorText == null ? null : text.t(errorText!),
-              ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                DropdownButtonFormField<bool>(
+                  initialValue: latestFirst,
+                  decoration: InputDecoration(labelText: text.t('View order')),
+                  items: [
+                    DropdownMenuItem(
+                      value: true,
+                      child: Text(text.t('Latest first')),
+                    ),
+                    DropdownMenuItem(
+                      value: false,
+                      child: Text(text.t('Oldest first')),
+                    ),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) {
+                      setDialogState(() => latestFirst = value);
+                    }
+                  },
+                ),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: controller,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  decoration: InputDecoration(
+                    labelText: text.t('Rows to view'),
+                    helperText: '${text.t('Maximum per view')}: $maximum',
+                    errorText: errorText == null ? null : text.t(errorText!),
+                  ),
+                ),
+              ],
             ),
             actions: [
               TextButton(
@@ -137,7 +166,10 @@ class _StorageManagementScreenState extends State<StorageManagementScreen> {
                     );
                     return;
                   }
-                  Navigator.of(dialogContext).pop(value);
+                  Navigator.of(dialogContext).pop((
+                    rowCount: value,
+                    latestFirst: latestFirst,
+                  ));
                 },
                 child: Text(text.t('View')),
               ),
@@ -150,7 +182,10 @@ class _StorageManagementScreenState extends State<StorageManagementScreen> {
     return selected;
   }
 
-  Future<void> _showTableData(StorageTableData table) async {
+  Future<void> _showTableData(
+    StorageTableData table,
+    bool latestFirst,
+  ) async {
     final verticalController = ScrollController();
     final horizontalController = ScrollController();
     await showDialog<void>(
@@ -186,7 +221,9 @@ class _StorageManagementScreenState extends State<StorageManagementScreen> {
                 children: [
                   Text(
                     text.t(
-                      'Rows are oldest first where a date is available. Sensitive values are redacted and binary data is shown by byte size.',
+                      latestFirst
+                          ? 'Latest rows are shown first where a date is available. Sensitive values are redacted and binary data is shown by byte size.'
+                          : 'Oldest rows are shown first where a date is available. Sensitive values are redacted and binary data is shown by byte size.',
                     ),
                     style: AppTextStyles.formHint,
                   ),

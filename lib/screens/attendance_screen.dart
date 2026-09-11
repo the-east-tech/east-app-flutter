@@ -3083,7 +3083,7 @@ class _UserFormSheetState extends State<_UserFormSheet> {
             _PeopleInput(
               label: 'Full Name',
               controller: fullNameController,
-              hint: 'Example: Lee Kim Khong',
+              hint: 'Example: Nicky Chang',
               keyboardType: TextInputType.name,
               textCapitalization: TextCapitalization.words,
               errorText: fullNameError,
