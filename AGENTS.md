@@ -1,41 +1,51 @@
 # EastApp Frontend Rules
 
-## Default execution mode
+## Execution
 
-- For requests such as “fix/change/implement all above and send/give me code”, use this exact workflow: **read only what is needed → make the requested change → review the focused diff → increment the frontend version once → commit to a feature branch → open a pull request → stop**.
-- “All above” means every requested item in the current conversation. It does not authorise a repository-wide audit or extra improvements.
-- Make the smallest complete change. Do not inspect, refactor, clean up, modernise, optimise, or reformat unrelated code.
-- Do not run tests, `flutter analyze`, builds, the app, simulators, or emulators unless the user explicitly asks. Do not retry environment failures.
-- Do not create a ZIP, release bundle, report, documentation, or other artefact unless explicitly requested.
-- Do not use plans, subagents, web research, or broad Git-history analysis unless required by the requested change or explicitly requested.
-- If a necessary expansion would materially change scope or behaviour, ask first. Otherwise complete obvious implementation details without back-and-forth.
+- Answer, review, explain and diagnose requests are read-only. Do not create a branch, commit or PR unless code/file changes are requested.
+- A request to fix, change or implement authorises the complete delivery workflow; do not pause for separate push approval:
+  **fetch latest `main` → inspect only what is needed → create or reuse one task branch → make the smallest complete change → review the focused diff → bump the version once → commit once → push → open or update the PR → stop**.
+- “All above” means only the requested items in the current conversation. It does not authorise a repository-wide review or unrelated improvements.
+- Do not run tests, `flutter analyze`, builds, the app, simulators or emulators unless explicitly requested. Do not retry unavailable tooling.
+- Do not create plans, subagents, ZIPs, documentation or other artefacts unless required or explicitly requested.
+- Ask only when missing information would materially change behaviour. Otherwise complete obvious details without extra confirmation.
 
-## Source and scope
+## Branch and PR control
 
-- GitHub `main` is the source of truth. Fetch the latest `main` for the repository being changed before creating the feature branch.
-- Do not use old ZIPs, previous-chat code, or memory as code truth.
-- Do not fetch or inspect the backend unless the frontend change genuinely depends on its current API or the user requests cross-repository work.
-- Use focused searches and bounded reads. Open only relevant files or relevant sections of large files.
-- Follow the existing architecture and reuse existing components, services, localisation, loading, caching, and error-handling patterns.
-- Keep backend calls lazy/on-demand where applicable. Do not introduce unrelated API calls.
-- Frontend and backend versions are independent; never force them to match.
+- GitHub `main` is the source of truth. Fetch it before editing and never use an old ZIP, stale branch, previous-chat code or memory as code truth.
+- Check the existing PR state before creating a branch.
+- If an open PR already covers the same unfinished task, continue that branch and PR. Do not create another branch, PR or version bump.
+- If that PR is merged or closed, always create a new branch from the latest `main` and open a new PR. Never reuse its old branch.
+- A different task gets one new branch and one PR. Never create branches or commits per file, attempt or minor correction.
+- Default delivery is a feature branch plus PR. Never push directly to `main`, merge or deploy unless explicitly requested.
 
-## Git, versioning and delivery
+## Scope
 
-- Default delivery is **feature branch + pull request**. Never push commits directly to `main` unless the user explicitly asks for a direct `main` push.
-- Avoid unnecessary intermediate or throwaway commits on `main`. Keep branch history purposeful; prefer one complete versioned commit for a finished change when practical.
-- **Every pull request must increment the frontend version exactly once**, including documentation-only or process-only PRs. The frontend version source of truth is `pubspec.yaml`.
-- Increment the Flutter build number by one from latest `main` for each new PR, e.g. `1.0.0+327` → `1.0.0+328`.
-- Commit and PR titles must be descriptive and versioned: `frontend vNNN: concise description`, where `NNN` matches the `pubspec.yaml` build number.
-- Commit only the requested changes. Preserve unrelated existing changes.
-- Use the assistant/service Git identity supplied by the environment. Never configure or use the user’s personal name or email as commit author.
-- Do not merge the PR or trigger deployment/release actions unless the user explicitly requests it.
-- Final response: provide the PR link, branch name, version, and a brief list of requested changes; state that tests/builds were not run when they were not requested.
+- Change only requested frontend files. Preserve unrelated user changes.
+- Do not inspect the backend unless the API contract requires it or cross-repository work is requested.
+- Use focused searches and bounded reads. Avoid unrelated refactors, reformatting, modernisation and optimisation.
+- Follow the existing architecture and reuse existing components, services, localisation, loading, caching and error handling.
+- Keep backend calls lazy/on-demand and do not add unrelated API calls.
+- Frontend and backend versions are independent.
 
-## ZIP rules — only when explicitly requested
+## Version, commit and PR
 
+- Every new PR, including a documentation-only PR, increments the build number in `pubspec.yaml` exactly once.
+- Select one above the highest frontend build number on latest `main` or any open frontend PR, whichever is higher.
+- Further changes to the same open PR do not increment the version again.
+- Finish and review the requested change before committing. Prefer one commit; do not commit each file or attempt separately.
+- Commit and PR title: `frontend vNNN: concise description`. Keep it one line and at most 72 characters.
+- Keep the PR body short: requested changes plus whether checks were run. Do not add long narratives or code dumps.
+- The title version must match the `pubspec.yaml` build number.
+- Use the configured assistant/service Git identity, never the user’s personal identity.
+- Final response: PR link, branch, version, brief changes and checks not run.
+
+## ZIP delivery — explicit fallback only
+
+- Git/PR is the default. Create a ZIP only when explicitly requested; do not provide both unless requested.
+- ZIP delivery does not create a branch, commit or PR unless explicitly requested.
 - Name it `east_app_vNNN_lib.zip`.
-- Include only top-level folders and root files required by the requested change.
-- If any file inside a selected top-level folder changes, include that entire resulting folder. This applies to `lib/`, `android/`, `ios/`, `assets/`, and every other folder.
-- Include required changed root files individually; omit unchanged or unnecessary files, generated files, caches, and lock files unless required.
-- Use a new unique output path and verify the archive paths and integrity once.
+- The ZIP is extracted at the project root. Do not add a wrapper directory inside it.
+- Include every changed top-level folder as its complete final tree so macOS Finder Replace does not remove unchanged files. Include required changed root files individually.
+- Omit unchanged root files, generated files, caches and unrelated content.
+- Verify the archive root paths and integrity once.
