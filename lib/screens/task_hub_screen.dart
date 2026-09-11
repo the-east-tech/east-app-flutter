@@ -93,12 +93,13 @@ class _TaskHubScreenState extends State<TaskHubScreen> {
   @override
   void initState() {
     super.initState();
-    unawaited(loadDashboard());
+    unawaited(loadDashboard(reportError: false));
   }
 
   Future<void> loadDashboard({
     bool showLoading = true,
     bool forceRefresh = false,
+    bool reportError = true,
   }) async {
     if (showLoading && mounted) setState(() => loading = true);
     try {
@@ -108,6 +109,7 @@ class _TaskHubScreenState extends State<TaskHubScreen> {
         managementView: isManagement,
         userId: widget.currentUser.id,
         forceRefresh: forceRefresh,
+        reportError: reportError,
       );
       if (!mounted) return;
       setState(() {

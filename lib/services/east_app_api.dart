@@ -92,6 +92,7 @@ class EastAppApi {
   void Function(bool isProcessing)? onProcessingChanged;
 
   int _processingRequestCount = 0;
+  int _errorNotificationGeneration = 0;
   TranslationDirection? _translationDirection;
   Future<TranslationPreview>? _translationPreviewRequest;
   Future<void>? _contentTranslationRequest;
@@ -136,6 +137,10 @@ class EastAppApi {
   }
 
   String? get token => _token;
+
+  void invalidateInFlightErrorNotifications() {
+    _errorNotificationGeneration += 1;
+  }
 
   TranslationDirection? get translationDirection => _translationDirection;
 
@@ -702,11 +707,12 @@ class EastAppApi {
     required bool managementView,
     required String userId,
     bool forceRefresh = false,
+    bool reportError = true,
   }) async {
     final query = Uri(queryParameters: {'days': '$days'}).query;
     final path = '/api/v1/reports/dashboard?$query';
     final body = tenantId == null
-        ? await _requestJson('GET', path)
+        ? await _requestJson('GET', path, reportError: reportError)
         : await _requestCachedJson(
             path,
             cacheKey: reportDashboardCacheKey(
@@ -716,6 +722,7 @@ class EastAppApi {
               userId: userId,
             ),
             forceRefresh: forceRefresh,
+            reportError: reportError,
           );
     return ReportDashboard.fromJson(body as Map<String, dynamic>);
   }
@@ -2988,6 +2995,7 @@ class EastAppApi {
     String path, {
     required String cacheKey,
     bool forceRefresh = false,
+    bool reportError = true,
   }) async {
     final readEpoch = _featureCacheEpoch;
     final readRevision = _featureCacheRevisions[cacheKey] ?? 0;
@@ -3008,7 +3016,11 @@ class EastAppApi {
     final requestEpoch = _featureCacheEpoch;
     final requestRevision = _featureCacheRevisions[cacheKey] ?? 0;
     final request = (() async {
-      final value = await _requestJson('GET', path);
+      final value = await _requestJson(
+        'GET',
+        path,
+        reportError: reportError,
+      );
       final stillCurrent = requestEpoch == _featureCacheEpoch &&
           requestRevision == (_featureCacheRevisions[cacheKey] ?? 0);
       if (stillCurrent) {
@@ -3079,6 +3091,7 @@ class EastAppApi {
     Duration? timeout,
   }) async {
     final stopwatch = Stopwatch()..start();
+    final errorNotificationGeneration = _errorNotificationGeneration;
     final uri = Uri.parse('$baseUrl$path');
     final headers = <String, String>{
       'Accept': 'application/json',
@@ -3097,7 +3110,12 @@ class EastAppApi {
           durationMs: stopwatch.elapsedMilliseconds,
         );
         if (reportError) {
-          _reportApiError(error, requestParameters: body);
+          _reportApiError(
+            error,
+            requestParameters: body,
+            notifyUser:
+                errorNotificationGeneration == _errorNotificationGeneration,
+          );
         }
         final callback = onSessionInvalidated;
         if (notifyOnUnauthorised && callback != null) unawaited(callback());
@@ -3153,7 +3171,12 @@ class EastAppApi {
         durationMs: stopwatch.elapsedMilliseconds,
       );
       if (reportError) {
-        _reportApiError(error, requestParameters: body);
+        _reportApiError(
+          error,
+          requestParameters: body,
+          notifyUser:
+              errorNotificationGeneration == _errorNotificationGeneration,
+        );
       }
       throw error;
     } on http.ClientException {
@@ -3166,7 +3189,12 @@ class EastAppApi {
         durationMs: stopwatch.elapsedMilliseconds,
       );
       if (reportError) {
-        _reportApiError(error, requestParameters: body);
+        _reportApiError(
+          error,
+          requestParameters: body,
+          notifyUser:
+              errorNotificationGeneration == _errorNotificationGeneration,
+        );
       }
       throw error;
     }
@@ -3180,7 +3208,12 @@ class EastAppApi {
         durationMs: durationMs,
       );
       if (reportError) {
-        _reportApiError(error, requestParameters: body);
+        _reportApiError(
+          error,
+          requestParameters: body,
+          notifyUser:
+              errorNotificationGeneration == _errorNotificationGeneration,
+        );
       }
       if (authenticated && notifyOnUnauthorised && error.invalidatesSession) {
         useToken(null);
@@ -3204,7 +3237,12 @@ class EastAppApi {
         responseExcerpt: _responseExcerpt(response),
       );
       if (reportError) {
-        _reportApiError(error, requestParameters: body);
+        _reportApiError(
+          error,
+          requestParameters: body,
+          notifyUser:
+              errorNotificationGeneration == _errorNotificationGeneration,
+        );
       }
       throw error;
     }
@@ -3431,6 +3469,7 @@ class EastAppApi {
   void _reportApiError(
     EastAppApiException error, {
     Object? requestParameters,
+    bool notifyUser = true,
   }) {
     AppDiagnostics.instance.recordApiError(
       method: error.method,
@@ -3443,7 +3482,7 @@ class EastAppApi {
       responseExcerpt: error.responseExcerpt,
       requestParameters: requestParameters,
     );
-    onApiError?.call(error);
+    if (notifyUser) onApiError?.call(error);
   }
 
   void _beginProcessingRequest() {

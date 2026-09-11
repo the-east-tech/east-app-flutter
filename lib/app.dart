@@ -24,7 +24,8 @@ class TheEastApp extends StatefulWidget {
   State<TheEastApp> createState() => _TheEastAppState();
 }
 
-class _TheEastAppState extends State<TheEastApp> {
+class _TheEastAppState extends State<TheEastApp>
+    with WidgetsBindingObserver {
   static const minimumProcessingDuration = Duration(milliseconds: 400);
   static const adminLoginId = 'ADMIN';
 
@@ -47,10 +48,12 @@ class _TheEastAppState extends State<TheEastApp> {
   bool processingRequest = false;
   DateTime? processingStartedAt;
   Timer? processingDismissTimer;
+  int apiErrorPresentationGeneration = 0;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     api.onSessionInvalidated = handleSessionInvalidated;
     api.onApiError = handleApiError;
     api.onProcessingChanged = handleProcessingChanged;
@@ -68,11 +71,19 @@ class _TheEastAppState extends State<TheEastApp> {
   }
 
   void handleApiError(EastAppApiException error) {
-    if (error.invalidatesSession || apiErrorDialogOpen) return;
+    if (error.invalidatesSession ||
+        apiErrorDialogOpen ||
+        WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
+      return;
+    }
+    final presentationGeneration = apiErrorPresentationGeneration;
     apiErrorDialogOpen = true;
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final context = navigatorKey.currentContext;
-      if (!mounted || context == null) {
+      if (!mounted ||
+          context == null ||
+          presentationGeneration != apiErrorPresentationGeneration ||
+          WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
         apiErrorDialogOpen = false;
         return;
       }
@@ -82,6 +93,13 @@ class _TheEastAppState extends State<TheEastApp> {
         apiErrorDialogOpen = false;
       }
     });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) return;
+    apiErrorPresentationGeneration++;
+    api.invalidateInFlightErrorNotifications();
   }
 
   void handleProcessingChanged(bool value) {
@@ -116,6 +134,7 @@ class _TheEastAppState extends State<TheEastApp> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     processingDismissTimer?.cancel();
     api.close();
     super.dispose();
