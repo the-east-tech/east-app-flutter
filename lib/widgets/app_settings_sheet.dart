@@ -17,6 +17,8 @@ class AppSettingsSheet extends StatefulWidget {
       onTranslationChanged;
   final bool canManageStorage;
   final VoidCallback onStorageManagement;
+  final bool canManageBusinessCleanup;
+  final VoidCallback onBusinessCleanup;
 
   const AppSettingsSheet({
     super.key,
@@ -27,6 +29,8 @@ class AppSettingsSheet extends StatefulWidget {
     required this.onTranslationChanged,
     required this.canManageStorage,
     required this.onStorageManagement,
+    required this.canManageBusinessCleanup,
+    required this.onBusinessCleanup,
   });
 
   @override
@@ -474,11 +478,32 @@ class _AppSettingsSheetState extends State<AppSettingsSheet> {
                       color: AppColours.blue,
                     ),
                     title: Text(
-                      text.t('Storage & Cleanup'),
+                      text.t('Database Storage'),
                       style: const TextStyle(fontWeight: FontWeight.w800),
                     ),
                     subtitle: Text(
-                      text.t('Table sizes and operational data cleanup'),
+                      text.t('Read-only table sizes and database records'),
+                    ),
+                    trailing: const Icon(Icons.chevron_right_rounded),
+                  ),
+                ),
+              ],
+              if (widget.canManageBusinessCleanup) ...[
+                const SizedBox(height: 12),
+                WhiteCard(
+                  padding: EdgeInsets.zero,
+                  child: ListTile(
+                    onTap: saving ? null : widget.onBusinessCleanup,
+                    leading: const Icon(
+                      Icons.archive_outlined,
+                      color: AppColours.orange,
+                    ),
+                    title: Text(
+                      text.t('Business Backup & Cleanup'),
+                      style: const TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                    subtitle: Text(
+                      text.t('Back up and clean eligible business data'),
                     ),
                     trailing: const Icon(Icons.chevron_right_rounded),
                   ),
