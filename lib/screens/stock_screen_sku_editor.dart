@@ -105,7 +105,7 @@ class _SkuEditorFormState extends State<_SkuEditorForm> {
     super.initState();
     final sku = widget.initialSku;
     nameController = TextEditingController(text: sku?.name ?? '');
-    final checklist = sku?.receivingChecklist.take(5).toList() ?? const <String>[];
+    final checklist = sku?.receivableChecklist.take(5).toList() ?? const <String>[];
     checklistControllers = checklist.isEmpty
         ? [TextEditingController()]
         : checklist.map((value) => TextEditingController(text: value)).toList();
@@ -358,7 +358,7 @@ class _SkuEditorFormState extends State<_SkuEditorForm> {
               category: selectedTag1?.tag ?? '',
               tag2Id: selectedTag2?.id ?? '',
               location: selectedTag2?.tag ?? '',
-              receivingChecklist: checklist,
+              receivableChecklist: checklist,
               unit: unit,
               minimumBalanceValue: minBalance,
               maximumBalanceValue: maxBalance,
@@ -382,7 +382,7 @@ class _SkuEditorFormState extends State<_SkuEditorForm> {
                 category: selectedTag1?.tag ?? '',
                 tag2Id: selectedTag2?.id ?? '',
                 location: selectedTag2?.tag ?? '',
-                receivingChecklist: checklist,
+                receivableChecklist: checklist,
                 unit: unit,
                 minimumBalanceValue: minBalance,
                 maximumBalanceValue: maxBalance,
@@ -513,7 +513,7 @@ class _SkuEditorFormState extends State<_SkuEditorForm> {
                 decoration: _inputDecoration(text.t('None')),
               ),
               const SizedBox(height: 14),
-              _FieldLabel(text.t('Receiving Checklist')),
+              _FieldLabel(text.t('Receivable Checklist')),
               ...List.generate(
                 checklistControllers.length,
                 (index) => Padding(

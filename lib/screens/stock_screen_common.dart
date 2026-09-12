@@ -43,7 +43,7 @@ Future<T?> showStockBottomSheet<T>(
         sheet = _StockMediaScope(
           api: mediaScope.api,
           loadThumbnail: mediaScope.loadThumbnail,
-          loadReceivingPhoto: mediaScope.loadReceivingPhoto,
+          loadReceivablePhoto: mediaScope.loadReceivablePhoto,
           child: sheet,
         );
       }
@@ -195,12 +195,12 @@ class _DataRefreshShell extends StatelessWidget {
 class _StockMediaScope extends InheritedWidget {
   final EastAppApi api;
   final Future<Uint8List> Function(String storageKey) loadThumbnail;
-  final Future<Uint8List> Function(String storageKey) loadReceivingPhoto;
+  final Future<Uint8List> Function(String storageKey) loadReceivablePhoto;
 
   const _StockMediaScope({
     required this.api,
     required this.loadThumbnail,
-    required this.loadReceivingPhoto,
+    required this.loadReceivablePhoto,
     required super.child,
   });
 
@@ -214,6 +214,6 @@ class _StockMediaScope extends InheritedWidget {
   bool updateShouldNotify(covariant _StockMediaScope oldWidget) {
     return api != oldWidget.api ||
         loadThumbnail != oldWidget.loadThumbnail ||
-        loadReceivingPhoto != oldWidget.loadReceivingPhoto;
+        loadReceivablePhoto != oldWidget.loadReceivablePhoto;
   }
 }

@@ -11,7 +11,7 @@ class StockScreen extends StatefulWidget {
   final List<StockSubmission> submissions;
   final List<SupplierProfile> suppliers;
   final List<StockSku> stockSkus;
-  final List<StockReceivingRecord> receivingRecords;
+  final List<StockReceivableRecord> receivableRecords;
   final List<StockTag> tags;
   final DateTime? tagsLastUpdatedAt;
   final DateTime? suppliersLastUpdatedAt;
@@ -21,12 +21,12 @@ class StockScreen extends StatefulWidget {
   final Future<void> Function() onLoadMoreSuppliers;
   final Future<void> Function() onLoadMoreSkus;
   final Future<void> Function() onLoadMoreCounts;
-  final Future<void> Function() onLoadMoreReceivings;
+  final Future<void> Function() onLoadMoreReceivables;
   final bool canLoadMoreTags;
   final bool canLoadMoreSuppliers;
   final bool canLoadMoreSkus;
   final bool canLoadMoreCounts;
-  final bool canLoadMoreReceivings;
+  final bool canLoadMoreReceivables;
   final Future<void> Function(StockSubmission submission) onSubmitStockCheck;
   final void Function(StockTask task) onCreateStockTask;
   final Future<void> Function(String supplierId, double balance, String updatedBy)
@@ -38,8 +38,8 @@ class StockScreen extends StatefulWidget {
   final Future<void> Function(StockSku sku) onUpdateSku;
   final Future<void> Function(String skuId) onDeleteSku;
   final Future<void> Function() onSkuChangeReviewed;
-  final Future<void> Function(StockReceivingRecord record) onSubmitReceiving;
-  final Future<void> Function(StockReceivingRecord record) onReviewReceiving;
+  final Future<void> Function(StockReceivableRecord record) onSubmitReceivable;
+  final Future<void> Function(StockReceivableRecord record) onReviewReceivable;
   final Future<void> Function(StockSubmission submission) onReviewStockCount;
   final Future<void> Function(List<StockSubmission> submissions) onBulkReviewStockCounts;
   final Future<void> Function(StockTag tag) onCreateTag;
@@ -63,7 +63,7 @@ class StockScreen extends StatefulWidget {
     required this.submissions,
     required this.suppliers,
     required this.stockSkus,
-    required this.receivingRecords,
+    required this.receivableRecords,
     required this.tags,
     required this.tagsLastUpdatedAt,
     required this.suppliersLastUpdatedAt,
@@ -73,12 +73,12 @@ class StockScreen extends StatefulWidget {
     required this.onLoadMoreSuppliers,
     required this.onLoadMoreSkus,
     required this.onLoadMoreCounts,
-    required this.onLoadMoreReceivings,
+    required this.onLoadMoreReceivables,
     required this.canLoadMoreTags,
     required this.canLoadMoreSuppliers,
     required this.canLoadMoreSkus,
     required this.canLoadMoreCounts,
-    required this.canLoadMoreReceivings,
+    required this.canLoadMoreReceivables,
     required this.onSubmitStockCheck,
     required this.onCreateStockTask,
     required this.onUpdateSupplierBalance,
@@ -89,8 +89,8 @@ class StockScreen extends StatefulWidget {
     required this.onUpdateSku,
     required this.onDeleteSku,
     required this.onSkuChangeReviewed,
-    required this.onSubmitReceiving,
-    required this.onReviewReceiving,
+    required this.onSubmitReceivable,
+    required this.onReviewReceivable,
     required this.onReviewStockCount,
     required this.onBulkReviewStockCounts,
     required this.onCreateTag,
@@ -110,7 +110,7 @@ class StockScreen extends StatefulWidget {
 enum StockPage {
   home,
   dailyCount,
-  receiving,
+  receivable,
   restockMessage,
   review,
   skuSetup,

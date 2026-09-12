@@ -1,40 +1,40 @@
 part of 'stock_screen.dart';
 
-class _ReceivingDraft {
+class _ReceivableDraft {
   final StockSku sku;
-  final StockReceivingItem item;
+  final StockReceivableItem item;
 
-  const _ReceivingDraft({required this.sku, required this.item});
+  const _ReceivableDraft({required this.sku, required this.item});
 }
 
-class _StockReceivingPage extends StatefulWidget {
+class _StockReceivablePage extends StatefulWidget {
   final String tenantId;
   final UserRole role;
   final List<SupplierProfile> suppliers;
   final List<StockSku> skus;
   final VoidCallback onBack;
-  final Future<void> Function(StockReceivingRecord record) onSubmitReceiving;
+  final Future<void> Function(StockReceivableRecord record) onSubmitReceivable;
 
-  const _StockReceivingPage({
+  const _StockReceivablePage({
     required this.tenantId,
     required this.role,
     required this.suppliers,
     required this.skus,
     required this.onBack,
-    required this.onSubmitReceiving,
+    required this.onSubmitReceivable,
   });
 
   @override
-  State<_StockReceivingPage> createState() => _StockReceivingPageState();
+  State<_StockReceivablePage> createState() => _StockReceivablePageState();
 }
 
-class _StockReceivingPageState extends State<_StockReceivingPage> {
+class _StockReceivablePageState extends State<_StockReceivablePage> {
   final TextEditingController supplierSearchController = TextEditingController();
   final TextEditingController skuSearchController = TextEditingController();
   Map<String, StockPurchaseSupplierState> purchaseStates = const {};
   bool loadingStates = true;
   SupplierProfile? selectedSupplier;
-  final Map<String, _ReceivingDraft> drafts = {};
+  final Map<String, _ReceivableDraft> drafts = {};
   String invoicePhotoPath = '';
   String goodsPhotoPath = '';
 
@@ -134,7 +134,7 @@ class _StockReceivingPageState extends State<_StockReceivingPage> {
 
   void selectSupplier(SupplierProfile supplier) {
     final state = purchaseStates[supplier.id];
-    if (state?.receivingEnabled != true) {
+    if (state?.receivableEnabled != true) {
       AppFeedback.warning();
       return;
     }
@@ -215,7 +215,7 @@ class _StockReceivingPageState extends State<_StockReceivingPage> {
           ? ''
           : existing?.item.note ?? '',
     );
-    final checklist = sku.receivingChecklist;
+    final checklist = sku.receivableChecklist;
     final checked = List<bool>.filled(checklist.length, existing != null);
 
     try {
@@ -276,7 +276,7 @@ class _StockReceivingPageState extends State<_StockReceivingPage> {
                     if (checklist.isNotEmpty) ...[
                       const SizedBox(height: 14),
                       Text(
-                        text.t('Receiving Checklist'),
+                        text.t('Receivable Checklist'),
                         style: AppTextStyles.formLabel,
                       ),
                       const SizedBox(height: 4),
@@ -321,9 +321,9 @@ class _StockReceivingPageState extends State<_StockReceivingPage> {
                                 return;
                               }
                               setState(() {
-                                drafts[sku.id] = _ReceivingDraft(
+                                drafts[sku.id] = _ReceivableDraft(
                                   sku: sku,
-                                  item: StockReceivingItem(
+                                  item: StockReceivableItem(
                                     skuId: sku.id,
                                     skuName: sku.name,
                                     invoiceQuantity: invoice,
@@ -355,7 +355,7 @@ class _StockReceivingPageState extends State<_StockReceivingPage> {
     }
   }
 
-  Future<void> submitReceiving() async {
+  Future<void> submitReceivable() async {
     final supplier = selectedSupplier;
     if (supplier == null) return;
     final text = AppTextScope.of(context);
@@ -370,7 +370,7 @@ class _StockReceivingPageState extends State<_StockReceivingPage> {
 
     final confirmed = await confirmDataChange(
       context,
-      action: text.t('Submit Receiving?'),
+      action: text.t('Submit Receivable?'),
       details: text.t(
         'The selected SKU list will be treated as the complete delivery and sent for review.',
       ),
@@ -382,10 +382,10 @@ class _StockReceivingPageState extends State<_StockReceivingPage> {
       photoStorageKeys = await Future.wait([
         _StockMediaScope.of(context)
             .api
-            .uploadStockReceivingPhoto(invoicePhotoPath),
+            .uploadStockReceivablePhoto(invoicePhotoPath),
         _StockMediaScope.of(context)
             .api
-            .uploadStockReceivingPhoto(goodsPhotoPath),
+            .uploadStockReceivablePhoto(goodsPhotoPath),
       ]);
     } on EastAppApiException {
       return;
@@ -393,7 +393,7 @@ class _StockReceivingPageState extends State<_StockReceivingPage> {
     if (!mounted) return;
 
     final now = DateTime.now();
-    final record = StockReceivingRecord(
+    final record = StockReceivableRecord(
       id: 'REC${now.microsecondsSinceEpoch}',
       supplierId: supplier.id,
       supplierName: supplier.supplierName,
@@ -408,17 +408,17 @@ class _StockReceivingPageState extends State<_StockReceivingPage> {
     );
     final ok = await runStockRequest(
       context,
-      () => widget.onSubmitReceiving(record),
+      () => widget.onSubmitReceivable(record),
     );
     if (!ok || !mounted) return;
-    showSuccessSnackBar(context, text.t('Receiving submitted for review'));
+    showSuccessSnackBar(context, text.t('Receivable submitted for review'));
     backToSuppliers();
   }
 
   Widget buildSupplierList(AppText text) {
     final suppliers = filteredSuppliers;
     return _PageScaffold(
-      title: text.t('Receiving'),
+      title: text.t('Receivable'),
       subtitle: text.t('Choose the supplier delivering stock.'),
       onBack: widget.onBack,
       children: [
@@ -469,7 +469,7 @@ class _StockReceivingPageState extends State<_StockReceivingPage> {
           )
         else
           for (final supplier in suppliers) ...[
-            _ReceivingSupplierCard(
+            _ReceivableSupplierCard(
               supplier: supplier,
               state: purchaseStates[supplier.id],
               statusLabel: supplierStatus(purchaseStates[supplier.id]),
@@ -482,11 +482,11 @@ class _StockReceivingPageState extends State<_StockReceivingPage> {
     );
   }
 
-  Widget buildSupplierReceiving(AppText text, SupplierProfile supplier) {
+  Widget buildSupplierReceivable(AppText text, SupplierProfile supplier) {
     final state = purchaseStates[supplier.id];
     final skus = skusForSupplier(supplier);
     return _PageScaffold(
-      title: text.t('Receiving'),
+      title: text.t('Receivable'),
       subtitle: text.content(supplier.supplierName),
       onBack: backToSuppliers,
       children: [
@@ -527,7 +527,7 @@ class _StockReceivingPageState extends State<_StockReceivingPage> {
         Row(
           children: [
             Expanded(
-              child: _ReceivingPhotoButton(
+              child: _ReceivablePhotoButton(
                 label: 'Goods Photo',
                 done: goodsPhotoPath.isNotEmpty,
                 icon: Icons.inventory_2_outlined,
@@ -536,7 +536,7 @@ class _StockReceivingPageState extends State<_StockReceivingPage> {
             ),
             const SizedBox(width: 10),
             Expanded(
-              child: _ReceivingPhotoButton(
+              child: _ReceivablePhotoButton(
                 label: 'Invoice Photo',
                 done: invoicePhotoPath.isNotEmpty,
                 icon: Icons.receipt_long_outlined,
@@ -565,7 +565,7 @@ class _StockReceivingPageState extends State<_StockReceivingPage> {
           )
         else
           for (final sku in skus) ...[
-            _ReceivingSkuRow(
+            _ReceivableSkuRow(
               sku: sku,
               selected: drafts.containsKey(sku.id),
               onTap: () => editSku(sku),
@@ -578,12 +578,12 @@ class _StockReceivingPageState extends State<_StockReceivingPage> {
         const SizedBox(height: 8),
         PrimaryButton(
           text:
-              '${text.t('Submit Receiving')} · ${drafts.length} ${text.t('SKU')}',
+              '${text.t('Submit Receivable')} · ${drafts.length} ${text.t('SKU')}',
           icon: Icons.send_rounded,
           onPressed: drafts.isNotEmpty &&
                   invoicePhotoPath.isNotEmpty &&
                   goodsPhotoPath.isNotEmpty
-              ? submitReceiving
+              ? submitReceivable
               : null,
         ),
       ],
@@ -596,18 +596,18 @@ class _StockReceivingPageState extends State<_StockReceivingPage> {
     final supplier = selectedSupplier;
     return supplier == null
         ? buildSupplierList(text)
-        : buildSupplierReceiving(text, supplier);
+        : buildSupplierReceivable(text, supplier);
   }
 }
 
-class _ReceivingSupplierCard extends StatelessWidget {
+class _ReceivableSupplierCard extends StatelessWidget {
   final SupplierProfile supplier;
   final StockPurchaseSupplierState? state;
   final String statusLabel;
   final Color statusColour;
   final VoidCallback onTap;
 
-  const _ReceivingSupplierCard({
+  const _ReceivableSupplierCard({
     required this.supplier,
     required this.state,
     required this.statusLabel,
@@ -618,7 +618,7 @@ class _ReceivingSupplierCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = AppTextScope.of(context);
-    final enabled = state?.receivingEnabled == true;
+    final enabled = state?.receivableEnabled == true;
     return Opacity(
       opacity: enabled ? 1 : 0.48,
       child: WhiteCard(
@@ -696,13 +696,13 @@ class _ReceivingSupplierCard extends StatelessWidget {
   }
 }
 
-class _ReceivingPhotoButton extends StatelessWidget {
+class _ReceivablePhotoButton extends StatelessWidget {
   final String label;
   final bool done;
   final IconData icon;
   final VoidCallback onTap;
 
-  const _ReceivingPhotoButton({
+  const _ReceivablePhotoButton({
     required this.label,
     required this.done,
     required this.icon,
@@ -748,13 +748,13 @@ class _ReceivingPhotoButton extends StatelessWidget {
   }
 }
 
-class _ReceivingSkuRow extends StatelessWidget {
+class _ReceivableSkuRow extends StatelessWidget {
   final StockSku sku;
   final bool selected;
   final VoidCallback onTap;
   final VoidCallback? onRemove;
 
-  const _ReceivingSkuRow({
+  const _ReceivableSkuRow({
     required this.sku,
     required this.selected,
     required this.onTap,

@@ -146,6 +146,8 @@ void showAddSupplierDialog(BuildContext context, {required Future<void> Function
   final contact = TextEditingController();
   final phone = TextEditingController();
   final address = TextEditingController();
+  final address2 = TextEditingController();
+  final websiteOrGoogleLink = TextEditingController();
   final notes = TextEditingController();
   showStockBottomSheet<void>(
     context,
@@ -163,7 +165,11 @@ void showAddSupplierDialog(BuildContext context, {required Future<void> Function
         const SizedBox(height: 14),
         _DialogInput(label: text.t('Phone'), controller: phone, hint: text.t('Example: 0123456789')),
         const SizedBox(height: 14),
-        _DialogInput(label: text.t('Address'), controller: address, hint: text.t('Address')),
+        _DialogInput(label: text.t('Address 1'), controller: address, hint: text.t('Address 1')),
+        const SizedBox(height: 14),
+        _DialogInput(label: text.t('Address 2'), controller: address2, hint: text.t('Address 2')),
+        const SizedBox(height: 14),
+        _DialogInput(label: text.t('Website or Google link'), controller: websiteOrGoogleLink, hint: text.t('Website or Google link')),
         const SizedBox(height: 14),
         _DialogInput(label: text.t('Notes'), controller: notes, hint: text.t('Notes')),
         const SizedBox(height: 18),
@@ -178,6 +184,8 @@ void showAddSupplierDialog(BuildContext context, {required Future<void> Function
               contactPerson: contact.text.trim(),
               phone: phone.text.trim(),
               address: address.text.trim(),
+              address2: address2.text.trim(),
+              websiteOrGoogleLink: websiteOrGoogleLink.text.trim(),
               notes: notes.text.trim(),
               unit: 'unit',
               recommendedPurchaseAmount: 0,

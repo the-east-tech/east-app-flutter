@@ -644,7 +644,7 @@ Future<void> showSkuPhotoViewer(
           page = _StockMediaScope(
             api: mediaScope.api,
             loadThumbnail: mediaScope.loadThumbnail,
-            loadReceivingPhoto: mediaScope.loadReceivingPhoto,
+            loadReceivablePhoto: mediaScope.loadReceivablePhoto,
             child: page,
           );
         }

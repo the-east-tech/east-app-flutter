@@ -4,7 +4,7 @@ class StockPurchaseSupplierState {
   final String supplierId;
   final String messageTemplate;
   final String orderState;
-  final bool receivingEnabled;
+  final bool receivableEnabled;
   final String? currentOrderReference;
   final DateTime? orderedAt;
   final String orderedBy;
@@ -14,7 +14,7 @@ class StockPurchaseSupplierState {
     required this.supplierId,
     required this.messageTemplate,
     required this.orderState,
-    required this.receivingEnabled,
+    required this.receivableEnabled,
     required this.currentOrderReference,
     required this.orderedAt,
     required this.orderedBy,
@@ -31,7 +31,7 @@ class StockPurchaseSupplierState {
       supplierId: json['supplierId'] as String,
       messageTemplate: (json['messageTemplate'] as String? ?? '').trim(),
       orderState: (json['orderState'] as String? ?? 'NONE').trim(),
-      receivingEnabled: json['receivingEnabled'] as bool? ?? false,
+      receivableEnabled: json['receivableEnabled'] as bool? ?? false,
       currentOrderReference: json['currentOrderReference'] as String?,
       orderedAt: orderedAtValue == null ? null : DateTime.tryParse(orderedAtValue),
       orderedBy: (json['orderedBy'] as String? ?? '').trim(),

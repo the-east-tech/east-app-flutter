@@ -1,6 +1,9 @@
 part of 'stock_screen.dart';
 
 class _SupplierSetupPage extends StatefulWidget {
+  final EastAppApi api;
+  final bool isOwner;
+  final Future<void> Function() onReloadAfterImport;
   final List<SupplierProfile> suppliers;
   final VoidCallback onBack;
   final Future<void> Function(SupplierProfile supplier) onCreateSupplier;
@@ -8,6 +11,9 @@ class _SupplierSetupPage extends StatefulWidget {
   final Future<bool> Function(Set<String> supplierIds) onDeleteSuppliers;
 
   const _SupplierSetupPage({
+    required this.api,
+    required this.isOwner,
+    required this.onReloadAfterImport,
     required this.suppliers,
     required this.onBack,
     required this.onCreateSupplier,
@@ -22,6 +28,88 @@ class _SupplierSetupPage extends StatefulWidget {
 class _SupplierSetupPageState extends State<_SupplierSetupPage> {
   final searchController = TextEditingController();
   final Set<String> selectedIds = <String>{};
+  bool exportingSuppliers = false;
+
+  Future<void> exportSuppliers() async {
+    if (exportingSuppliers) return;
+    setState(() => exportingSuppliers = true);
+    try {
+      final csv = await widget.api.exportStockSuppliersCsv();
+      if (!mounted) return;
+      final renderBox = context.findRenderObject() as RenderBox?;
+      await SharePlus.instance.share(
+        ShareParams(
+          title: AppTextScope.of(context).t('Share Supplier Export'),
+          files: [XFile.fromData(csv.bytes, mimeType: 'text/csv')],
+          fileNameOverrides: [csv.fileName],
+          sharePositionOrigin: renderBox == null || !renderBox.hasSize
+              ? null
+              : renderBox.localToGlobal(Offset.zero) & renderBox.size,
+          downloadFallbackEnabled: true,
+        ),
+      );
+    } on EastAppApiException {
+      // Global API error handling already presents the failure.
+    } finally {
+      if (mounted) setState(() => exportingSuppliers = false);
+    }
+  }
+
+  Future<void> importSuppliers() async {
+    try {
+      final file = await FilePicker.pickFile(
+        type: FileType.custom,
+        allowedExtensions: const ['csv'],
+      );
+      if (file == null) return;
+      final bytes = await file.readAsBytes();
+      if (bytes.length > 2 * 1024 * 1024) {
+        if (mounted) showErrorSnackBar(context, 'The Supplier CSV must not exceed 2 MB.');
+        return;
+      }
+      final preview = await widget.api.previewStockSupplierCsv(
+        fileName: file.name,
+        bytes: bytes,
+      );
+      if (!mounted) return;
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) {
+          final text = AppTextScope.of(dialogContext);
+          return AlertDialog(
+            title: Text(text.t(preview.invalidRows == 0
+                ? 'Import Suppliers?'
+                : 'CSV cannot be submitted')),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _SkuCsvPreviewRow(label: text.t('Total rows'), value: preview.totalRows),
+                _SkuCsvPreviewRow(label: text.t('Ready to submit'), value: preview.readyRows, colour: AppColours.green),
+                _SkuCsvPreviewRow(label: text.t('Existing duplicates skipped'), value: preview.duplicateRows),
+                _SkuCsvPreviewRow(label: text.t('Invalid rows'), value: preview.invalidRows, colour: preview.invalidRows == 0 ? null : AppColours.red),
+                if (preview.errors.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  ...preview.errors.map((error) => Text(error, style: const TextStyle(color: AppColours.red))),
+                ],
+              ],
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: Text(text.t('Cancel'))),
+              if (preview.canImport)
+                FilledButton(onPressed: () => Navigator.of(dialogContext).pop(true), child: Text(text.t('Import'))),
+            ],
+          );
+        },
+      );
+      if (confirmed != true || !mounted) return;
+      await widget.api.importStockSupplierCsv(fileName: file.name, bytes: bytes);
+      await widget.onReloadAfterImport();
+      if (mounted) showSuccessSnackBar(context, 'Suppliers imported');
+    } on EastAppApiException {
+      // Global API error handling already presents the failure.
+    }
+  }
 
   @override
   void dispose() {
@@ -38,6 +126,8 @@ class _SupplierSetupPageState extends State<_SupplierSetupPage> {
               supplier.contactPerson,
               supplier.phone,
               supplier.address,
+              supplier.address2,
+              supplier.websiteOrGoogleLink,
               supplier.notes,
             ].join(' ').toLowerCase().contains(query));
     return _sortSuppliersAlphabetically(source);
@@ -74,6 +164,8 @@ class _SupplierSetupPageState extends State<_SupplierSetupPage> {
     final contact = TextEditingController(text: supplier.contactPerson);
     final phone = TextEditingController(text: supplier.phone);
     final address = TextEditingController(text: supplier.address);
+    final address2 = TextEditingController(text: supplier.address2);
+    final websiteOrGoogleLink = TextEditingController(text: supplier.websiteOrGoogleLink);
     final notes = TextEditingController(text: supplier.notes);
     var editing = false;
 
@@ -84,6 +176,8 @@ class _SupplierSetupPageState extends State<_SupplierSetupPage> {
       contactPerson: contact.text.trim(),
       phone: phone.text.trim(),
       address: address.text.trim(),
+      address2: address2.text.trim(),
+      websiteOrGoogleLink: websiteOrGoogleLink.text.trim(),
       notes: notes.text.trim(),
       unit: supplier.unit,
       recommendedPurchaseAmount: supplier.recommendedPurchaseAmount,
@@ -115,7 +209,9 @@ class _SupplierSetupPageState extends State<_SupplierSetupPage> {
               _SetupDetailRow(label: text.t('Supplier Name'), value: supplier.supplierName, controller: name, isEditing: editing),
               _SetupDetailRow(label: text.t('Contact Person'), value: supplier.contactPerson, controller: contact, isEditing: editing),
               _SetupDetailRow(label: text.t('Phone'), value: supplier.phone, controller: phone, isEditing: editing, keyboardType: TextInputType.phone),
-              _SetupDetailRow(label: text.t('Address'), value: supplier.address, controller: address, isEditing: editing),
+              _SetupDetailRow(label: text.t('Address 1'), value: supplier.address, controller: address, isEditing: editing),
+              _SetupDetailRow(label: text.t('Address 2'), value: supplier.address2, controller: address2, isEditing: editing),
+              _SetupDetailRow(label: text.t('Website or Google link'), value: supplier.websiteOrGoogleLink, controller: websiteOrGoogleLink, isEditing: editing, keyboardType: TextInputType.url),
               _SetupDetailRow(label: text.t('Notes'), value: supplier.notes, controller: notes, isEditing: editing),
               _SetupDetailRow(label: text.t('Created By'), value: supplier.lastBalanceUpdatedBy),
               _SetupDetailRow(label: text.t('Created Date'), value: '12 Mar 2024'),
@@ -177,12 +273,27 @@ class _SupplierSetupPageState extends State<_SupplierSetupPage> {
       title: text.t('Supplier'),
       subtitle: text.t('Create/list Supplier'),
       onBack: widget.onBack,
-      trailing: SizedBox(
-        width: selecting ? 120 : 150,
-        child: selecting
+      trailing: selecting
             ? ElevatedButton.icon(style: ElevatedButton.styleFrom(backgroundColor: AppColours.red, foregroundColor: Colors.white), onPressed: deleteSelected, icon: const Icon(Icons.delete_outline), label: Text(text.t('Delete')))
-            : PrimaryButton(text: text.t('Add Supplier'), icon: Icons.add_business_outlined, onPressed: () => showAddSupplierDialog(context, onCreateSupplier: widget.onCreateSupplier)),
-      ),
+            : Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  PrimaryButton(text: text.t('Add Supplier'), icon: Icons.add_business_outlined, onPressed: () => showAddSupplierDialog(context, onCreateSupplier: widget.onCreateSupplier)),
+                  if (widget.isOwner)
+                    PopupMenuButton<String>(
+                      enabled: !exportingSuppliers,
+                      icon: const Icon(Icons.more_vert_rounded),
+                      onSelected: (value) {
+                        if (value == 'import') unawaited(importSuppliers());
+                        if (value == 'export') unawaited(exportSuppliers());
+                      },
+                      itemBuilder: (_) => [
+                        PopupMenuItem(value: 'import', child: Text(text.t('Import Suppliers'))),
+                        PopupMenuItem(value: 'export', child: Text(text.t('Export Suppliers'))),
+                      ],
+                    ),
+                ],
+              ),
       children: [
         TextField(controller: searchController, style: AppTextStyles.formValue, onChanged: (_) => setState(() {}), decoration: _inputDecoration(text.t('Search')).copyWith(prefixIcon: const Icon(Icons.search_rounded))),
         const SizedBox(height: 12),

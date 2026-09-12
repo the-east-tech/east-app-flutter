@@ -57,16 +57,16 @@ class _StockHomePage extends StatelessWidget {
             ),
             if (canReceiveStock)
               DashboardMenuCard(
-                title: text.t('Receiving'),
+                title: text.t('Receivable'),
                 subtitle: text.t('Invoice & goods check'),
                 icon: Icons.assignment_turned_in_outlined,
                 badge: countBadge(
                   (reviewSummary?.readyToReceive ?? 0) +
                       (canReview
-                          ? (reviewSummary?.receivingPending ?? 0)
+                          ? (reviewSummary?.receivablePending ?? 0)
                           : 0),
                 ),
-                onTap: () => onOpenPage(StockPage.receiving),
+                onTap: () => onOpenPage(StockPage.receivable),
               ),
             if (canPurchaseStock)
               DashboardMenuCard(
