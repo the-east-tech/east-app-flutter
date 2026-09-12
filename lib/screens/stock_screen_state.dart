@@ -3,13 +3,13 @@ part of 'stock_screen.dart';
 class _StockScreenState extends State<StockScreen> {
   static const _directLoadPages = <StockPage>{
     StockPage.dailyCount,
-    StockPage.receiving,
+    StockPage.receivable,
     StockPage.restockMessage,
     StockPage.supplierSetup,
   };
 
   final Map<String, Future<Uint8List>> _thumbnailCache = {};
-  final Map<String, Future<Uint8List>> _receivingPhotoCache = {};
+  final Map<String, Future<Uint8List>> _receivablePhotoCache = {};
   final Map<StockPage, DateTime> _loadedAt = <StockPage, DateTime>{};
   StockPage page = StockPage.home;
   StockPage? dataLoadingPage;
@@ -31,10 +31,10 @@ class _StockScreenState extends State<StockScreen> {
     );
   }
 
-  Future<Uint8List> loadReceivingPhoto(String storageKey) {
-    return _receivingPhotoCache.putIfAbsent(
+  Future<Uint8List> loadReceivablePhoto(String storageKey) {
+    return _receivablePhotoCache.putIfAbsent(
       storageKey,
-      () => widget.api.stockReceivingPhotoBytes(storageKey),
+      () => widget.api.stockReceivablePhotoBytes(storageKey),
     );
   }
 
@@ -86,7 +86,7 @@ class _StockScreenState extends State<StockScreen> {
     if (summary == null) return 0;
     return switch (kind) {
       _StockApprovalKind.count => summary.dailyCountPending,
-      _StockApprovalKind.receiving => summary.receivingPending,
+      _StockApprovalKind.receivable => summary.receivablePending,
       _StockApprovalKind.sku => summary.skuChangePending,
     };
   }
@@ -104,13 +104,13 @@ class _StockScreenState extends State<StockScreen> {
     }
   }
 
-  Future<void> submitReceiving(StockReceivingRecord record) async {
-    await widget.onSubmitReceiving(record);
+  Future<void> submitReceivable(StockReceivableRecord record) async {
+    await widget.onSubmitReceivable(record);
     await invalidatePurchaseStateCache();
   }
 
-  Future<void> reviewReceiving(StockReceivingRecord record) async {
-    await widget.onReviewReceiving(record);
+  Future<void> reviewReceivable(StockReceivableRecord record) async {
+    await widget.onReviewReceivable(record);
     await invalidatePurchaseStateCache();
   }
 
@@ -153,7 +153,7 @@ class _StockScreenState extends State<StockScreen> {
     switch (_dataPageFor(page)) {
       case StockPage.dailyCount:
         return widget.canLoadMoreSkus || widget.canLoadMoreCounts;
-      case StockPage.receiving:
+      case StockPage.receivable:
       case StockPage.restockMessage:
         return widget.canLoadMoreSuppliers || widget.canLoadMoreSkus;
       case StockPage.skuSetup:
@@ -182,7 +182,7 @@ class _StockScreenState extends State<StockScreen> {
             if (widget.canLoadMoreCounts) widget.onLoadMoreCounts(),
           ]);
           break;
-        case StockPage.receiving:
+        case StockPage.receivable:
         case StockPage.restockMessage:
           await Future.wait([
             if (widget.canLoadMoreSuppliers) widget.onLoadMoreSuppliers(),
@@ -296,7 +296,7 @@ class _StockScreenState extends State<StockScreen> {
         child: _StockApprovalLauncher(
           kind: kind,
           api: widget.api,
-          onReviewReceiving: reviewReceiving,
+          onReviewReceivable: reviewReceivable,
           onReviewStockCount: widget.onReviewStockCount,
           onBulkReviewStockCounts: widget.onBulkReviewStockCounts,
           tags: widget.tags,
@@ -331,18 +331,18 @@ class _StockScreenState extends State<StockScreen> {
       case StockPage.dailyCount:
       case StockPage.review:
         return _countPage();
-      case StockPage.receiving:
+      case StockPage.receivable:
         return _dataPage(
-          target: StockPage.receiving,
+          target: StockPage.receivable,
           child: _withApproval(
-            kind: _StockApprovalKind.receiving,
-            child: _StockReceivingPage(
+            kind: _StockApprovalKind.receivable,
+            child: _StockReceivablePage(
               tenantId: widget.currentTenantId,
               role: widget.role,
               suppliers: widget.suppliers,
               skus: widget.stockSkus,
               onBack: goHome,
-              onSubmitReceiving: submitReceiving,
+              onSubmitReceivable: submitReceivable,
             ),
           ),
         );
@@ -383,6 +383,9 @@ class _StockScreenState extends State<StockScreen> {
         return _dataPage(
           target: StockPage.supplierSetup,
           child: _SupplierSetupPage(
+            api: widget.api,
+            isOwner: widget.isOwner,
+            onReloadAfterImport: widget.onReloadAfterSkuImport,
             suppliers: widget.suppliers,
             onBack: goHome,
             onCreateSupplier: widget.onCreateSupplier,
@@ -428,7 +431,7 @@ class _StockScreenState extends State<StockScreen> {
     return _StockMediaScope(
       api: widget.api,
       loadThumbnail: loadThumbnail,
-      loadReceivingPhoto: loadReceivingPhoto,
+      loadReceivablePhoto: loadReceivablePhoto,
       child: PopScope(
         canPop: false,
         onPopInvokedWithResult: (didPop, result) {

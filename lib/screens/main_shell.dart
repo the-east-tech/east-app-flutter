@@ -69,19 +69,19 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   late List<StockTask> stockTasks;
   late List<StockSubmission> stockSubmissions;
   late List<StockSku> stockSkus;
-  late List<StockReceivingRecord> stockReceivingRecords;
+  late List<StockReceivableRecord> stockReceivableRecords;
   late List<SupplierProfile> suppliers;
   late List<AttendanceRecord> attendanceRecords;
   int stockTagPage = -1;
   int stockSupplierPage = -1;
   int stockSkuPage = -1;
   int stockCountPage = -1;
-  int stockReceivingPage = -1;
+  int stockReceivablePage = -1;
   bool stockTagsLast = false;
   bool stockSuppliersLast = false;
   bool stockSkusLast = false;
   bool stockCountsLast = false;
-  bool stockReceivingsLast = false;
+  bool stockReceivablesLast = false;
   DateTime? stockTagsUpdatedAt;
   DateTime? stockSuppliersUpdatedAt;
   DateTime? stockSkusUpdatedAt;
@@ -119,7 +119,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     stockTasks = <StockTask>[];
     stockSubmissions = <StockSubmission>[];
     stockSkus = <StockSku>[];
-    stockReceivingRecords = <StockReceivingRecord>[];
+    stockReceivableRecords = <StockReceivableRecord>[];
     suppliers = <SupplierProfile>[];
     attendanceRecords = List<AttendanceRecord>.from(sampleAttendanceRecords);
     unawaited(loadPointsLeaderboard());
@@ -582,17 +582,17 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     });
   }
 
-  Future<void> loadStockReceivings({bool reset = false}) async {
-    if (!reset && stockReceivingPage >= 0 && stockReceivingsLast) return;
-    final nextPage = reset ? 0 : stockReceivingPage + 1;
-    final result = await widget.api.stockReceivings(page: nextPage, size: 50);
+  Future<void> loadStockReceivables({bool reset = false}) async {
+    if (!reset && stockReceivablePage >= 0 && stockReceivablesLast) return;
+    final nextPage = reset ? 0 : stockReceivablePage + 1;
+    final result = await widget.api.stockReceivables(page: nextPage, size: 50);
     if (!mounted) return;
     setState(() {
-      stockReceivingRecords = reset
-          ? List<StockReceivingRecord>.from(result.content)
-          : [...stockReceivingRecords, ...result.content];
-      stockReceivingPage = result.page;
-      stockReceivingsLast = result.last;
+      stockReceivableRecords = reset
+          ? List<StockReceivableRecord>.from(result.content)
+          : [...stockReceivableRecords, ...result.content];
+      stockReceivablePage = result.page;
+      stockReceivablesLast = result.last;
     });
   }
 
@@ -612,7 +612,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
               ),
           ]);
           break;
-        case StockPage.receiving:
+        case StockPage.receivable:
         case StockPage.restockMessage:
           await Future.wait([
             if (forceRefresh || stockSupplierPage < 0)
@@ -874,13 +874,13 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     });
   }
 
-  void submitStockReceiving(StockReceivingRecord record) {
-    setState(() => stockReceivingRecords = [record, ...stockReceivingRecords]);
+  void submitStockReceivable(StockReceivableRecord record) {
+    setState(() => stockReceivableRecords = [record, ...stockReceivableRecords]);
   }
 
-  void reviewStockReceiving(StockReceivingRecord record) {
+  void reviewStockReceivable(StockReceivableRecord record) {
     setState(() {
-      stockReceivingRecords = stockReceivingRecords.map((item) {
+      stockReceivableRecords = stockReceivableRecords.map((item) {
         if (item.id != record.id) return item;
         return record;
       }).toList();
@@ -1108,10 +1108,10 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     await refreshHomeReviewSummary();
   }
 
-  Future<void> submitStockReceivingRemote(
-    StockReceivingRecord record,
+  Future<void> submitStockReceivableRemote(
+    StockReceivableRecord record,
   ) async {
-    final saved = await widget.api.createStockReceiving(record);
+    final saved = await widget.api.createStockReceivable(record);
     await invalidateSetupCache(
       EastAppApi.stockSkusCachePrefix(widget.session.tenant.id),
     );
@@ -1124,7 +1124,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     }
     setState(() {
       stockSkusUpdatedAt = DateTime.now();
-      stockReceivingRecords = [saved, ...stockReceivingRecords];
+      stockReceivableRecords = [saved, ...stockReceivableRecords];
       stockSkus = stockSkus.map((sku) {
         final received = quantities[sku.id];
         if (received == null) return sku;
@@ -1138,14 +1138,14 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     await refreshHomeReviewSummary();
   }
 
-  Future<void> reviewStockReceivingRemote(
-    StockReceivingRecord record,
+  Future<void> reviewStockReceivableRemote(
+    StockReceivableRecord record,
   ) async {
-    final saved = await widget.api.reviewStockReceiving(record);
+    final saved = await widget.api.reviewStockReceivable(record);
     await invalidateReportData();
     if (!mounted) return;
     setState(() {
-      stockReceivingRecords = stockReceivingRecords
+      stockReceivableRecords = stockReceivableRecords
           .map((item) => item.id == saved.id ? saved : item)
           .toList();
     });
@@ -1662,7 +1662,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
                   (homeReviewSummary?.readyToReceive ?? 0)
               : widget.role == UserRole.head
                   ? (homeReviewSummary?.dailyCountPending ?? 0) +
-                      (homeReviewSummary?.receivingPending ?? 0) +
+                      (homeReviewSummary?.receivablePending ?? 0) +
                       (homeReviewSummary?.readyToReceive ?? 0)
                   : inventoryBadgeCount +
                       (homeReviewSummary?.readyToReceive ?? 0);
@@ -1735,7 +1735,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
               submissions: stockSubmissions,
               suppliers: suppliers,
               stockSkus: stockSkus,
-              receivingRecords: stockReceivingRecords,
+              receivableRecords: stockReceivableRecords,
               tags: stockTags,
               tagsLastUpdatedAt: stockTagsUpdatedAt,
               suppliersLastUpdatedAt: stockSuppliersUpdatedAt,
@@ -1748,14 +1748,14 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
               onLoadMoreCounts: () => loadStockCounts(
                 mine: stockCountsMine ?? false,
               ),
-              onLoadMoreReceivings: () => loadStockReceivings(),
+              onLoadMoreReceivables: () => loadStockReceivables(),
               canLoadMoreTags: stockTagPage >= 0 && !stockTagsLast,
               canLoadMoreSuppliers:
                   stockSupplierPage >= 0 && !stockSuppliersLast,
               canLoadMoreSkus: stockSkuPage >= 0 && !stockSkusLast,
               canLoadMoreCounts: stockCountPage >= 0 && !stockCountsLast,
-              canLoadMoreReceivings:
-                  stockReceivingPage >= 0 && !stockReceivingsLast,
+              canLoadMoreReceivables:
+                  stockReceivablePage >= 0 && !stockReceivablesLast,
               onSubmitStockCheck: submitStockCheckRemote,
               onCreateStockTask: createStockTask,
               onUpdateSupplierBalance: updateSupplierBalanceRemote,
@@ -1766,8 +1766,8 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
               onUpdateSku: updateSkuRemote,
               onDeleteSku: deleteSkuRemote,
               onSkuChangeReviewed: reloadAfterSkuChangeReview,
-              onSubmitReceiving: submitStockReceivingRemote,
-              onReviewReceiving: reviewStockReceivingRemote,
+              onSubmitReceivable: submitStockReceivableRemote,
+              onReviewReceivable: reviewStockReceivableRemote,
               onReviewStockCount: reviewStockCountRemote,
               onBulkReviewStockCounts: bulkReviewStockCountsRemote,
               onCreateTag: createStockTagRemote,

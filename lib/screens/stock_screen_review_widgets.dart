@@ -53,8 +53,8 @@ class _BulkSummaryCell extends StatelessWidget {
   }
 }
 
-class _ReceivingReviewRow extends StatelessWidget {
-  final StockReceivingRecord record;
+class _ReceivableReviewRow extends StatelessWidget {
+  final StockReceivableRecord record;
   final String timerText;
   final String statusText;
   final Color statusColour;
@@ -65,7 +65,7 @@ class _ReceivingReviewRow extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback onSelectToggle;
 
-  const _ReceivingReviewRow({
+  const _ReceivableReviewRow({
     required this.record,
     required this.timerText,
     required this.statusText,
@@ -98,7 +98,7 @@ class _ReceivingReviewRow extends StatelessWidget {
                 _SelectionCircle(selected: selected, enabled: selectable),
                 const SizedBox(width: 8),
               ],
-              _ReceivingGoodsThumb(record: record, size: 46, conditionColour: conditionColour),
+              _ReceivableGoodsThumb(record: record, size: 46, conditionColour: conditionColour),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(

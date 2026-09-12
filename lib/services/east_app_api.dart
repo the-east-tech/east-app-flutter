@@ -2009,7 +2009,7 @@ class EastAppApi {
   }
 
   Future<StockSkuCsvFile> exportStockSkusCsv() async {
-    final response = await _stockSkuCsvResponse(
+    final response = await _stockCsvResponse(
       'GET',
       '/api/v1/stock/skus/export',
     );
@@ -2025,7 +2025,7 @@ class EastAppApi {
     required String fileName,
     required Uint8List bytes,
   }) async {
-    final response = await _stockSkuCsvResponse(
+    final response = await _stockCsvResponse(
       'POST',
       '/api/v1/stock/skus/import/preview',
       fileName: fileName,
@@ -2040,7 +2040,7 @@ class EastAppApi {
     required String fileName,
     required Uint8List bytes,
   }) async {
-    final response = await _stockSkuCsvResponse(
+    final response = await _stockCsvResponse(
       'POST',
       '/api/v1/stock/skus/import',
       fileName: fileName,
@@ -2051,7 +2051,47 @@ class EastAppApi {
     );
   }
 
-  Future<http.Response> _stockSkuCsvResponse(
+  Future<StockSkuCsvFile> exportStockSuppliersCsv() async {
+    final response = await _stockCsvResponse(
+      'GET',
+      '/api/v1/stock/suppliers/export',
+    );
+    final disposition = response.headers['content-disposition'] ?? '';
+    final match = RegExp(r'filename="?([^";]+)').firstMatch(disposition);
+    return StockSkuCsvFile(
+      fileName: match?.group(1)?.trim() ?? 'eastapp-suppliers.csv',
+      bytes: Uint8List.fromList(response.bodyBytes),
+    );
+  }
+
+  Future<StockSupplierCsvPreview> previewStockSupplierCsv({
+    required String fileName,
+    required Uint8List bytes,
+  }) async {
+    final response = await _stockCsvResponse(
+      'POST',
+      '/api/v1/stock/suppliers/import/preview',
+      fileName: fileName,
+      bytes: bytes,
+    );
+    return StockSupplierCsvPreview.fromJson(
+      jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>,
+    );
+  }
+
+  Future<void> importStockSupplierCsv({
+    required String fileName,
+    required Uint8List bytes,
+  }) async {
+    await _stockCsvResponse(
+      'POST',
+      '/api/v1/stock/suppliers/import',
+      fileName: fileName,
+      bytes: bytes,
+    );
+  }
+
+  Future<http.Response> _stockCsvResponse(
     String method,
     String path, {
     String? fileName,
@@ -2186,7 +2226,7 @@ class EastAppApi {
     return stockSubmissionPageFromJson(body);
   }
 
-  Future<EastAppPage<StockReceivingRecord>> stockReceivings({
+  Future<EastAppPage<StockReceivableRecord>> stockReceivables({
     StockWorkflowStatus? workflowStatus,
     DateTime? from,
     DateTime? to,
@@ -2203,9 +2243,9 @@ class EastAppApi {
     }).query;
     final body = await _requestJson(
       'GET',
-      '/api/v1/stock/receivings?$query',
+      '/api/v1/stock/receivables?$query',
     ) as Map<String, dynamic>;
-    return stockReceivingPageFromJson(body);
+    return stockReceivablePageFromJson(body);
   }
 
   Future<StockTag> createStockTag(
@@ -2565,19 +2605,19 @@ class EastAppApi {
     throw error;
   }
 
-  Future<String> uploadStockReceivingPhoto(String filePath) async {
+  Future<String> uploadStockReceivablePhoto(String filePath) async {
     _beginProcessingRequest();
     try {
-      return await _uploadStockReceivingPhotoInternal(filePath);
+      return await _uploadStockReceivablePhotoInternal(filePath);
     } finally {
       _endProcessingRequest();
     }
   }
 
-  Future<String> _uploadStockReceivingPhotoInternal(String filePath) async {
+  Future<String> _uploadStockReceivablePhotoInternal(String filePath) async {
     final stopwatch = Stopwatch()..start();
     const method = 'POST';
-    const path = '/api/v1/stock/media/receiving-photos';
+    const path = '/api/v1/stock/media/receivable-photos';
     final token = _token;
     if (token == null || token.isEmpty) {
       final error = const EastAppApiException(
@@ -2602,7 +2642,7 @@ class EastAppApi {
       final error = EastAppApiException(
         statusCode: null,
         code: 'IMAGE_READ_FAILED',
-        message: 'Unable to read the captured receiving photo: $exception',
+        message: 'Unable to read the captured receivable photo: $exception',
         method: method,
         path: path,
       );
@@ -2665,7 +2705,7 @@ class EastAppApi {
     final error = const EastAppApiException(
       statusCode: 201,
       code: 'INVALID_API_RESPONSE',
-      message: 'The application server returned an invalid receiving-photo response.',
+      message: 'The application server returned an invalid receivable-photo response.',
       method: method,
       path: path,
     );
@@ -2749,18 +2789,18 @@ class EastAppApi {
     return Uint8List.fromList(response.bodyBytes);
   }
 
-  Future<Uint8List> stockReceivingPhotoBytes(String storageKey) {
+  Future<Uint8List> stockReceivablePhotoBytes(String storageKey) {
     return _loadMediaBytes(
-      'stock-receiving:$storageKey',
-      () => _fetchStockReceivingPhotoBytes(storageKey),
+      'stock-receivable:$storageKey',
+      () => _fetchStockReceivablePhotoBytes(storageKey),
     );
   }
 
-  Future<Uint8List> _fetchStockReceivingPhotoBytes(String storageKey) async {
+  Future<Uint8List> _fetchStockReceivablePhotoBytes(String storageKey) async {
     final stopwatch = Stopwatch()..start();
     const method = 'GET';
     final encodedKey = Uri.encodeComponent(storageKey);
-    final path = '/api/v1/stock/media/receiving-photos/$encodedKey';
+    final path = '/api/v1/stock/media/receivable-photos/$encodedKey';
     final token = _token;
     if (token == null || token.isEmpty) {
       final error = EastAppApiException(
@@ -2935,29 +2975,29 @@ class EastAppApi {
         .toList(growable: false);
   }
 
-  Future<StockReceivingRecord> createStockReceiving(
-    StockReceivingRecord record,
+  Future<StockReceivableRecord> createStockReceivable(
+    StockReceivableRecord record,
   ) async {
     final body = await _requestJson(
       'POST',
-      '/api/v1/stock/receivings',
-      body: stockReceivingToJson(record),
+      '/api/v1/stock/receivables',
+      body: stockReceivableToJson(record),
     ) as Map<String, dynamic>;
-    return stockReceivingRecordFromJson(body);
+    return stockReceivableRecordFromJson(body);
   }
 
-  Future<StockReceivingRecord> reviewStockReceiving(
-    StockReceivingRecord record,
+  Future<StockReceivableRecord> reviewStockReceivable(
+    StockReceivableRecord record,
   ) async {
     final body = await _requestJson(
       'PATCH',
-      '/api/v1/stock/receivings/${record.id}/review',
+      '/api/v1/stock/receivables/${record.id}/review',
       body: {
         'status': record.workflowStatus.apiValue,
         'note': record.reviewNote,
       },
     ) as Map<String, dynamic>;
-    return stockReceivingRecordFromJson(body);
+    return stockReceivableRecordFromJson(body);
   }
 
   Future<Uint8List> _loadMediaBytes(
@@ -3360,7 +3400,7 @@ class EastAppApi {
   };
 
   static const Set<String> _translatedCollectionFields = <String>{
-    'receivingChecklist',
+    'receivableChecklist',
     'remarks',
   };
 

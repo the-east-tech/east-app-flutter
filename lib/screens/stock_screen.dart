@@ -31,7 +31,7 @@ part 'stock_screen_contract.dart';
 part 'stock_screen_state.dart';
 part 'stock_screen_home.dart';
 part 'stock_screen_count.dart';
-part 'stock_screen_receiving.dart';
+part 'stock_screen_receivable.dart';
 part 'stock_screen_purchase.dart';
 part 'stock_screen_review.dart';
 part 'stock_screen_review_widgets.dart';

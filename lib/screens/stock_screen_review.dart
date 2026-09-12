@@ -1,6 +1,6 @@
 part of 'stock_screen.dart';
 
-enum _StockApprovalKind { count, receiving, sku }
+enum _StockApprovalKind { count, receivable, sku }
 
 class _StockApprovalScope extends InheritedWidget {
   final Widget section;
@@ -25,7 +25,7 @@ class _StockApprovalScope extends InheritedWidget {
 class _StockApprovalLauncher extends StatelessWidget {
   final _StockApprovalKind kind;
   final EastAppApi api;
-  final Future<void> Function(StockReceivingRecord record) onReviewReceiving;
+  final Future<void> Function(StockReceivableRecord record) onReviewReceivable;
   final Future<void> Function(StockSubmission submission) onReviewStockCount;
   final Future<void> Function(List<StockSubmission> submissions)
       onBulkReviewStockCounts;
@@ -37,7 +37,7 @@ class _StockApprovalLauncher extends StatelessWidget {
   const _StockApprovalLauncher({
     required this.kind,
     required this.api,
-    required this.onReviewReceiving,
+    required this.onReviewReceivable,
     required this.onReviewStockCount,
     required this.onBulkReviewStockCounts,
     required this.tags,
@@ -46,7 +46,7 @@ class _StockApprovalLauncher extends StatelessWidget {
     required this.onSkuChangeReviewed,
   });
 
-  bool get isReceiving => kind == _StockApprovalKind.receiving;
+  bool get isReceivable => kind == _StockApprovalKind.receivable;
   bool get isSku => kind == _StockApprovalKind.sku;
 
   Future<void> _open(BuildContext context) async {
@@ -65,7 +65,7 @@ class _StockApprovalLauncher extends StatelessWidget {
           : _StockApprovalSheet(
               kind: kind,
               api: api,
-              onReviewReceiving: onReviewReceiving,
+              onReviewReceivable: onReviewReceivable,
               onReviewStockCount: onReviewStockCount,
               onBulkReviewStockCounts: onBulkReviewStockCounts,
             ),
@@ -94,7 +94,7 @@ class _StockApprovalLauncher extends StatelessWidget {
                 child: Icon(
                   isSku
                       ? Icons.edit_note_rounded
-                      : isReceiving
+                      : isReceivable
                           ? Icons.inventory_2_outlined
                           : Icons.fact_check_outlined,
                   color: AppColours.blue,
@@ -109,8 +109,8 @@ class _StockApprovalLauncher extends StatelessWidget {
                       text.t(
                         isSku
                             ? 'SKU Change Records'
-                            : isReceiving
-                                ? 'Receiving Records'
+                            : isReceivable
+                                ? 'Receivable Records'
                                 : 'Daily Count Records',
                       ),
                       style: const TextStyle(
@@ -123,8 +123,8 @@ class _StockApprovalLauncher extends StatelessWidget {
                       text.t(
                         isSku
                             ? 'Review submitted SKU changes'
-                            : isReceiving
-                                ? 'Review submitted receiving records'
+                            : isReceivable
+                                ? 'Review submitted receivable records'
                                 : 'Review submitted daily stock counts',
                       ),
                       style: const TextStyle(
@@ -151,7 +151,7 @@ class _StockApprovalLauncher extends StatelessWidget {
 class _StockApprovalSheet extends StatefulWidget {
   final _StockApprovalKind kind;
   final EastAppApi api;
-  final Future<void> Function(StockReceivingRecord record) onReviewReceiving;
+  final Future<void> Function(StockReceivableRecord record) onReviewReceivable;
   final Future<void> Function(StockSubmission submission) onReviewStockCount;
   final Future<void> Function(List<StockSubmission> submissions)
       onBulkReviewStockCounts;
@@ -159,7 +159,7 @@ class _StockApprovalSheet extends StatefulWidget {
   const _StockApprovalSheet({
     required this.kind,
     required this.api,
-    required this.onReviewReceiving,
+    required this.onReviewReceivable,
     required this.onReviewStockCount,
     required this.onBulkReviewStockCounts,
   });
@@ -176,7 +176,7 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
   StockWorkflowStatus statusFilter = StockWorkflowStatus.submitted;
   late DateTime rangeStart;
   late DateTime rangeEnd;
-  List<StockReceivingRecord> receivingRecords = const [];
+  List<StockReceivableRecord> receivableRecords = const [];
   List<StockSubmission> countRecords = const [];
   bool loaded = false;
   bool loading = false;
@@ -187,11 +187,11 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
   bool selecting = false;
   final Set<String> selectedIds = <String>{};
 
-  bool get isReceiving => widget.kind == _StockApprovalKind.receiving;
+  bool get isReceivable => widget.kind == _StockApprovalKind.receivable;
   bool get canReviewSelectedStatus =>
       statusFilter == StockWorkflowStatus.submitted;
   int get recordsCount =>
-      isReceiving ? receivingRecords.length : countRecords.length;
+      isReceivable ? receivableRecords.length : countRecords.length;
 
   @override
   void initState() {
@@ -226,7 +226,7 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
       '${_formatDate(rangeStart)} – ${_formatDate(rangeEnd)}';
 
   void _clearLoadedResults() {
-    receivingRecords = const [];
+    receivableRecords = const [];
     countRecords = const [];
     loaded = false;
     loadedPage = -1;
@@ -279,8 +279,8 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
 
     try {
       final page = reset ? 0 : loadedPage + 1;
-      if (isReceiving) {
-        final result = await widget.api.stockReceivings(
+      if (isReceivable) {
+        final result = await widget.api.stockReceivables(
           workflowStatus: statusFilter,
           from: rangeStart,
           to: rangeEnd,
@@ -289,9 +289,9 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
         );
         if (!mounted) return;
         setState(() {
-          receivingRecords = reset
-              ? List<StockReceivingRecord>.from(result.content)
-              : [...receivingRecords, ...result.content];
+          receivableRecords = reset
+              ? List<StockReceivableRecord>.from(result.content)
+              : [...receivableRecords, ...result.content];
           loaded = true;
           loadedPage = result.page;
           totalElements = result.totalElements;
@@ -356,7 +356,7 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
     };
   }
 
-  Color receivingConditionColour(StockReceivingRecord record) {
+  Color receivableConditionColour(StockReceivableRecord record) {
     final condition = record.items.isEmpty
         ? ''
         : record.items.first.condition.toLowerCase();
@@ -403,8 +403,8 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
     });
   }
 
-  Future<bool> reviewReceiving(
-    StockReceivingRecord record,
+  Future<bool> reviewReceivable(
+    StockReceivableRecord record,
     StockWorkflowStatus status,
   ) async {
     final text = AppTextScope.of(context);
@@ -412,11 +412,11 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
       context,
       action: text.t(
         status == StockWorkflowStatus.done
-            ? 'Approve Receiving Record?'
-            : 'Return Receiving Record?',
+            ? 'Approve Receivable Record?'
+            : 'Return Receivable Record?',
       ),
       details: text.t(
-        'This will update the review status of this receiving record.',
+        'This will update the review status of this receivable record.',
       ),
     );
     if (!confirmed || !mounted) return false;
@@ -426,11 +426,11 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
     );
     final saved = await runStockRequest(
       context,
-      () => widget.onReviewReceiving(updated),
+      () => widget.onReviewReceivable(updated),
     );
     if (!saved || !mounted) return false;
     setState(() {
-      receivingRecords = receivingRecords
+      receivableRecords = receivableRecords
           .where((item) => item.id != record.id)
           .toList();
       totalElements = totalElements > 0 ? totalElements - 1 : 0;
@@ -440,8 +440,8 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
       context,
       text.t(
         status == StockWorkflowStatus.done
-            ? 'Receiving record approved'
-            : 'Receiving record returned',
+            ? 'Receivable record approved'
+            : 'Receivable record returned',
       ),
     );
     return true;
@@ -545,9 +545,9 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
     );
   }
 
-  void showReceivingDetails(StockReceivingRecord record) {
+  void showReceivableDetails(StockReceivableRecord record) {
     final text = AppTextScope.of(context);
-    final conditionColour = receivingConditionColour(record);
+    final conditionColour = receivableConditionColour(record);
     showStockBottomSheet<void>(
       context,
       maxHeightFactor: 0.92,
@@ -565,7 +565,7 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
                   children: [
                     Expanded(
                       child: Text(
-                        text.t('Receiving Review'),
+                        text.t('Receivable Review'),
                         style: const TextStyle(
                           fontSize: AppTextSize.s24,
                           fontWeight: FontWeight.w800,
@@ -644,7 +644,7 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
                           outlined: true,
                           icon: Icons.close_rounded,
                           onPressed: () async {
-                            final ok = await reviewReceiving(
+                            final ok = await reviewReceivable(
                               record,
                               StockWorkflowStatus.pending,
                             );
@@ -660,7 +660,7 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
                           text: text.t('Approve'),
                           icon: Icons.check_rounded,
                           onPressed: () async {
-                            final ok = await reviewReceiving(
+                            final ok = await reviewReceivable(
                               record,
                               StockWorkflowStatus.done,
                             );
@@ -927,8 +927,8 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
                     Expanded(
                       child: Text(
                         text.t(
-                          isReceiving
-                              ? 'Receiving Records'
+                          isReceivable
+                              ? 'Receivable Records'
                               : 'Daily Count Records',
                         ),
                         style: const TextStyle(
@@ -937,7 +937,7 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
                         ),
                       ),
                     ),
-                    if (!isReceiving &&
+                    if (!isReceivable &&
                         loaded &&
                         canReviewSelectedStatus &&
                         recordsCount > 0 &&
@@ -1039,8 +1039,8 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
                     WhiteCard(
                       child: Text(
                         text.t(
-                          isReceiving
-                              ? 'No receiving records found.'
+                          isReceivable
+                              ? 'No receivable records found.'
                               : 'No daily count records found.',
                         ),
                         style: const TextStyle(
@@ -1053,11 +1053,11 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
                     WhiteCard(
                       padding: EdgeInsets.zero,
                       child: Column(
-                        children: isReceiving
-                            ? receivingRecords.map((record) {
+                        children: isReceivable
+                            ? receivableRecords.map((record) {
                                 final selected =
                                     selectedIds.contains(record.id);
-                                return _ReceivingReviewRow(
+                                return _ReceivableReviewRow(
                                   record: record,
                                   timerText:
                                       recordDateLabel(record.capturedAt),
@@ -1065,11 +1065,11 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
                                   statusColour:
                                       workflowStatusColour(record.workflowStatus),
                                   conditionColour:
-                                      receivingConditionColour(record),
+                                      receivableConditionColour(record),
                                   selectMode: false,
                                   selectable: false,
                                   selected: selected,
-                                  onTap: () => showReceivingDetails(record),
+                                  onTap: () => showReceivableDetails(record),
                                   onSelectToggle: () =>
                                       toggleSelection(record.id),
                                 );
@@ -1159,7 +1159,7 @@ class _SkuChangeApprovalSheetState extends State<_SkuChangeApprovalSheet> {
     'minimumPriceRm',
     'maximumPriceRm',
     'assignedStaffNames',
-    'receivingChecklist',
+    'receivableChecklist',
     'stockCheckSchedule',
     'stockCheckDay',
     'stockCheckDate',
@@ -1180,7 +1180,7 @@ class _SkuChangeApprovalSheetState extends State<_SkuChangeApprovalSheet> {
         'minimumPriceRm' => 'Minimum Price',
         'maximumPriceRm' => 'Maximum Price',
         'assignedStaffNames' => 'Assigned Staff',
-        'receivingChecklist' => 'Receiving Checklist',
+        'receivableChecklist' => 'Receivable Checklist',
         'stockCheckSchedule' => 'Stock Check Schedule',
         'stockCheckDay' => 'Stock Check Day',
         'stockCheckDate' => 'Stock Check Date',
@@ -1226,7 +1226,7 @@ class _SkuChangeApprovalSheetState extends State<_SkuChangeApprovalSheet> {
     if (value == null) return '-';
     if (value is List) {
       if (value.isEmpty) return 'None';
-      if (key == 'receivingChecklist') {
+      if (key == 'receivableChecklist') {
         return List.generate(
           value.length,
           (index) => '${index + 1}. ${value[index]}',

@@ -190,6 +190,8 @@ class SupplierProfile {
   final String contactPerson;
   final String phone;
   final String address;
+  final String address2;
+  final String websiteOrGoogleLink;
   final String notes;
   final String unit;
   final double recommendedPurchaseAmount;
@@ -208,6 +210,8 @@ class SupplierProfile {
     this.contactPerson = '',
     this.phone = '',
     this.address = '',
+    this.address2 = '',
+    this.websiteOrGoogleLink = '',
     this.notes = '',
     required this.unit,
     required this.recommendedPurchaseAmount,
@@ -236,6 +240,8 @@ class SupplierProfile {
       contactPerson: contactPerson,
       phone: phone,
       address: address,
+      address2: address2,
+      websiteOrGoogleLink: websiteOrGoogleLink,
       notes: notes,
       unit: unit,
       recommendedPurchaseAmount: recommendedPurchaseAmount,
@@ -267,7 +273,7 @@ class StockSku {
   final String photoPath;
   final List<String> assignedStaffNames;
   final String location;
-  final List<String> receivingChecklist;
+  final List<String> receivableChecklist;
   final StockCheckSchedule stockCheckSchedule;
   final int? stockCheckDay;
   final DateTime? stockCheckDate;
@@ -294,7 +300,7 @@ class StockSku {
     String assignedStaffName = 'Unassigned',
     List<String> assignedStaffNames = const [],
     this.location = '',
-    this.receivingChecklist = const [],
+    this.receivableChecklist = const [],
     this.stockCheckSchedule = StockCheckSchedule.daily,
     this.stockCheckDay,
     this.stockCheckDate,
@@ -348,7 +354,7 @@ class StockSku {
     String? assignedStaffName,
     List<String>? assignedStaffNames,
     String? location,
-    List<String>? receivingChecklist,
+    List<String>? receivableChecklist,
     StockCheckSchedule? stockCheckSchedule,
     int? stockCheckDay,
     bool clearStockCheckDay = false,
@@ -381,7 +387,7 @@ class StockSku {
       photoPath: photoPath ?? this.photoPath,
       assignedStaffNames: nextAssignedStaffNames,
       location: location ?? this.location,
-      receivingChecklist: receivingChecklist ?? this.receivingChecklist,
+      receivableChecklist: receivableChecklist ?? this.receivableChecklist,
       stockCheckSchedule: nextSchedule,
       stockCheckDay: nextSchedule == StockCheckSchedule.daily ||
               nextSchedule == StockCheckSchedule.adHoc || clearStockCheckDay
@@ -398,7 +404,7 @@ class StockSku {
   }
 }
 
-class StockReceivingItem {
+class StockReceivableItem {
   final String skuId;
   final String skuName;
   final double invoiceQuantity;
@@ -407,7 +413,7 @@ class StockReceivingItem {
   final String condition;
   final String note;
 
-  const StockReceivingItem({
+  const StockReceivableItem({
     required this.skuId,
     required this.skuName,
     required this.invoiceQuantity,
@@ -418,7 +424,7 @@ class StockReceivingItem {
   });
 }
 
-class StockReceivingRecord {
+class StockReceivableRecord {
   final String id;
   final String supplierId;
   final String supplierName;
@@ -427,13 +433,13 @@ class StockReceivingRecord {
   final DateTime capturedAt;
   final String invoicePhotoName;
   final String goodsPhotoName;
-  final List<StockReceivingItem> items;
+  final List<StockReceivableItem> items;
   final StockWorkflowStatus workflowStatus;
   final String reviewedBy;
   final String reviewedAt;
   final String reviewNote;
 
-  const StockReceivingRecord({
+  const StockReceivableRecord({
     required this.id,
     required this.supplierId,
     required this.supplierName,
@@ -453,13 +459,13 @@ class StockReceivingRecord {
   bool get isRejected => workflowStatus == StockWorkflowStatus.pending;
   bool get isPendingReview => workflowStatus == StockWorkflowStatus.submitted;
 
-  StockReceivingRecord copyWith({
+  StockReceivableRecord copyWith({
     StockWorkflowStatus? workflowStatus,
     String? reviewedBy,
     String? reviewedAt,
     String? reviewNote,
   }) {
-    return StockReceivingRecord(
+    return StockReceivableRecord(
       id: id,
       supplierId: supplierId,
       supplierName: supplierName,

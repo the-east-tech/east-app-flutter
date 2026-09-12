@@ -8,7 +8,7 @@ class StockReviewSummary {
   final int done;
   final int total;
   final int dailyCountPending;
-  final int receivingPending;
+  final int receivablePending;
   final int skuChangePending;
   final int readyToReceive;
 
@@ -17,13 +17,13 @@ class StockReviewSummary {
     required this.done,
     required this.total,
     required this.dailyCountPending,
-    required this.receivingPending,
+    required this.receivablePending,
     required this.skuChangePending,
     required this.readyToReceive,
   });
 
   int get outstandingPending =>
-      dailyCountPending + receivingPending + skuChangePending;
+      dailyCountPending + receivablePending + skuChangePending;
 
   factory StockReviewSummary.fromJson(Map<String, dynamic> json) {
     return StockReviewSummary(
@@ -31,7 +31,7 @@ class StockReviewSummary {
       done: (json['done'] as num? ?? 0).toInt(),
       total: (json['total'] as num? ?? 0).toInt(),
       dailyCountPending: (json['dailyCountPending'] as num? ?? 0).toInt(),
-      receivingPending: (json['receivingPending'] as num? ?? 0).toInt(),
+      receivablePending: (json['receivablePending'] as num? ?? 0).toInt(),
       skuChangePending: (json['skuChangePending'] as num? ?? 0).toInt(),
       readyToReceive: (json['readyToReceive'] as num? ?? 0).toInt(),
     );
@@ -43,14 +43,14 @@ class EastAppStockSnapshot {
   final List<SupplierProfile> suppliers;
   final List<StockSku> skus;
   final List<StockSubmission> submissions;
-  final List<StockReceivingRecord> receivingRecords;
+  final List<StockReceivableRecord> receivableRecords;
 
   const EastAppStockSnapshot({
     required this.tags,
     required this.suppliers,
     required this.skus,
     required this.submissions,
-    required this.receivingRecords,
+    required this.receivableRecords,
   });
 
   factory EastAppStockSnapshot.fromJson(Map<String, dynamic> json) {
@@ -59,9 +59,9 @@ class EastAppStockSnapshot {
       suppliers: _list(json['suppliers'], stockSupplierFromJson),
       skus: _list(json['skus'], stockSkuFromJson),
       submissions: _list(json['submissions'], stockSubmissionFromJson),
-      receivingRecords: _list(
-        json['receivingRecords'],
-        stockReceivingRecordFromJson,
+      receivableRecords: _list(
+        json['receivableRecords'],
+        stockReceivableRecordFromJson,
       ),
     );
   }
@@ -103,6 +103,8 @@ SupplierProfile stockSupplierFromJson(Map<String, dynamic> json) {
     contactPerson: json['contactPerson'] as String? ?? '',
     phone: json['phone'] as String? ?? '',
     address: json['address'] as String? ?? '',
+    address2: json['address2'] as String? ?? '',
+    websiteOrGoogleLink: json['websiteOrGoogleLink'] as String? ?? '',
     notes: json['notes'] as String? ?? '',
     unit: json['unit'] as String,
     recommendedPurchaseAmount:
@@ -141,8 +143,8 @@ StockSku stockSkuFromJson(Map<String, dynamic> json) {
             .map((item) => item.toString())
             .toList(growable: false),
     location: json['location'] as String? ?? '',
-    receivingChecklist:
-        (json['receivingChecklist'] as List<dynamic>? ?? const [])
+    receivableChecklist:
+        (json['receivableChecklist'] as List<dynamic>? ?? const [])
             .map((item) => item.toString())
             .toList(growable: false),
     stockCheckSchedule:
@@ -238,10 +240,10 @@ StockSubmission stockSubmissionFromJson(Map<String, dynamic> json) {
   );
 }
 
-StockReceivingRecord stockReceivingRecordFromJson(
+StockReceivableRecord stockReceivableRecordFromJson(
   Map<String, dynamic> json,
 ) {
-  return StockReceivingRecord(
+  return StockReceivableRecord(
     id: json['id'] as String,
     supplierId: json['supplierId'] as String,
     supplierName: json['supplierName'] as String,
@@ -250,7 +252,7 @@ StockReceivingRecord stockReceivingRecordFromJson(
     capturedAt: DateTime.parse(json['capturedAt'] as String).toLocal(),
     invoicePhotoName: json['invoicePhotoName'] as String,
     goodsPhotoName: json['goodsPhotoName'] as String,
-    items: _list(json['items'], stockReceivingItemFromJson),
+    items: _list(json['items'], stockReceivableItemFromJson),
     workflowStatus: StockWorkflowStatus.fromApi(json['workflowStatus']),
     reviewedBy: json['reviewedBy'] as String? ?? '',
     reviewedAt: json['reviewedAt'] as String? ?? '',
@@ -258,8 +260,8 @@ StockReceivingRecord stockReceivingRecordFromJson(
   );
 }
 
-StockReceivingItem stockReceivingItemFromJson(Map<String, dynamic> json) {
-  return StockReceivingItem(
+StockReceivableItem stockReceivableItemFromJson(Map<String, dynamic> json) {
+  return StockReceivableItem(
     skuId: json['skuId'] as String,
     skuName: json['skuName'] as String,
     invoiceQuantity: (json['invoiceQuantity'] as num).toDouble(),
@@ -277,6 +279,8 @@ Map<String, Object?> stockSupplierToJson(SupplierProfile supplier) {
     'contactPerson': supplier.contactPerson,
     'phone': supplier.phone,
     'address': supplier.address,
+    'address2': supplier.address2,
+    'websiteOrGoogleLink': supplier.websiteOrGoogleLink,
     'notes': supplier.notes,
     'unit': supplier.unit,
     'recommendedPurchaseAmount': supplier.recommendedPurchaseAmount,
@@ -303,7 +307,7 @@ Map<String, Object?> stockSkuToJson(StockSku sku) {
     'supplierIds': sku.supplierIds,
     'photoPath': sku.photoPath,
     'assignedStaffNames': sku.assignedStaffNames,
-    'receivingChecklist': sku.receivingChecklist,
+    'receivableChecklist': sku.receivableChecklist,
     'stockCheckSchedule': sku.stockCheckSchedule.apiValue,
     'stockCheckDay': sku.stockCheckDay,
     'stockCheckDate': sku.stockCheckDate == null
@@ -326,7 +330,7 @@ Map<String, Object?> stockCountToJson(StockSubmission submission) {
   };
 }
 
-Map<String, Object?> stockReceivingToJson(StockReceivingRecord record) {
+Map<String, Object?> stockReceivableToJson(StockReceivableRecord record) {
   return {
     'supplierId': record.supplierId,
     'capturedAt': record.capturedAt.toUtc().toIso8601String(),
@@ -364,10 +368,10 @@ EastAppPage<StockSubmission> stockSubmissionPageFromJson(
   return EastAppPage.fromJson(json, stockSubmissionFromJson);
 }
 
-EastAppPage<StockReceivingRecord> stockReceivingPageFromJson(
+EastAppPage<StockReceivableRecord> stockReceivablePageFromJson(
   Map<String, dynamic> json,
 ) {
-  return EastAppPage.fromJson(json, stockReceivingRecordFromJson);
+  return EastAppPage.fromJson(json, stockReceivableRecordFromJson);
 }
 
 class StockSkuCsvFile {
@@ -447,6 +451,42 @@ class StockSkuCsvImportResult {
       createdTags: (json['createdTags'] as num? ?? 0).toInt(),
       unmatchedSupplierLinks:
           (json['unmatchedSupplierLinks'] as num? ?? 0).toInt(),
+    );
+  }
+}
+
+class StockSupplierCsvPreview {
+  final String format;
+  final int formatVersion;
+  final int totalRows;
+  final int readyRows;
+  final int duplicateRows;
+  final int invalidRows;
+  final List<String> errors;
+
+  const StockSupplierCsvPreview({
+    required this.format,
+    required this.formatVersion,
+    required this.totalRows,
+    required this.readyRows,
+    required this.duplicateRows,
+    required this.invalidRows,
+    required this.errors,
+  });
+
+  bool get canImport => readyRows > 0 && invalidRows == 0;
+
+  factory StockSupplierCsvPreview.fromJson(Map<String, dynamic> json) {
+    return StockSupplierCsvPreview(
+      format: json['format'] as String? ?? '',
+      formatVersion: (json['formatVersion'] as num? ?? 0).toInt(),
+      totalRows: (json['totalRows'] as num? ?? 0).toInt(),
+      readyRows: (json['readyRows'] as num? ?? 0).toInt(),
+      duplicateRows: (json['duplicateRows'] as num? ?? 0).toInt(),
+      invalidRows: (json['invalidRows'] as num? ?? 0).toInt(),
+      errors: (json['errors'] as List<dynamic>? ?? const [])
+          .map((item) => item.toString())
+          .toList(growable: false),
     );
   }
 }

@@ -109,9 +109,9 @@ class _RestockMessagePageState extends State<_RestockMessagePage> {
   String stateLabel(StockPurchaseSupplierState? state) {
     if (state == null || state.orderState == 'NONE') return 'Not ordered';
     if (state.orderState == 'ORDERED') return 'Ordered · Ready to receive';
-    if (state.orderState == 'SUBMITTED') return 'Receiving · Awaiting review';
+    if (state.orderState == 'SUBMITTED') return 'Receivable · Awaiting review';
     if (state.orderState == 'CORRECTION_REQUIRED') {
-      return 'Receiving · Needs correction';
+      return 'Receivable · Needs correction';
     }
     return state.orderState;
   }
@@ -368,7 +368,7 @@ class _RestockMessagePageState extends State<_RestockMessagePage> {
                                   context,
                                   action: text.t('Confirm Ordered Done?'),
                                   details: text.t(
-                                    'This will enable this supplier in Receiving. '
+                                    'This will enable this supplier in Receivable. '
                                     'Only confirm after the order has actually been placed.',
                                   ),
                                 );
@@ -394,7 +394,7 @@ class _RestockMessagePageState extends State<_RestockMessagePage> {
                                   showSuccessSnackBar(
                                     context,
                                     text.t(
-                                      'Order marked done. Receiving is now enabled.',
+                                      'Order marked done. Receivable is now enabled.',
                                     ),
                                   );
                                 } on EastAppApiException {
@@ -462,65 +462,64 @@ class _RestockMessagePageState extends State<_RestockMessagePage> {
         WhiteCard(
           margin: const EdgeInsets.only(bottom: 8),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: Text(
-                  text.t('Supplier Orders'),
-                  style: const TextStyle(
-                    fontSize: AppTextSize.s16,
-                    fontWeight: FontWeight.w900,
+              Text(
+                text.t('Supplier Orders'),
+                style: const TextStyle(
+                  fontSize: AppTextSize.s16,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                text.t(
+                  'Mark an order as Done to make it appear in Receivable.',
+                ),
+                style: const TextStyle(
+                  color: AppColours.textMuted,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Checkbox(
+                    value: lowStockOnly,
+                    visualDensity: VisualDensity.compact,
+                    onChanged: (value) =>
+                        setState(() => lowStockOnly = value ?? true),
                   ),
-                ),
-              ),
-              IconButton(
-                visualDensity: VisualDensity.compact,
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints.tightFor(
-                  width: 32,
-                  height: 32,
-                ),
-                iconSize: 18,
-                onPressed: loadingStates
-                    ? null
-                    : () => loadPurchaseStates(forceRefresh: true),
-                icon: loadingStates
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 1.8),
-                      )
-                    : const Icon(Icons.refresh_rounded),
-              ),
-            ],
-          ),
-        ),
-        WhiteCard(
-          margin: const EdgeInsets.only(bottom: 8),
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-          child: Material(
-            color: Colors.transparent,
-            child: Row(
-              children: [
-                Checkbox(
-                  value: lowStockOnly,
-                  visualDensity: VisualDensity.compact,
-                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  onChanged: (value) =>
-                      setState(() => lowStockOnly = value ?? true),
-                ),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    text.t('Low Stock Only'),
-                    style: const TextStyle(
-                      fontSize: AppTextSize.s14,
-                      fontWeight: FontWeight.w800,
+                  Expanded(
+                    child: Text(
+                      text.t('Low Stock Only'),
+                      style: const TextStyle(fontWeight: FontWeight.w800),
                     ),
                   ),
-                ),
-              ],
-            ),
+                  IconButton(
+                    tooltip: text.t('Refresh'),
+                    visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints.tightFor(
+                      width: 32,
+                      height: 32,
+                    ),
+                    iconSize: 18,
+                    onPressed: loadingStates
+                        ? null
+                        : () => loadPurchaseStates(forceRefresh: true),
+                    icon: loadingStates
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 1.8),
+                          )
+                        : const Icon(Icons.refresh_rounded),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
         if (groups.isEmpty)

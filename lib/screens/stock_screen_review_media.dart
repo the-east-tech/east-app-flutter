@@ -1,13 +1,13 @@
 part of 'stock_screen.dart';
 
-class _ReceivingPhotoImage extends StatelessWidget {
+class _ReceivablePhotoImage extends StatelessWidget {
   final String storageKey;
   final BoxFit fit;
   final Widget fallback;
   final double? width;
   final double? height;
 
-  const _ReceivingPhotoImage({
+  const _ReceivablePhotoImage({
     required this.storageKey,
     required this.fit,
     required this.fallback,
@@ -25,7 +25,7 @@ class _ReceivingPhotoImage extends StatelessWidget {
     if (!hasStoredPhoto) return fallback;
     final scope = _StockMediaScope.of(context);
     return FutureBuilder<Uint8List>(
-      future: scope.loadReceivingPhoto(storageKey.trim()),
+      future: scope.loadReceivablePhoto(storageKey.trim()),
       builder: (context, snapshot) {
         final bytes = snapshot.data;
         if (bytes == null || bytes.isEmpty) return fallback;
@@ -42,12 +42,12 @@ class _ReceivingPhotoImage extends StatelessWidget {
   }
 }
 
-class _ReceivingGoodsThumb extends StatelessWidget {
-  final StockReceivingRecord record;
+class _ReceivableGoodsThumb extends StatelessWidget {
+  final StockReceivableRecord record;
   final double size;
   final Color conditionColour;
 
-  const _ReceivingGoodsThumb({required this.record, required this.size, required this.conditionColour});
+  const _ReceivableGoodsThumb({required this.record, required this.size, required this.conditionColour});
 
   @override
   Widget build(BuildContext context) {
@@ -63,7 +63,7 @@ class _ReceivingGoodsThumb extends StatelessWidget {
     );
     return ClipRRect(
       borderRadius: BorderRadius.circular(size * 0.26),
-      child: _ReceivingPhotoImage(
+      child: _ReceivablePhotoImage(
         storageKey: record.goodsPhotoName,
         width: size,
         height: size,
@@ -102,7 +102,7 @@ class _CountReviewPhotoPreview extends StatelessWidget {
 }
 
 class _ReviewPhotoGrid extends StatelessWidget {
-  final StockReceivingRecord record;
+  final StockReceivableRecord record;
   final Color conditionColour;
   const _ReviewPhotoGrid({required this.record, required this.conditionColour});
 
@@ -119,7 +119,7 @@ class _ReviewPhotoGrid extends StatelessWidget {
 
 class _ReviewPhotoPreview extends StatelessWidget {
   final String label;
-  final StockReceivingRecord record;
+  final StockReceivableRecord record;
   final Color conditionColour;
   final bool isInvoice;
 
@@ -151,7 +151,7 @@ class _ReviewPhotoPreview extends StatelessWidget {
               IconButton(onPressed: () => Navigator.of(sheetContext).pop(), icon: const Icon(Icons.close_rounded)),
             ]),
             const SizedBox(height: 12),
-            Expanded(child: ClipRRect(borderRadius: BorderRadius.circular(18), child: InteractiveViewer(minScale: 1, maxScale: 4, child: _ReceivingPhotoImage(storageKey: storageKey, width: double.infinity, height: double.infinity, fit: BoxFit.contain, fallback: fallback())))),
+            Expanded(child: ClipRRect(borderRadius: BorderRadius.circular(18), child: InteractiveViewer(minScale: 1, maxScale: 4, child: _ReceivablePhotoImage(storageKey: storageKey, width: double.infinity, height: double.infinity, fit: BoxFit.contain, fallback: fallback())))),
           ],
         ),
       ),
@@ -172,7 +172,7 @@ class _ReviewPhotoPreview extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Stack(children: [
-            ClipRRect(borderRadius: BorderRadius.circular(14), child: _ReceivingPhotoImage(storageKey: storageKey, height: 118, width: double.infinity, fit: BoxFit.cover, fallback: previewFallback)),
+            ClipRRect(borderRadius: BorderRadius.circular(14), child: _ReceivablePhotoImage(storageKey: storageKey, height: 118, width: double.infinity, fit: BoxFit.cover, fallback: previewFallback)),
             Positioned(right: 8, bottom: 8, child: Container(padding: const EdgeInsets.all(5), decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.58), borderRadius: BorderRadius.circular(999)), child: const Icon(Icons.zoom_in_rounded, color: Colors.white, size: 16))),
           ]),
           const SizedBox(height: 7),
