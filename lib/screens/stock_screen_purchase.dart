@@ -460,40 +460,35 @@ class _RestockMessagePageState extends State<_RestockMessagePage> {
       onBack: widget.onBack,
       children: [
         WhiteCard(
-          margin: const EdgeInsets.only(bottom: 12),
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           child: Row(
             children: [
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      text.t('Supplier Orders'),
-                      style: const TextStyle(
-                        fontSize: AppTextSize.s18,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      text.t('Copying a message does not mark an order as done.'),
-                      style: const TextStyle(
-                        color: AppColours.textMuted,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
+                child: Text(
+                  text.t('Supplier Orders'),
+                  style: const TextStyle(
+                    fontSize: AppTextSize.s16,
+                    fontWeight: FontWeight.w900,
+                  ),
                 ),
               ),
               IconButton(
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints.tightFor(
+                  width: 32,
+                  height: 32,
+                ),
+                iconSize: 18,
                 onPressed: loadingStates
                     ? null
                     : () => loadPurchaseStates(forceRefresh: true),
                 icon: loadingStates
                     ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 1.8),
                       )
                     : const Icon(Icons.refresh_rounded),
               ),
@@ -501,20 +496,30 @@ class _RestockMessagePageState extends State<_RestockMessagePage> {
           ),
         ),
         WhiteCard(
-          margin: const EdgeInsets.only(bottom: 12),
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
           child: Material(
             color: Colors.transparent,
-            child: CheckboxListTile(
-              contentPadding: EdgeInsets.zero,
-              value: lowStockOnly,
-              title: Text(
-                text.t('Low Stock Only'),
-                style: const TextStyle(fontWeight: FontWeight.w800),
-              ),
-              subtitle:
-                  Text(text.t('Show only SKUs at or below minimum balance.')),
-              onChanged: (value) =>
-                  setState(() => lowStockOnly = value ?? true),
+            child: Row(
+              children: [
+                Checkbox(
+                  value: lowStockOnly,
+                  visualDensity: VisualDensity.compact,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  onChanged: (value) =>
+                      setState(() => lowStockOnly = value ?? true),
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    text.t('Low Stock Only'),
+                    style: const TextStyle(
+                      fontSize: AppTextSize.s14,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ),
