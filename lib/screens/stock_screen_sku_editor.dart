@@ -86,6 +86,7 @@ class _SkuEditorFormState extends State<_SkuEditorForm> {
   DateTime? stockCheckDate;
   late int recoveryPercent;
   late Set<String> supplierIds;
+  late bool active;
   String? pendingPhotoPath;
   Uint8List? pendingPhotoBytes;
   bool saving = false;
@@ -94,6 +95,7 @@ class _SkuEditorFormState extends State<_SkuEditorForm> {
   bool get editing => widget.initialSku != null;
 
   List<String> get tagNames => widget.tags
+      .where((tag) => tag.active || tag.tag == tag1 || tag.tag == tag2)
       .map((tag) => tag.tag.trim())
       .where((value) => value.isNotEmpty)
       .toSet()
@@ -134,6 +136,7 @@ class _SkuEditorFormState extends State<_SkuEditorForm> {
     final recovery = sku?.recoveryPercent ?? 100;
     recoveryPercent = ((recovery / 5).round() * 5).clamp(5, 100).toInt();
     supplierIds = {...?sku?.supplierIds};
+    active = sku?.active ?? true;
   }
 
   @override
@@ -229,6 +232,8 @@ class _SkuEditorFormState extends State<_SkuEditorForm> {
                 child: ListView(
                   shrinkWrap: true,
                   children: widget.suppliers
+                      .where((supplier) =>
+                          supplier.active || selected.contains(supplier.id))
                       .map(
                         (supplier) => CheckboxListTile(
                           value: selected.contains(supplier.id),
@@ -374,6 +379,7 @@ class _SkuEditorFormState extends State<_SkuEditorForm> {
               stockCheckDate: stockCheckDate,
               lastUpdatedAt: 'Not counted yet',
               lastUpdatedBy: headId,
+              active: active,
               coolingPeriod: true,
             )
           : existing.copyWith(
@@ -396,6 +402,7 @@ class _SkuEditorFormState extends State<_SkuEditorForm> {
                 stockCheckDay: effectiveStockCheckDay,
                 clearStockCheckDay: effectiveStockCheckDay == null,
                 stockCheckDate: stockCheckDate,
+                active: active,
               );
       final saved = await runStockRequest(context, () => widget.onSave(sku));
       if (!saved || !mounted) return;
@@ -479,6 +486,16 @@ class _SkuEditorFormState extends State<_SkuEditorForm> {
                   nameController,
                   text.t('SKU Name required'),
                 ),
+              ),
+              const SizedBox(height: 8),
+              CheckboxListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                value: active,
+                onChanged: saving
+                    ? null
+                    : (value) => setState(() => active = value ?? false),
+                title: Text(text.t(active ? 'Active' : 'Inactive')),
+                controlAffinity: ListTileControlAffinity.leading,
               ),
               const SizedBox(height: 14),
               _FieldLabel(text.t('Tag 1 (optional)')),

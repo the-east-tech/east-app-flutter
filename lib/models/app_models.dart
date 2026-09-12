@@ -61,6 +61,7 @@ enum KnowledgeVideoLanguage {
 class StockTag {
   final String id;
   final String tag;
+  final bool active;
   final String createdBy;
   final String createdDate;
   final String lastUpdated;
@@ -69,6 +70,7 @@ class StockTag {
   const StockTag({
     required this.id,
     required this.tag,
+    this.active = true,
     required this.createdBy,
     required this.createdDate,
     required this.lastUpdated,
@@ -77,12 +79,14 @@ class StockTag {
 
   StockTag copyWith({
     String? tag,
+    bool? active,
     String? lastUpdated,
     List<StockTagAssignee>? assignedUsers,
   }) {
     return StockTag(
       id: id,
       tag: tag ?? this.tag,
+      active: active ?? this.active,
       createdBy: createdBy,
       createdDate: createdDate,
       lastUpdated: lastUpdated ?? this.lastUpdated,
@@ -186,6 +190,7 @@ class KnowledgeItem {
 class SupplierProfile {
   final String id;
   final String supplierName;
+  final bool active;
   final String supplierItem;
   final String contactPerson;
   final String phone;
@@ -206,6 +211,7 @@ class SupplierProfile {
   const SupplierProfile({
     required this.id,
     required this.supplierName,
+    this.active = true,
     required this.supplierItem,
     this.contactPerson = '',
     this.phone = '',
@@ -229,6 +235,7 @@ class SupplierProfile {
   bool get isBelowMinimumBalance => currentBalanceValue < minimumBalanceValue;
 
   SupplierProfile copyWith({
+    bool? active,
     double? currentBalanceValue,
     String? lastBalanceUpdatedAt,
     String? lastBalanceUpdatedBy,
@@ -236,6 +243,7 @@ class SupplierProfile {
     return SupplierProfile(
       id: id,
       supplierName: supplierName,
+      active: active ?? this.active,
       supplierItem: supplierItem,
       contactPerson: contactPerson,
       phone: phone,

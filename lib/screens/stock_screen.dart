@@ -13,6 +13,7 @@ import '../localization/app_text_scope.dart';
 import '../localization/app_text.dart';
 import '../models/app_models.dart';
 import '../models/api_models.dart';
+import '../models/google_place_models.dart';
 import '../models/people_models.dart';
 import '../models/organisation_models.dart';
 import '../models/stock_api_models.dart';
@@ -24,6 +25,7 @@ import '../widgets/app_components.dart';
 import '../widgets/app_feedback.dart';
 import '../widgets/app_number_pad.dart';
 import '../widgets/dashboard_menu.dart';
+import '../widgets/google_place_picker.dart';
 import '../widgets/schedule_selector.dart';
 
 part 'stock_screen_common.dart';

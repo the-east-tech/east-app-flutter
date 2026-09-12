@@ -64,10 +64,11 @@ class _TagSetupPageState extends State<_TagSetupPage> {
         api: widget.api,
         currentTenantId: widget.currentTenantId,
         allTags: widget.tags,
-        onSave: (name, assignedUsers) => widget.onCreateTag(
+        onSave: (name, assignedUsers, active) => widget.onCreateTag(
           StockTag(
             id: 'TAG${DateTime.now().millisecondsSinceEpoch}',
             tag: name,
+            active: active,
             createdBy: headId,
             createdDate: 'Today',
             lastUpdated: 'Today just now',
@@ -87,7 +88,7 @@ class _TagSetupPageState extends State<_TagSetupPage> {
         currentTenantId: widget.currentTenantId,
         allTags: widget.tags,
         tag: tag,
-        onSave: (name, assignedUsers) => widget.onUpdateTag(tag.copyWith(tag: name, lastUpdated: 'Today just now', assignedUsers: assignedUsers)),
+        onSave: (name, assignedUsers, active) => widget.onUpdateTag(tag.copyWith(tag: name, active: active, lastUpdated: 'Today just now', assignedUsers: assignedUsers)),
         onDelete: () => widget.onDeleteTags({tag.id}),
       ),
     );
@@ -161,6 +162,10 @@ class _CompactTagRow extends StatelessWidget {
               const SizedBox(height: 2),
               Text('${tag.assignedUsers.length} assigned user${tag.assignedUsers.length == 1 ? '' : 's'}', style: const TextStyle(fontSize: AppTextSize.s12, color: AppColours.textMuted, fontWeight: FontWeight.w700)),
             ])),
+            if (!tag.active) ...[
+              SmallStatusPill(text: text.t('Inactive'), textColour: AppColours.textMuted, backgroundColour: AppColours.mutedBox),
+              const SizedBox(width: 8),
+            ],
             if (selecting) Checkbox(value: selected, onChanged: (_) => onTap()) else const Icon(Icons.chevron_right_rounded, color: AppColours.textMuted),
           ]),
         ),
@@ -174,7 +179,7 @@ class _TagEditorSheet extends StatefulWidget {
   final String currentTenantId;
   final List<StockTag> allTags;
   final StockTag? tag;
-  final Future<void> Function(String name, List<StockTagAssignee> assignedUsers) onSave;
+  final Future<void> Function(String name, List<StockTagAssignee> assignedUsers, bool active) onSave;
   final Future<bool> Function()? onDelete;
 
   const _TagEditorSheet({required this.api, required this.currentTenantId, required this.allTags, required this.onSave, this.tag, this.onDelete});
@@ -190,11 +195,13 @@ class _TagEditorSheetState extends State<_TagEditorSheet> {
   final Map<String, StockTagAssignee> knownUsers = <String, StockTagAssignee>{};
   List<EastAppUser> loadedUsers = const [];
   bool loadingUsers = false;
+  late bool active;
 
   @override
   void initState() {
     super.initState();
     tagController = TextEditingController(text: widget.tag?.tag ?? '');
+    active = widget.tag?.active ?? true;
     for (final user in widget.tag?.assignedUsers ?? const <StockTagAssignee>[]) {
       selectedUserIds.add(user.userId);
       knownUsers[user.userId] = user;
@@ -246,7 +253,7 @@ class _TagEditorSheetState extends State<_TagEditorSheet> {
     final confirmed = await confirmDataChange(context, action: widget.tag == null ? 'Create Tag?' : 'Update Tag?', details: 'This saves the tag name and the users responsible for its shared Tasks.');
     if (!confirmed || !mounted) return;
     final users = selectedUserIds.map((id) => knownUsers[id]).whereType<StockTagAssignee>().toList(growable: false);
-    final saved = await runStockRequest(context, () => widget.onSave(name, users));
+    final saved = await runStockRequest(context, () => widget.onSave(name, users, active));
     if (!saved || !mounted) return;
     showSuccessSnackBar(context, text.t('Saved'));
     Navigator.of(context).pop();
@@ -283,6 +290,13 @@ class _TagEditorSheetState extends State<_TagEditorSheet> {
       ])),
       Expanded(child: ListView(padding: const EdgeInsets.fromLTRB(20, 12, 20, 20), children: [
         _DialogInput(label: text.t('Tag'), controller: tagController, hint: text.t('Example: Kitchen')),
+        const SizedBox(height: 8),
+        SwitchListTile.adaptive(
+          contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+          value: active,
+          onChanged: (value) => setState(() => active = value),
+          title: Text(text.t(active ? 'Active' : 'Inactive')),
+        ),
         if (widget.tag != null) ...[
           const SizedBox(height: 10),
           Text('${text.t('Created By')}: ${widget.tag!.createdBy} · ${widget.tag!.createdDate}', style: const TextStyle(color: AppColours.textMuted, fontSize: AppTextSize.s12, fontWeight: FontWeight.w700)),

@@ -78,6 +78,7 @@ StockTag stockTagFromJson(Map<String, dynamic> json) {
   return StockTag(
     id: json['id'] as String,
     tag: json['tag'] as String,
+    active: json['active'] as bool? ?? true,
     createdBy: json['createdBy'] as String,
     createdDate: json['createdDate'] as String,
     lastUpdated: json['lastUpdated'] as String,
@@ -99,6 +100,7 @@ SupplierProfile stockSupplierFromJson(Map<String, dynamic> json) {
   return SupplierProfile(
     id: json['id'] as String,
     supplierName: json['supplierName'] as String,
+    active: json['active'] as bool? ?? true,
     supplierItem: json['supplierItem'] as String,
     contactPerson: json['contactPerson'] as String? ?? '',
     phone: json['phone'] as String? ?? '',
@@ -275,6 +277,7 @@ StockReceivableItem stockReceivableItemFromJson(Map<String, dynamic> json) {
 Map<String, Object?> stockSupplierToJson(SupplierProfile supplier) {
   return {
     'supplierName': supplier.supplierName,
+    'active': supplier.active,
     'supplierItem': supplier.supplierItem,
     'contactPerson': supplier.contactPerson,
     'phone': supplier.phone,

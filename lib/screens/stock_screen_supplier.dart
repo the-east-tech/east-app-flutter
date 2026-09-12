@@ -167,11 +167,14 @@ class _SupplierSetupPageState extends State<_SupplierSetupPage> {
     final address2 = TextEditingController(text: supplier.address2);
     final websiteOrGoogleLink = TextEditingController(text: supplier.websiteOrGoogleLink);
     final notes = TextEditingController(text: supplier.notes);
+    EastAppGooglePlaceDetails? selectedPlace;
     var editing = false;
+    var active = supplier.active;
 
     SupplierProfile updatedSupplier() => SupplierProfile(
       id: supplier.id,
       supplierName: name.text.trim().isEmpty ? supplier.supplierName : name.text.trim(),
+      active: active,
       supplierItem: supplier.supplierItem,
       contactPerson: contact.text.trim(),
       phone: phone.text.trim(),
@@ -206,7 +209,34 @@ class _SupplierSetupPageState extends State<_SupplierSetupPage> {
                 IconButton(onPressed: () => Navigator.of(sheetContext).pop(), icon: const Icon(Icons.close_rounded)),
               ]),
               const SizedBox(height: 8),
+              if (editing) ...[
+                GooglePlaceSelectionCard(
+                  place: selectedPlace,
+                  onSelect: () async {
+                    final result = await showGooglePlacePicker(
+                      context: context,
+                      api: widget.api,
+                      setupMode: false,
+                      initialQuery: name.text.trim(),
+                    );
+                    if (result == null || !context.mounted) return;
+                    setSheetState(() {
+                      selectedPlace = result;
+                      name.text = result.displayName.trim();
+                      address.text = result.formattedAddress.trim();
+                      websiteOrGoogleLink.text = result.googleMapsUri?.trim() ?? '';
+                    });
+                  },
+                ),
+                const SizedBox(height: 12),
+              ],
               _SetupDetailRow(label: text.t('Supplier Name'), value: supplier.supplierName, controller: name, isEditing: editing),
+              SwitchListTile.adaptive(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                value: active,
+                onChanged: editing ? (value) => setSheetState(() => active = value) : null,
+                title: Text(text.t(active ? 'Active' : 'Inactive')),
+              ),
               _SetupDetailRow(label: text.t('Contact Person'), value: supplier.contactPerson, controller: contact, isEditing: editing),
               _SetupDetailRow(label: text.t('Phone'), value: supplier.phone, controller: phone, isEditing: editing, keyboardType: TextInputType.phone),
               _SetupDetailRow(label: text.t('Address 1'), value: supplier.address, controller: address, isEditing: editing),
@@ -278,7 +308,25 @@ class _SupplierSetupPageState extends State<_SupplierSetupPage> {
             : Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  PrimaryButton(text: text.t('Add Supplier'), icon: Icons.add_business_outlined, onPressed: () => showAddSupplierDialog(context, onCreateSupplier: widget.onCreateSupplier)),
+                  Tooltip(
+                    message: text.t('Add Supplier'),
+                    child: SizedBox(
+                      width: 52,
+                      height: 48,
+                      child: FilledButton(
+                        style: FilledButton.styleFrom(
+                          padding: EdgeInsets.zero,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        ),
+                        onPressed: () => showAddSupplierDialog(
+                          context,
+                          api: widget.api,
+                          onCreateSupplier: widget.onCreateSupplier,
+                        ),
+                        child: const Icon(Icons.add_rounded, size: 28),
+                      ),
+                    ),
+                  ),
                   if (widget.isOwner)
                     PopupMenuButton<String>(
                       enabled: !exportingSuppliers,
@@ -331,6 +379,7 @@ class _CompactSupplierRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
     final meta = [if (supplier.contactPerson.isNotEmpty) supplier.contactPerson, if (supplier.phone.isNotEmpty) supplier.phone, if (supplier.address.isNotEmpty) supplier.address].join(' · ');
     return GestureDetector(
       onLongPress: onLongPress,
@@ -346,6 +395,10 @@ class _CompactSupplierRow extends StatelessWidget {
               Text(supplier.supplierName, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: AppTextSize.s17, fontWeight: FontWeight.w700)),
               if (meta.isNotEmpty) ...[const SizedBox(height: 2), Text(meta, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: AppTextSize.s12, color: AppColours.textMuted, fontWeight: FontWeight.w700))],
             ])),
+            if (!supplier.active) ...[
+              SmallStatusPill(text: text.t('Inactive'), textColour: AppColours.textMuted, backgroundColour: AppColours.mutedBox),
+              const SizedBox(width: 8),
+            ],
             if (selecting) Checkbox(value: selected, onChanged: (_) => onTap()) else const Icon(Icons.chevron_right_rounded, color: AppColours.textMuted),
           ]),
         ),

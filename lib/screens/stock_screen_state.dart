@@ -316,7 +316,7 @@ class _StockScreenState extends State<StockScreen> {
         kind: _StockApprovalKind.count,
         child: _DailyStockCountPage(
           role: widget.role,
-          skus: widget.stockSkus,
+          skus: widget.stockSkus.where((sku) => sku.active).toList(),
           submissions: widget.submissions,
           onBack: goHome,
           onSubmitStockCheck: widget.onSubmitStockCheck,
@@ -339,8 +339,8 @@ class _StockScreenState extends State<StockScreen> {
             child: _StockReceivablePage(
               tenantId: widget.currentTenantId,
               role: widget.role,
-              suppliers: widget.suppliers,
-              skus: widget.stockSkus,
+              suppliers: widget.suppliers.where((supplier) => supplier.active).toList(),
+              skus: widget.stockSkus.where((sku) => sku.active).toList(),
               onBack: goHome,
               onSubmitReceivable: submitReceivable,
             ),
@@ -351,8 +351,8 @@ class _StockScreenState extends State<StockScreen> {
           target: StockPage.restockMessage,
           child: _RestockMessagePage(
             tenantId: widget.currentTenantId,
-            suppliers: widget.suppliers,
-            skus: widget.stockSkus,
+            suppliers: widget.suppliers.where((supplier) => supplier.active).toList(),
+            skus: widget.stockSkus.where((sku) => sku.active).toList(),
             onOrderChanged: () async {
               await widget.onLoadPageData(StockPage.home, true);
             },
