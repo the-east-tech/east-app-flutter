@@ -98,8 +98,9 @@ class _DialogInput extends StatelessWidget {
   final String? suffixText;
   final String? errorText;
   final ValueChanged<String>? onChanged;
+  final TextInputType? keyboardType;
 
-  const _DialogInput({required this.label, required this.controller, required this.hint, this.suffixText, this.errorText, this.onChanged});
+  const _DialogInput({required this.label, required this.controller, required this.hint, this.suffixText, this.errorText, this.onChanged, this.keyboardType});
 
   @override
   Widget build(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -108,7 +109,7 @@ class _DialogInput extends StatelessWidget {
       controller: controller,
       style: AppTextStyles.formValue,
       textInputAction: TextInputAction.done,
-      keyboardType: suffixText == null ? TextInputType.text : const TextInputType.numberWithOptions(decimal: true),
+      keyboardType: keyboardType ?? (suffixText == null ? TextInputType.text : const TextInputType.numberWithOptions(decimal: true)),
       onChanged: onChanged,
       onSubmitted: (_) => FocusManager.instance.primaryFocus?.unfocus(),
       onTapOutside: (_) => FocusManager.instance.primaryFocus?.unfocus(),
@@ -196,7 +197,7 @@ void showAddSupplierDialog(
         const SizedBox(height: 14),
         _DialogInput(label: text.t('Contact'), controller: contact, hint: text.t('Example: Mr Tan')),
         const SizedBox(height: 14),
-        _DialogInput(label: text.t('Phone'), controller: phone, hint: text.t('Example: 0123456789')),
+        _DialogInput(label: text.t('Phone'), controller: phone, hint: text.t('Example: 0123456789'), keyboardType: TextInputType.phone),
         const SizedBox(height: 14),
         _DialogInput(label: text.t('Address 1'), controller: address, hint: text.t('Address 1')),
         const SizedBox(height: 14),
