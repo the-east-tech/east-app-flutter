@@ -140,7 +140,11 @@ class _DialogBareInput extends StatelessWidget {
   );
 }
 
-void showAddSupplierDialog(BuildContext context, {required Future<void> Function(SupplierProfile supplier) onCreateSupplier}) {
+void showAddSupplierDialog(
+  BuildContext context, {
+  required EastAppApi api,
+  required Future<void> Function(SupplierProfile supplier) onCreateSupplier,
+}) {
   final text = AppTextScope.of(context);
   final name = TextEditingController();
   final contact = TextEditingController();
@@ -149,17 +153,46 @@ void showAddSupplierDialog(BuildContext context, {required Future<void> Function
   final address2 = TextEditingController();
   final websiteOrGoogleLink = TextEditingController();
   final notes = TextEditingController();
+  EastAppGooglePlaceDetails? selectedPlace;
+  var active = true;
   showStockBottomSheet<void>(
     context,
     maxHeightFactor: 0.9,
-    builder: (sheetContext) => SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 10, 20, 22),
-      child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+    builder: (sheetContext) => StatefulBuilder(
+      builder: (context, setSheetState) => SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(20, 10, 20, 22),
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
         stockBottomSheetHandle(),
         const SizedBox(height: 12),
         Row(children: [Expanded(child: Text(text.t('Add Supplier'), style: const TextStyle(fontSize: AppTextSize.s26, fontWeight: FontWeight.w700))), IconButton(onPressed: () => Navigator.of(sheetContext).pop(), icon: const Icon(Icons.close_rounded))]),
         const SizedBox(height: 16),
+        GooglePlaceSelectionCard(
+          place: selectedPlace,
+          onSelect: () async {
+            final result = await showGooglePlacePicker(
+              context: context,
+              api: api,
+              setupMode: false,
+              initialQuery: name.text.trim(),
+            );
+            if (result == null || !context.mounted) return;
+            setSheetState(() {
+              selectedPlace = result;
+              name.text = result.displayName.trim();
+              address.text = result.formattedAddress.trim();
+              websiteOrGoogleLink.text = result.googleMapsUri?.trim() ?? '';
+            });
+          },
+        ),
+        const SizedBox(height: 14),
         _DialogInput(label: text.t('Supplier Name'), controller: name, hint: text.t('Example: GTI Kampar')),
+        const SizedBox(height: 8),
+        SwitchListTile.adaptive(
+          contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+          value: active,
+          onChanged: (value) => setSheetState(() => active = value),
+          title: Text(text.t(active ? 'Active' : 'Inactive')),
+        ),
         const SizedBox(height: 14),
         _DialogInput(label: text.t('Contact'), controller: contact, hint: text.t('Example: Mr Tan')),
         const SizedBox(height: 14),
@@ -180,6 +213,7 @@ void showAddSupplierDialog(BuildContext context, {required Future<void> Function
             final supplier = SupplierProfile(
               id: 'SUP${DateTime.now().millisecondsSinceEpoch}',
               supplierName: name.text.trim().isEmpty ? 'New Supplier' : name.text.trim(),
+              active: active,
               supplierItem: 'General',
               contactPerson: contact.text.trim(),
               phone: phone.text.trim(),
@@ -205,7 +239,8 @@ void showAddSupplierDialog(BuildContext context, {required Future<void> Function
             showSuccessSnackBar(context, text.t('Supplier created'));
           },
         ),
-      ]),
+        ]),
+      ),
     ),
   );
 }

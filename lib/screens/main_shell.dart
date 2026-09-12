@@ -533,17 +533,12 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     if (!forceRefresh && !reset && stockSkuPage >= 0 && stockSkusLast) return;
     final nextPage = reset || forceRefresh ? 0 : stockSkuPage + 1;
     final query = Uri(
-      queryParameters: {
-        'active': 'true',
-        'page': '$nextPage',
-        'size': '50',
-      },
+      queryParameters: {'page': '$nextPage', 'size': '50'},
     ).query;
     final cacheKey = '${EastAppApi.stockSkusCachePrefix(widget.session.tenant.id)}$query';
     final result = await widget.api.stockSkus(
       page: nextPage,
       size: 50,
-      active: true,
       tenantId: widget.session.tenant.id,
       forceRefresh: forceRefresh,
     );
@@ -934,6 +929,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
       assignedUserIds: tag.assignedUsers
           .map((user) => user.userId)
           .toList(growable: false),
+      active: tag.active,
     );
     await invalidateStockTagCaches();
     await invalidateReportData();
@@ -1643,7 +1639,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
 
           final knowledgeTabIndex = 4;
           final lowInventoryWarningCount = stockSkus
-              .where((sku) => sku.isBelowMinimumBalance)
+              .where((sku) => sku.active && sku.isBelowMinimumBalance)
               .length;
           final pendingStockCheckCount = stockTasks
               .where(
@@ -1698,7 +1694,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
               currentUser: widget.session.user,
               permissions: widget.session.permissions,
               role: widget.role,
-              stockSkus: stockSkus,
+              stockSkus: stockSkus.where((sku) => sku.active).toList(),
               onDashboardLoaded: handleReportDashboardLoaded,
               onReportChanged: () {
                 invalidateHomeData();

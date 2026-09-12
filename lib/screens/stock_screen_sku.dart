@@ -74,8 +74,8 @@ class _SkuSetupPageState extends State<_SkuSetupPage> {
           sku.location.toLowerCase().contains(query) ||
           sku.assignedStaffName.toLowerCase().contains(query);
       final matchesWarning = warningFilter == 'All' ||
-          (warningFilter == 'Low' && sku.isBelowMinimumBalance) ||
-          (warningFilter == 'Normal' && !sku.isBelowMinimumBalance);
+          (warningFilter == 'Low' && sku.active && sku.isBelowMinimumBalance) ||
+          (warningFilter == 'Normal' && sku.active && !sku.isBelowMinimumBalance);
       final matchesTag1 = tag1Filter == 'All' || sku.category == tag1Filter;
       final matchesTag2 = tag2Filter == 'All' || sku.location == tag2Filter;
       final matchesAssigned = assignedFilter == 'All' ||
@@ -249,7 +249,9 @@ class _SkuSetupPageState extends State<_SkuSetupPage> {
   Widget build(BuildContext context) {
     final text = AppTextScope.of(context);
     final skus = filteredSkus;
-    final lowCount = widget.skus.where((sku) => sku.isBelowMinimumBalance).length;
+    final lowCount = widget.skus
+        .where((sku) => sku.active && sku.isBelowMinimumBalance)
+        .length;
     return _PageScaffold(
       title: text.t('SKU'),
       subtitle: text.t('Search, filter & edit SKUs.'),

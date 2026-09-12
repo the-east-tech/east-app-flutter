@@ -29,9 +29,21 @@ class _SkuCompactRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final text = AppTextScope.of(context);
     final isLow = sku.isBelowMinimumBalance;
-    final statusText = isLow ? text.t('Low') : text.t('Good');
-    final statusColour = isLow ? AppColours.red : AppColours.green;
-    final statusBackground = isLow ? AppColours.redSoft : AppColours.greenSoft;
+    final statusText = !sku.active
+        ? text.t('Inactive')
+        : isLow
+            ? text.t('Low')
+            : text.t('Good');
+    final statusColour = !sku.active
+        ? AppColours.textMuted
+        : isLow
+            ? AppColours.red
+            : AppColours.green;
+    final statusBackground = !sku.active
+        ? AppColours.mutedBox
+        : isLow
+            ? AppColours.redSoft
+            : AppColours.greenSoft;
     final balanceColour = isLow ? AppColours.red : AppColours.green;
     final stockCheck = switch (sku.stockCheckSchedule) {
       StockCheckSchedule.adHoc => sku.stockCheckDate == null

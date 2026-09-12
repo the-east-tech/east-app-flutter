@@ -2251,11 +2251,16 @@ class EastAppApi {
   Future<StockTag> createStockTag(
     String tag, {
     List<String> assignedUserIds = const [],
+    bool active = true,
   }) async {
     final body = await _requestJson(
       'POST',
       '/api/v1/stock/tags',
-      body: {'tag': tag, 'assignedUserIds': assignedUserIds},
+      body: {
+        'tag': tag,
+        'assignedUserIds': assignedUserIds,
+        'active': active,
+      },
     ) as Map<String, dynamic>;
     return stockTagFromJson(body);
   }
@@ -2266,6 +2271,7 @@ class EastAppApi {
       '/api/v1/stock/tags/${tag.id}',
       body: {
         'tag': tag.tag,
+        'active': tag.active,
         'assignedUserIds': tag.assignedUsers
             .map((user) => user.userId)
             .toList(growable: false),
