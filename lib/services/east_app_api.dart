@@ -1787,16 +1787,145 @@ class EastAppApi {
     return StorageTableData.fromJson(body);
   }
 
-  Future<StorageCleanupResult> cleanupStorage(
-    String tableName,
-    int rowCount,
+  Future<BusinessCleanupPreview> previewBusinessCleanup(
+    BusinessCleanupSelection selection,
   ) async {
     final body = await _requestJson(
       'POST',
-      '/api/v1/storage-admin/cleanup/${Uri.encodeComponent(tableName)}',
-      body: {'confirmed': true, 'rowCount': rowCount},
+      '/api/v1/business-cleanup/preview',
+      body: selection.toJson(),
     ) as Map<String, dynamic>;
-    return StorageCleanupResult.fromJson(body);
+    return BusinessCleanupPreview.fromJson(body);
+  }
+
+  Future<List<BusinessCleanupRun>> businessCleanupRuns() async {
+    final body = await _requestJson(
+      'GET',
+      '/api/v1/business-cleanup/runs',
+    ) as List<dynamic>;
+    return body
+        .map(
+          (item) => BusinessCleanupRun.fromJson(
+            item as Map<String, dynamic>,
+          ),
+        )
+        .toList(growable: false);
+  }
+
+  Future<BusinessCleanupRun> confirmBusinessCleanupSaved(String runId) async {
+    final body = await _requestJson(
+      'POST',
+      '/api/v1/business-cleanup/runs/${Uri.encodeComponent(runId)}/confirm-saved',
+    ) as Map<String, dynamic>;
+    return BusinessCleanupRun.fromJson(body);
+  }
+
+  Future<BusinessCleanupComplete> completeBusinessCleanup(String runId) async {
+    final body = await _requestJson(
+      'DELETE',
+      '/api/v1/business-cleanup/runs/${Uri.encodeComponent(runId)}',
+    ) as Map<String, dynamic>;
+    return BusinessCleanupComplete.fromJson(body);
+  }
+
+  Future<BusinessCleanupBackupFile> createBusinessCleanupBackup(
+    BusinessCleanupSelection selection,
+  ) async {
+    const method = 'POST';
+    const path = '/api/v1/business-cleanup/backups';
+    _beginProcessingRequest();
+    final stopwatch = Stopwatch()..start();
+    try {
+      final token = _token;
+      if (token == null || token.isEmpty) {
+        final error = EastAppApiException(
+          statusCode: 401,
+          code: 'MISSING_SESSION',
+          message: 'Login required.',
+          method: method,
+          path: path,
+          durationMs: stopwatch.elapsedMilliseconds,
+        );
+        _reportApiError(error);
+        final callback = onSessionInvalidated;
+        if (callback != null) unawaited(callback());
+        throw error;
+      }
+
+      late http.Response response;
+      try {
+        response = await _client
+            .post(
+              Uri.parse('$baseUrl$path'),
+              headers: {
+                'Accept': 'application/zip',
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer $token',
+              },
+              body: jsonEncode(selection.toJson()),
+            )
+            .timeout(const Duration(minutes: 5));
+      } on TimeoutException {
+        final error = EastAppApiException(
+          statusCode: null,
+          code: 'REQUEST_TIMEOUT',
+          message: 'The backup was not ready within 5 minutes.',
+          method: method,
+          path: path,
+          durationMs: stopwatch.elapsedMilliseconds,
+        );
+        _reportApiError(error);
+        throw error;
+      } on http.ClientException {
+        final error = EastAppApiException(
+          statusCode: null,
+          code: 'NETWORK_ERROR',
+          message: 'Unable to connect to the application server.',
+          method: method,
+          path: path,
+          durationMs: stopwatch.elapsedMilliseconds,
+        );
+        _reportApiError(error);
+        throw error;
+      }
+
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        final error = _apiException(
+          response,
+          method: method,
+          path: path,
+          durationMs: stopwatch.elapsedMilliseconds,
+        );
+        _reportApiError(error, requestParameters: selection.toJson());
+        if (error.invalidatesSession) {
+          useToken(null);
+          final callback = onSessionInvalidated;
+          if (callback != null) unawaited(callback());
+        }
+        throw error;
+      }
+
+      final disposition = response.headers['content-disposition'] ?? '';
+      final match = RegExp(r'filename="?([^";]+)').firstMatch(disposition);
+      final runId = response.headers['x-eastapp-cleanup-run-id'];
+      if (runId == null || runId.isEmpty) {
+        throw const EastAppApiException(
+          statusCode: null,
+          code: 'BUSINESS_BACKUP_RUN_ID_MISSING',
+          message: 'The backup response did not include its cleanup record.',
+          method: method,
+          path: path,
+        );
+      }
+      return BusinessCleanupBackupFile(
+        runId: runId,
+        fileName: match?.group(1)?.trim() ?? 'eastapp-business-backup.zip',
+        sha256: response.headers['x-eastapp-backup-sha256'] ?? '',
+        bytes: Uint8List.fromList(response.bodyBytes),
+      );
+    } finally {
+      _endProcessingRequest();
+    }
   }
 
   Future<EastAppNotification> notificationDetail(String notificationId) async {

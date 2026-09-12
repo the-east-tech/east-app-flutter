@@ -25,7 +25,6 @@ class StorageManagementScreen extends StatefulWidget {
 class _StorageManagementScreenState extends State<StorageManagementScreen> {
   StorageOverview? overview;
   bool loading = true;
-  String? cleaningTable;
   String? viewingTable;
 
   @override
@@ -48,33 +47,9 @@ class _StorageManagementScreenState extends State<StorageManagementScreen> {
     }
   }
 
-  Future<void> cleanup(StorageTableUsage table) async {
-    if (cleaningTable != null || viewingTable != null || table.deletableRows < 1) {
-      return;
-    }
-    final rowCount = await _chooseDeleteCount(table);
-    if (rowCount == null || !mounted) return;
-
-    setState(() => cleaningTable = table.tableName);
-    try {
-      final result = await widget.api.cleanupStorage(table.tableName, rowCount);
-      if (!mounted) return;
-      showSuccessSnackBar(
-        context,
-        'Storage cleanup completed: ${result.deletedRows} oldest rows deleted from ${table.tableName}',
-      );
-      await load();
-    } on EastAppApiException {
-      // The shared API error dialog already explains the failure.
-    } finally {
-      if (mounted) setState(() => cleaningTable = null);
-    }
-  }
-
   Future<void> viewTable(StorageTableUsage table) async {
     final value = overview;
     if (value == null ||
-        cleaningTable != null ||
         viewingTable != null ||
         table.rowCount < 1) {
       return;
@@ -323,114 +298,16 @@ class _StorageManagementScreenState extends State<StorageManagementScreen> {
     horizontalController.dispose();
   }
 
-  Future<int?> _chooseDeleteCount(StorageTableUsage table) async {
-    final controller = TextEditingController(text: '1');
-    String? errorText;
-    final selected = await showDialog<int>(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) {
-        final text = AppTextScope.of(dialogContext);
-        return StatefulBuilder(
-          builder: (context, setDialogState) => AlertDialog(
-            title: Row(
-              children: [
-                const Icon(
-                  Icons.warning_amber_rounded,
-                  color: AppColours.orange,
-                ),
-                const SizedBox(width: 10),
-                Expanded(child: Text(text.t('Delete oldest rows?'))),
-              ],
-            ),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    text.t(table.deleteDescription ?? ''),
-                    style: const TextStyle(
-                      color: AppColours.textMain,
-                      fontSize: AppTextSize.s14,
-                      height: 1.4,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  TextField(
-                    controller: controller,
-                    autofocus: true,
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    decoration: InputDecoration(
-                      labelText: text.t('Rows to delete'),
-                      helperText: '${text.t('Maximum safely deletable')}: '
-                          '${table.deletableRows}',
-                      errorText: errorText == null ? null : text.t(errorText!),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  Text(
-                    text.t(
-                      'This permanently deletes the oldest selected rows across all company codes. Related dependent rows may also be deleted. This cannot be undone.',
-                    ),
-                    style: const TextStyle(
-                      color: AppColours.red,
-                      fontSize: AppTextSize.s13,
-                      height: 1.4,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(),
-                child: Text(text.t('Cancel')),
-              ),
-              FilledButton(
-                onPressed: () {
-                  final value = int.tryParse(controller.text);
-                  if (value == null ||
-                      value < 1 ||
-                      value > table.deletableRows) {
-                    setDialogState(
-                      () => errorText = 'Enter a valid row count.',
-                    );
-                    return;
-                  }
-                  Navigator.of(dialogContext).pop(value);
-                },
-                child: Text(text.t('Delete permanently')),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-    controller.dispose();
-    return selected;
-  }
-
   @override
   Widget build(BuildContext context) {
     final text = AppTextScope.of(context);
     final value = overview;
-    final deletableTables = value?.tables
-            .where((table) => table.deleteAllowed)
-            .toList(growable: false) ??
-        const <StorageTableUsage>[];
-    final nonDeletableTables = value?.tables
-            .where((table) => !table.deleteAllowed)
-            .toList(growable: false) ??
-        const <StorageTableUsage>[];
+    final tables = value?.tables ?? const <StorageTableUsage>[];
 
     return Scaffold(
       backgroundColor: AppColours.background,
       body: AppProcessingOverlay(
-        isProcessing: cleaningTable != null || viewingTable != null,
+        isProcessing: viewingTable != null,
         child: SafeArea(
           child: RefreshIndicator(
             onRefresh: load,
@@ -450,8 +327,8 @@ class _StorageManagementScreenState extends State<StorageManagementScreen> {
                     ),
                     Expanded(
                       child: PageTitle(
-                        title: text.t('Storage & Cleanup'),
-                        subtitle: text.t('Database use and manual cleanup'),
+                        title: text.t('Database Storage'),
+                        subtitle: text.t('Read-only database usage and table data'),
                       ),
                     ),
                     Padding(
@@ -484,39 +361,19 @@ class _StorageManagementScreenState extends State<StorageManagementScreen> {
                   _StorageSummary(overview: value),
                   const SizedBox(height: 16),
                   _SectionTitle(
-                    title: text.t('Deletable tables'),
+                    title: text.t('Database tables'),
                     subtitle: text.t(
-                      'Only safely eligible rows can be deleted. View shows table columns and selected rows.',
+                      'View table size, record dates and selected rows. No data can be deleted here.',
                     ),
                   ),
                   const SizedBox(height: 10),
-                  ...deletableTables.map(
+                  ...tables.map(
                     (table) => Padding(
                       padding: const EdgeInsets.only(bottom: 10),
                       child: _TableUsageCard(
                         table: table,
-                        busy: cleaningTable != null || viewingTable != null,
+                        busy: viewingTable != null,
                         onView: () => viewTable(table),
-                        onDelete: () => cleanup(table),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  _SectionTitle(
-                    title: text.t('Non-deletable tables'),
-                    subtitle: text.t(
-                      'Direct deletion is protected. Child rows may still be removed through a safely deleted parent.',
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  ...nonDeletableTables.map(
-                    (table) => Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: _TableUsageCard(
-                        table: table,
-                        busy: cleaningTable != null || viewingTable != null,
-                        onView: () => viewTable(table),
-                        onDelete: () => cleanup(table),
                       ),
                     ),
                   ),
@@ -634,13 +491,11 @@ class _TableUsageCard extends StatelessWidget {
     required this.table,
     required this.busy,
     required this.onView,
-    required this.onDelete,
   });
 
   final StorageTableUsage table;
   final bool busy;
   final VoidCallback onView;
-  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -703,13 +558,6 @@ class _TableUsageCard extends StatelessWidget {
               fontWeight: FontWeight.w600,
             ),
           ),
-          if (table.deleteAllowed) ...[
-            const SizedBox(height: 10),
-            Text(
-              AppTextScope.of(context).t(table.deleteDescription ?? ''),
-              style: AppTextStyles.formHint.copyWith(fontSize: AppTextSize.s12),
-            ),
-          ],
           const SizedBox(height: 10),
           const Divider(height: 1),
           const SizedBox(height: 10),
@@ -717,9 +565,7 @@ class _TableUsageCard extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  table.deleteAllowed
-                      ? '${table.deletableRows} safely deletable'
-                      : 'Direct deletion protected',
+                  AppTextScope.of(context).t('Read only'),
                   style: const TextStyle(
                     color: AppColours.textMuted,
                     fontSize: AppTextSize.s12,
@@ -732,14 +578,6 @@ class _TableUsageCard extends StatelessWidget {
                 icon: const Icon(Icons.table_view_outlined, size: 18),
                 label: Text(AppTextScope.of(context).t('View')),
               ),
-              if (table.deleteAllowed) ...[
-                const SizedBox(width: 8),
-                OutlinedButton.icon(
-                  onPressed: busy || table.deletableRows < 1 ? null : onDelete,
-                  icon: const Icon(Icons.delete_sweep_outlined, size: 18),
-                  label: Text(AppTextScope.of(context).t('Delete')),
-                ),
-              ],
             ],
           ),
         ],

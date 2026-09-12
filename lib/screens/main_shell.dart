@@ -27,6 +27,7 @@ import '../widgets/app_feedback.dart';
 import '../widgets/app_header.dart';
 import '../widgets/app_settings_sheet.dart';
 import 'attendance_screen.dart';
+import 'business_cleanup_screen.dart';
 import 'home_screen.dart';
 import 'knowledge_screen.dart';
 import 'notification_screen.dart';
@@ -690,12 +691,23 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
         language: language,
         translationDirection: widget.api.translationDirection,
         canManageStorage: widget.session.can(EastAppPermission.storageAdmin),
+        canManageBusinessCleanup: widget.session.user.role.isOwner,
         onStorageManagement: () {
           Navigator.of(sheetContext).pop();
           unawaited(
             Navigator.of(context).push(
               MaterialPageRoute<void>(
                 builder: (_) => StorageManagementScreen(api: widget.api),
+              ),
+            ),
+          );
+        },
+        onBusinessCleanup: () {
+          Navigator.of(sheetContext).pop();
+          unawaited(
+            Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => BusinessCleanupScreen(api: widget.api),
               ),
             ),
           );
