@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'localization/app_language.dart';
@@ -14,6 +15,7 @@ import 'services/api_configuration.dart';
 import 'services/east_app_api.dart';
 import 'services/session_store.dart';
 import 'theme/app_theme.dart';
+import 'utils/app_build_info.dart';
 import 'utils/app_diagnostics.dart';
 import 'widgets/app_components.dart';
 
@@ -49,6 +51,8 @@ class _TheEastAppState extends State<TheEastApp>
   bool processingRequest = false;
   DateTime? processingStartedAt;
   Timer? processingDismissTimer;
+  Timer? errorReportRetryTimer;
+  bool flushingErrorReports = false;
   int apiErrorPresentationGeneration = 0;
 
   @override
@@ -89,7 +93,7 @@ class _TheEastAppState extends State<TheEastApp>
         return;
       }
       try {
-        await showApiErrorDialog(context, error);
+        await showApiErrorDialog(context, error, reportError);
       } finally {
         apiErrorDialogOpen = false;
       }
@@ -98,7 +102,10 @@ class _TheEastAppState extends State<TheEastApp>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) return;
+    if (state == AppLifecycleState.resumed) {
+      unawaited(flushPendingErrorReports());
+      return;
+    }
     apiErrorPresentationGeneration++;
     api.invalidateInFlightErrorNotifications();
   }
@@ -137,6 +144,7 @@ class _TheEastAppState extends State<TheEastApp>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     processingDismissTimer?.cancel();
+    errorReportRetryTimer?.cancel();
     api.close();
     super.dispose();
   }
@@ -271,6 +279,7 @@ class _TheEastAppState extends State<TheEastApp>
         lastEmployeeId = loginEmployeeId;
         restoringSession = false;
       });
+      startErrorReportRetry();
     } on EastAppApiException catch (error) {
       if (error.invalidatesSession) {
         api.useToken(null);
@@ -288,6 +297,8 @@ class _TheEastAppState extends State<TheEastApp>
   }
 
   Future<void> handleSessionInvalidated() async {
+    errorReportRetryTimer?.cancel();
+    errorReportRetryTimer = null;
     try {
       await sessionStore.clearToken();
     } catch (error) {
@@ -344,6 +355,90 @@ class _TheEastAppState extends State<TheEastApp>
       startupError = null;
       startupApiError = null;
     });
+    startErrorReportRetry();
+  }
+
+  Future<ErrorReportDelivery> reportError(EastAppApiException error) async {
+    var report = buildPendingErrorReport(error);
+    if (!error.isServerUnavailable && api.token?.isNotEmpty == true) {
+      try {
+        await api.submitErrorReport(report);
+        return ErrorReportDelivery.sent;
+      } on EastAppApiException catch (deliveryError) {
+        report = PendingErrorReport(
+          reference: report.reference,
+          errorDetails: report.errorDetails,
+          debugReport:
+              '${report.debugReport}\n\nAutomatic delivery failure\n'
+              '${AppDiagnostics.instance.sanitiseForSupport(deliveryError.technicalDetails)}',
+          queuedAt: report.queuedAt,
+        );
+      }
+    }
+    await AppDiagnostics.instance.queueErrorReport(report);
+    startErrorReportRetry();
+    return ErrorReportDelivery.queued;
+  }
+
+  PendingErrorReport buildPendingErrorReport(EastAppApiException error) {
+    final currentSession = session;
+    final debugReport = AppDiagnostics.instance.buildReport(
+      appVersion: AppBuildInfo.displayVersion,
+      role: currentSession?.user.role.name ?? 'Not signed in',
+      userName: currentSession?.user.fullName ?? 'Not signed in',
+      userId: currentSession?.user.employeeId ?? '-',
+      activeTab: '${error.method ?? '-'} ${error.path ?? 'Startup'}',
+      language: language.displayName,
+      mode: kReleaseMode
+          ? 'release'
+          : kProfileMode
+              ? 'profile'
+              : 'debug',
+      tenantName: currentSession?.tenant.businessName ?? '-',
+      tenantId: currentSession?.tenant.id ?? '-',
+    );
+    final reference = RegExp(
+      r'^Reference: (.+)$',
+      multiLine: true,
+    ).firstMatch(debugReport)?.group(1)?.trim();
+    return PendingErrorReport(
+      reference: reference == null || reference.isEmpty
+          ? 'DBG-${DateTime.now().microsecondsSinceEpoch}'
+          : reference,
+      errorDetails: AppDiagnostics.instance.sanitiseForSupport(
+        error.technicalDetails,
+      ),
+      debugReport: debugReport,
+      queuedAt: DateTime.now(),
+    );
+  }
+
+  void startErrorReportRetry() {
+    errorReportRetryTimer ??= Timer.periodic(
+      const Duration(minutes: 5),
+      (_) => unawaited(flushPendingErrorReports()),
+    );
+    unawaited(flushPendingErrorReports());
+  }
+
+  Future<void> flushPendingErrorReports() async {
+    if (flushingErrorReports || api.token?.isNotEmpty != true) return;
+    flushingErrorReports = true;
+    try {
+      final reports = await AppDiagnostics.instance.pendingErrorReports();
+      for (final report in reports) {
+        try {
+          await api.submitErrorReport(report);
+        } on EastAppApiException {
+          return;
+        }
+        await AppDiagnostics.instance.removePendingErrorReport(
+          report.reference,
+        );
+      }
+    } finally {
+      flushingErrorReports = false;
+    }
   }
 
   String _loginCompanyCode(EastAppSession value) {
@@ -414,6 +509,8 @@ class _TheEastAppState extends State<TheEastApp>
   }
 
   Future<void> handleLogout() async {
+    errorReportRetryTimer?.cancel();
+    errorReportRetryTimer = null;
     try {
       await api.logout();
     } on EastAppApiException {
@@ -467,6 +564,7 @@ class _TheEastAppState extends State<TheEastApp>
       return _StartupErrorScreen(
         message: startupError!,
         apiError: startupApiError,
+        onReportError: reportError,
         onRetry: initialiseApp,
         onClearSession: () async {
           try {
@@ -558,12 +656,14 @@ class _StartupScreen extends StatelessWidget {
 class _StartupErrorScreen extends StatelessWidget {
   final String message;
   final EastAppApiException? apiError;
+  final ErrorReporter onReportError;
   final VoidCallback onRetry;
   final VoidCallback onClearSession;
 
   const _StartupErrorScreen({
     required this.message,
     required this.apiError,
+    required this.onReportError,
     required this.onRetry,
     required this.onClearSession,
   });
@@ -649,6 +749,16 @@ class _StartupErrorScreen extends StatelessWidget {
                     ),
                   ],
                   const SizedBox(height: 16),
+                  if (apiError != null) ...[
+                    SizedBox(
+                      width: double.infinity,
+                      child: ReportErrorButton(
+                        error: apiError!,
+                        onReportError: onReportError,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
                   SizedBox(
                     width: double.infinity,
                     child: FilledButton(

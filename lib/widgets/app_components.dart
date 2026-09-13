@@ -1,7 +1,6 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../localization/app_text_scope.dart';
 import '../services/east_app_api.dart';
@@ -9,9 +8,16 @@ import '../theme/app_theme.dart';
 import '../utils/app_diagnostics.dart';
 import 'app_feedback.dart';
 
+enum ErrorReportDelivery { sent, queued }
+
+typedef ErrorReporter = Future<ErrorReportDelivery> Function(
+  EastAppApiException error,
+);
+
 Future<void> showApiErrorDialog(
   BuildContext context,
   EastAppApiException error,
+  ErrorReporter onReportError,
 ) async {
   await AppFeedback.error();
   if (!context.mounted) return;
@@ -22,103 +28,171 @@ Future<void> showApiErrorDialog(
   final serverUnavailable = error.isServerUnavailable;
   await showDialog<void>(
     context: context,
+    barrierDismissible: false,
     builder: (dialogContext) {
       final text = AppTextScope.of(dialogContext);
       final screenHeight = MediaQuery.of(dialogContext).size.height;
-      return AlertDialog(
-        titlePadding: const EdgeInsets.fromLTRB(20, 18, 12, 0),
-        contentPadding: const EdgeInsets.fromLTRB(20, 14, 20, 4),
-        actionsPadding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
-        title: Row(
-          children: [
-            const Icon(Icons.error_outline_rounded, color: AppColours.red),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                text.t(
-                  serverUnavailable
-                      ? 'Server temporarily unavailable'
-                      : 'Technical Error',
+      return PopScope(
+        canPop: false,
+        child: AlertDialog(
+          titlePadding: const EdgeInsets.fromLTRB(20, 18, 12, 0),
+          contentPadding: const EdgeInsets.fromLTRB(20, 14, 20, 4),
+          actionsPadding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+          title: Row(
+            children: [
+              const Icon(Icons.error_outline_rounded, color: AppColours.red),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  text.t(
+                    serverUnavailable
+                        ? 'Server temporarily unavailable'
+                        : 'Technical Error',
+                  ),
+                  style: const TextStyle(fontWeight: FontWeight.w800),
                 ),
-                style: const TextStyle(fontWeight: FontWeight.w800),
+              ),
+            ],
+          ),
+          content: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: 560,
+              maxHeight: screenHeight * 0.68,
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (serverUnavailable) ...[
+                    Text(
+                      text.t(
+                        'The server may be updating. Please try again shortly.',
+                      ),
+                      style: const TextStyle(
+                        fontSize: AppTextSize.s14,
+                        height: 1.45,
+                        color: AppColours.textMain,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    const Divider(height: 1),
+                    const SizedBox(height: 14),
+                    Text(
+                      text.t('Technical details'),
+                      style: const TextStyle(
+                        fontSize: AppTextSize.s13,
+                        color: AppColours.textMuted,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                  ],
+                  SelectableText(
+                    details,
+                    style: const TextStyle(
+                      fontSize: AppTextSize.s13,
+                      height: 1.45,
+                      color: AppColours.textMain,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
               ),
             ),
-            IconButton(
-              tooltip: text.t('Close'),
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              icon: const Icon(Icons.close_rounded),
+          ),
+          actions: [
+            ReportErrorButton(
+              error: error,
+              onReportError: onReportError,
+              onReported: () => Navigator.of(dialogContext).pop(),
             ),
           ],
         ),
-        content: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxWidth: 560,
-            maxHeight: screenHeight * 0.68,
-          ),
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (serverUnavailable) ...[
-                  Text(
-                    text.t(
-                      'The server may be updating. Please try again shortly.',
-                    ),
-                    style: const TextStyle(
-                      fontSize: AppTextSize.s14,
-                      height: 1.45,
-                      color: AppColours.textMain,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  const Divider(height: 1),
-                  const SizedBox(height: 14),
-                  Text(
-                    text.t('Technical details'),
-                    style: const TextStyle(
-                      fontSize: AppTextSize.s13,
-                      color: AppColours.textMuted,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                ],
-                SelectableText(
-                  details,
-                  style: const TextStyle(
-                    fontSize: AppTextSize.s13,
-                    height: 1.45,
-                    color: AppColours.textMain,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        actions: [
-          TextButton.icon(
-            onPressed: () async {
-              await Clipboard.setData(ClipboardData(text: details));
-              if (!dialogContext.mounted) return;
-              ScaffoldMessenger.of(dialogContext).showSnackBar(
-                SnackBar(content: Text(text.t('Error details copied'))),
-              );
-            },
-            icon: const Icon(Icons.copy_rounded),
-            label: Text(text.t('Copy')),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: Text(text.t('Close')),
-          ),
-        ],
       );
     },
   );
 }
 
+class ReportErrorButton extends StatefulWidget {
+  final EastAppApiException error;
+  final ErrorReporter onReportError;
+  final VoidCallback? onReported;
+
+  const ReportErrorButton({
+    super.key,
+    required this.error,
+    required this.onReportError,
+    this.onReported,
+  });
+
+  @override
+  State<ReportErrorButton> createState() => _ReportErrorButtonState();
+}
+
+class _ReportErrorButtonState extends State<ReportErrorButton> {
+  bool reporting = false;
+
+  Future<void> report() async {
+    if (reporting) return;
+    setState(() => reporting = true);
+    try {
+      final delivery = await widget.onReportError(widget.error);
+      if (!mounted) return;
+      final messenger = ScaffoldMessenger.of(context);
+      final text = AppTextScope.of(context);
+      widget.onReported?.call();
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(
+              text.t(
+                delivery == ErrorReportDelivery.sent
+                    ? 'Error report sent'
+                    : 'Error report queued and will send automatically',
+              ),
+            ),
+          ),
+        );
+    } on Object catch (error, stackTrace) {
+      AppDiagnostics.instance.recordError(error, stackTrace);
+      if (!mounted) return;
+      final details = AppDiagnostics.instance.sanitiseForSupport(
+        error is EastAppApiException
+            ? error.technicalDetails
+            : error.toString(),
+      );
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(
+              '${AppTextScope.of(context).t('Error report failed')}: $details',
+            ),
+            duration: const Duration(seconds: 8),
+          ),
+        );
+    } finally {
+      if (mounted) setState(() => reporting = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
+    return FilledButton.icon(
+      onPressed: reporting ? null : report,
+      icon: reporting
+          ? const SizedBox.square(
+              dimension: 16,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : const Icon(Icons.outgoing_mail),
+      label: Text(text.t(reporting ? 'Reporting error…' : 'Report Error')),
+    );
+  }
+}
 
 Future<bool> confirmDataChange(
   BuildContext context, {
