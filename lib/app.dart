@@ -44,6 +44,7 @@ class _TheEastAppState extends State<TheEastApp>
   String? initialSetupCode;
   DateTime? initialSetupCodeExpiresAt;
   String? startupError;
+  EastAppApiException? startupApiError;
   bool apiErrorDialogOpen = false;
   bool processingRequest = false;
   DateTime? processingStartedAt;
@@ -146,6 +147,7 @@ class _TheEastAppState extends State<TheEastApp>
       checkingSetup = true;
       restoringSession = true;
       startupError = null;
+      startupApiError = null;
       initialSetupCode = null;
       initialSetupCodeExpiresAt = null;
     });
@@ -186,6 +188,7 @@ class _TheEastAppState extends State<TheEastApp>
         checkingSetup = false;
         restoringSession = false;
         startupError = error.message;
+        startupApiError = error;
       });
     }
   }
@@ -199,6 +202,7 @@ class _TheEastAppState extends State<TheEastApp>
       initialSetupCode = null;
       initialSetupCodeExpiresAt = null;
       startupError = null;
+      startupApiError = null;
       session = null;
       lastCompanyCode = result.companyCode;
       lastEmployeeId = result.employeeId;
@@ -228,6 +232,7 @@ class _TheEastAppState extends State<TheEastApp>
       if (!mounted) return;
       setState(() {
         startupError = 'Secure session storage is unavailable on this device.';
+        startupApiError = null;
         restoringSession = false;
       });
       return;
@@ -276,6 +281,7 @@ class _TheEastAppState extends State<TheEastApp>
       if (!mounted) return;
       setState(() {
         startupError = error.message;
+        startupApiError = error;
         restoringSession = false;
       });
     }
@@ -300,6 +306,7 @@ class _TheEastAppState extends State<TheEastApp>
     setState(() {
       session = null;
       startupError = null;
+      startupApiError = null;
       restoringSession = false;
     });
   }
@@ -335,6 +342,7 @@ class _TheEastAppState extends State<TheEastApp>
       lastEmployeeId = loginEmployeeId;
       lastPassword = password;
       startupError = null;
+      startupApiError = null;
     });
   }
 
@@ -395,6 +403,7 @@ class _TheEastAppState extends State<TheEastApp>
     setState(() {
       session = nextSession;
       startupError = null;
+      startupApiError = null;
     });
   }
 
@@ -457,6 +466,7 @@ class _TheEastAppState extends State<TheEastApp>
     if (startupError != null) {
       return _StartupErrorScreen(
         message: startupError!,
+        apiError: startupApiError,
         onRetry: initialiseApp,
         onClearSession: () async {
           try {
@@ -547,11 +557,13 @@ class _StartupScreen extends StatelessWidget {
 
 class _StartupErrorScreen extends StatelessWidget {
   final String message;
+  final EastAppApiException? apiError;
   final VoidCallback onRetry;
   final VoidCallback onClearSession;
 
   const _StartupErrorScreen({
     required this.message,
+    required this.apiError,
     required this.onRetry,
     required this.onClearSession,
   });
@@ -559,55 +571,98 @@ class _StartupErrorScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = AppTextScope.of(context);
+    final serverUnavailable = apiError?.isServerUnavailable ?? false;
+    final technicalDetails = apiError == null
+        ? null
+        : AppDiagnostics.instance.sanitiseForSupport(
+            apiError!.technicalDetails,
+          );
     return Scaffold(
       backgroundColor: AppColours.blue,
-      body: Center(
-        child: Container(
-          width: 420,
-          margin: const EdgeInsets.all(20),
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(
-                Icons.cloud_off_outlined,
-                size: 44,
-                color: AppColours.red,
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            child: Container(
+              width: 420,
+              margin: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
               ),
-              const SizedBox(height: 12),
-              Text(
-                text.t('Backend unavailable'),
-                style: const TextStyle(
-                  fontSize: AppTextSize.s24,
-                  fontWeight: FontWeight.w700,
-                ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.cloud_off_outlined,
+                    size: 44,
+                    color: AppColours.red,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    text.t(
+                      serverUnavailable
+                          ? 'Server temporarily unavailable'
+                          : 'Backend unavailable',
+                    ),
+                    style: const TextStyle(
+                      fontSize: AppTextSize.s24,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    text.t(
+                      serverUnavailable
+                          ? 'The server may be updating. Please try again shortly.'
+                          : message,
+                    ),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: AppColours.textMuted,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  if (technicalDetails != null) ...[
+                    const SizedBox(height: 14),
+                    const Divider(height: 1),
+                    const SizedBox(height: 14),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        text.t('Technical details'),
+                        style: const TextStyle(
+                          color: AppColours.textMuted,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    SelectableText(
+                      technicalDetails,
+                      style: const TextStyle(
+                        fontSize: AppTextSize.s13,
+                        height: 1.4,
+                        color: AppColours.textMain,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: onRetry,
+                      child: Text(text.t('Retry')),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: onClearSession,
+                    child: Text(text.t('Return to login')),
+                  ),
+                ],
               ),
-              const SizedBox(height: 8),
-              Text(
-                message,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: AppColours.textMuted,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: onRetry,
-                  child: Text(text.t('Retry')),
-                ),
-              ),
-              TextButton(
-                onPressed: onClearSession,
-                child: Text(text.t('Return to login')),
-              ),
-            ],
+            ),
           ),
         ),
       ),

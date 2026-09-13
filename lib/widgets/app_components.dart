@@ -19,6 +19,7 @@ Future<void> showApiErrorDialog(
   final details = AppDiagnostics.instance.sanitiseForSupport(
     error.technicalDetails,
   );
+  final serverUnavailable = error.isServerUnavailable;
   await showDialog<void>(
     context: context,
     builder: (dialogContext) {
@@ -34,7 +35,11 @@ Future<void> showApiErrorDialog(
             const SizedBox(width: 10),
             Expanded(
               child: Text(
-                text.t('Technical Error'),
+                text.t(
+                  serverUnavailable
+                      ? 'Server temporarily unavailable'
+                      : 'Technical Error',
+                ),
                 style: const TextStyle(fontWeight: FontWeight.w800),
               ),
             ),
@@ -51,14 +56,44 @@ Future<void> showApiErrorDialog(
             maxHeight: screenHeight * 0.68,
           ),
           child: SingleChildScrollView(
-            child: SelectableText(
-              details,
-              style: const TextStyle(
-                fontSize: AppTextSize.s13,
-                height: 1.45,
-                color: AppColours.textMain,
-                fontWeight: FontWeight.w600,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (serverUnavailable) ...[
+                  Text(
+                    text.t(
+                      'The server may be updating. Please try again shortly.',
+                    ),
+                    style: const TextStyle(
+                      fontSize: AppTextSize.s14,
+                      height: 1.45,
+                      color: AppColours.textMain,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  const Divider(height: 1),
+                  const SizedBox(height: 14),
+                  Text(
+                    text.t('Technical details'),
+                    style: const TextStyle(
+                      fontSize: AppTextSize.s13,
+                      color: AppColours.textMuted,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                ],
+                SelectableText(
+                  details,
+                  style: const TextStyle(
+                    fontSize: AppTextSize.s13,
+                    height: 1.45,
+                    color: AppColours.textMain,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
             ),
           ),
         ),

@@ -49,6 +49,13 @@ class EastAppApiException implements Exception {
 
   bool get isUnauthorised => statusCode == 401;
 
+  bool get isServerUnavailable =>
+      statusCode == 502 ||
+      statusCode == 503 ||
+      statusCode == 504 ||
+      code == 'NETWORK_ERROR' ||
+      code == 'REQUEST_TIMEOUT';
+
   bool get invalidatesSession => isUnauthorised && const {
         'INVALID_SESSION',
         'UNAUTHENTICATED',
