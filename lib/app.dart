@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'localization/app_language.dart';
@@ -14,6 +15,7 @@ import 'services/api_configuration.dart';
 import 'services/east_app_api.dart';
 import 'services/session_store.dart';
 import 'theme/app_theme.dart';
+import 'utils/app_build_info.dart';
 import 'utils/app_diagnostics.dart';
 import 'widgets/app_components.dart';
 
@@ -44,10 +46,13 @@ class _TheEastAppState extends State<TheEastApp>
   String? initialSetupCode;
   DateTime? initialSetupCodeExpiresAt;
   String? startupError;
+  EastAppApiException? startupApiError;
   bool apiErrorDialogOpen = false;
   bool processingRequest = false;
   DateTime? processingStartedAt;
   Timer? processingDismissTimer;
+  Timer? errorReportRetryTimer;
+  bool flushingErrorReports = false;
   int apiErrorPresentationGeneration = 0;
 
   @override
@@ -88,7 +93,7 @@ class _TheEastAppState extends State<TheEastApp>
         return;
       }
       try {
-        await showApiErrorDialog(context, error);
+        await showApiErrorDialog(context, error, reportError);
       } finally {
         apiErrorDialogOpen = false;
       }
@@ -97,7 +102,10 @@ class _TheEastAppState extends State<TheEastApp>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) return;
+    if (state == AppLifecycleState.resumed) {
+      unawaited(flushPendingErrorReports());
+      return;
+    }
     apiErrorPresentationGeneration++;
     api.invalidateInFlightErrorNotifications();
   }
@@ -136,6 +144,7 @@ class _TheEastAppState extends State<TheEastApp>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     processingDismissTimer?.cancel();
+    errorReportRetryTimer?.cancel();
     api.close();
     super.dispose();
   }
@@ -146,6 +155,7 @@ class _TheEastAppState extends State<TheEastApp>
       checkingSetup = true;
       restoringSession = true;
       startupError = null;
+      startupApiError = null;
       initialSetupCode = null;
       initialSetupCodeExpiresAt = null;
     });
@@ -186,6 +196,7 @@ class _TheEastAppState extends State<TheEastApp>
         checkingSetup = false;
         restoringSession = false;
         startupError = error.message;
+        startupApiError = error;
       });
     }
   }
@@ -199,6 +210,7 @@ class _TheEastAppState extends State<TheEastApp>
       initialSetupCode = null;
       initialSetupCodeExpiresAt = null;
       startupError = null;
+      startupApiError = null;
       session = null;
       lastCompanyCode = result.companyCode;
       lastEmployeeId = result.employeeId;
@@ -228,6 +240,7 @@ class _TheEastAppState extends State<TheEastApp>
       if (!mounted) return;
       setState(() {
         startupError = 'Secure session storage is unavailable on this device.';
+        startupApiError = null;
         restoringSession = false;
       });
       return;
@@ -266,6 +279,7 @@ class _TheEastAppState extends State<TheEastApp>
         lastEmployeeId = loginEmployeeId;
         restoringSession = false;
       });
+      startErrorReportRetry();
     } on EastAppApiException catch (error) {
       if (error.invalidatesSession) {
         api.useToken(null);
@@ -276,12 +290,15 @@ class _TheEastAppState extends State<TheEastApp>
       if (!mounted) return;
       setState(() {
         startupError = error.message;
+        startupApiError = error;
         restoringSession = false;
       });
     }
   }
 
   Future<void> handleSessionInvalidated() async {
+    errorReportRetryTimer?.cancel();
+    errorReportRetryTimer = null;
     try {
       await sessionStore.clearToken();
     } catch (error) {
@@ -300,6 +317,7 @@ class _TheEastAppState extends State<TheEastApp>
     setState(() {
       session = null;
       startupError = null;
+      startupApiError = null;
       restoringSession = false;
     });
   }
@@ -335,7 +353,92 @@ class _TheEastAppState extends State<TheEastApp>
       lastEmployeeId = loginEmployeeId;
       lastPassword = password;
       startupError = null;
+      startupApiError = null;
     });
+    startErrorReportRetry();
+  }
+
+  Future<ErrorReportDelivery> reportError(EastAppApiException error) async {
+    var report = buildPendingErrorReport(error);
+    if (!error.isServerUnavailable && api.token?.isNotEmpty == true) {
+      try {
+        await api.submitErrorReport(report);
+        return ErrorReportDelivery.sent;
+      } on EastAppApiException catch (deliveryError) {
+        report = PendingErrorReport(
+          reference: report.reference,
+          errorDetails: report.errorDetails,
+          debugReport:
+              '${report.debugReport}\n\nAutomatic delivery failure\n'
+              '${AppDiagnostics.instance.sanitiseForSupport(deliveryError.technicalDetails)}',
+          queuedAt: report.queuedAt,
+        );
+      }
+    }
+    await AppDiagnostics.instance.queueErrorReport(report);
+    startErrorReportRetry();
+    return ErrorReportDelivery.queued;
+  }
+
+  PendingErrorReport buildPendingErrorReport(EastAppApiException error) {
+    final currentSession = session;
+    final debugReport = AppDiagnostics.instance.buildReport(
+      appVersion: AppBuildInfo.displayVersion,
+      role: currentSession?.user.role.name ?? 'Not signed in',
+      userName: currentSession?.user.fullName ?? 'Not signed in',
+      userId: currentSession?.user.employeeId ?? '-',
+      activeTab: '${error.method ?? '-'} ${error.path ?? 'Startup'}',
+      language: language.displayName,
+      mode: kReleaseMode
+          ? 'release'
+          : kProfileMode
+              ? 'profile'
+              : 'debug',
+      tenantName: currentSession?.tenant.businessName ?? '-',
+      tenantId: currentSession?.tenant.id ?? '-',
+    );
+    final reference = RegExp(
+      r'^Reference: (.+)$',
+      multiLine: true,
+    ).firstMatch(debugReport)?.group(1)?.trim();
+    return PendingErrorReport(
+      reference: reference == null || reference.isEmpty
+          ? 'DBG-${DateTime.now().microsecondsSinceEpoch}'
+          : reference,
+      errorDetails: AppDiagnostics.instance.sanitiseForSupport(
+        error.technicalDetails,
+      ),
+      debugReport: debugReport,
+      queuedAt: DateTime.now(),
+    );
+  }
+
+  void startErrorReportRetry() {
+    errorReportRetryTimer ??= Timer.periodic(
+      const Duration(minutes: 5),
+      (_) => unawaited(flushPendingErrorReports()),
+    );
+    unawaited(flushPendingErrorReports());
+  }
+
+  Future<void> flushPendingErrorReports() async {
+    if (flushingErrorReports || api.token?.isNotEmpty != true) return;
+    flushingErrorReports = true;
+    try {
+      final reports = await AppDiagnostics.instance.pendingErrorReports();
+      for (final report in reports) {
+        try {
+          await api.submitErrorReport(report);
+        } on EastAppApiException {
+          return;
+        }
+        await AppDiagnostics.instance.removePendingErrorReport(
+          report.reference,
+        );
+      }
+    } finally {
+      flushingErrorReports = false;
+    }
   }
 
   String _loginCompanyCode(EastAppSession value) {
@@ -395,6 +498,7 @@ class _TheEastAppState extends State<TheEastApp>
     setState(() {
       session = nextSession;
       startupError = null;
+      startupApiError = null;
     });
   }
 
@@ -405,6 +509,8 @@ class _TheEastAppState extends State<TheEastApp>
   }
 
   Future<void> handleLogout() async {
+    errorReportRetryTimer?.cancel();
+    errorReportRetryTimer = null;
     try {
       await api.logout();
     } on EastAppApiException {
@@ -457,6 +563,8 @@ class _TheEastAppState extends State<TheEastApp>
     if (startupError != null) {
       return _StartupErrorScreen(
         message: startupError!,
+        apiError: startupApiError,
+        onReportError: reportError,
         onRetry: initialiseApp,
         onClearSession: () async {
           try {
@@ -547,11 +655,15 @@ class _StartupScreen extends StatelessWidget {
 
 class _StartupErrorScreen extends StatelessWidget {
   final String message;
+  final EastAppApiException? apiError;
+  final ErrorReporter onReportError;
   final VoidCallback onRetry;
   final VoidCallback onClearSession;
 
   const _StartupErrorScreen({
     required this.message,
+    required this.apiError,
+    required this.onReportError,
     required this.onRetry,
     required this.onClearSession,
   });
@@ -559,55 +671,108 @@ class _StartupErrorScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = AppTextScope.of(context);
+    final serverUnavailable = apiError?.isServerUnavailable ?? false;
+    final technicalDetails = apiError == null
+        ? null
+        : AppDiagnostics.instance.sanitiseForSupport(
+            apiError!.technicalDetails,
+          );
     return Scaffold(
       backgroundColor: AppColours.blue,
-      body: Center(
-        child: Container(
-          width: 420,
-          margin: const EdgeInsets.all(20),
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(
-                Icons.cloud_off_outlined,
-                size: 44,
-                color: AppColours.red,
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            child: Container(
+              width: 420,
+              margin: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
               ),
-              const SizedBox(height: 12),
-              Text(
-                text.t('Backend unavailable'),
-                style: const TextStyle(
-                  fontSize: AppTextSize.s24,
-                  fontWeight: FontWeight.w700,
-                ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.cloud_off_outlined,
+                    size: 44,
+                    color: AppColours.red,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    text.t(
+                      serverUnavailable
+                          ? 'Server temporarily unavailable'
+                          : 'Backend unavailable',
+                    ),
+                    style: const TextStyle(
+                      fontSize: AppTextSize.s24,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    text.t(
+                      serverUnavailable
+                          ? 'The server may be updating. Please try again shortly.'
+                          : message,
+                    ),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: AppColours.textMuted,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  if (technicalDetails != null) ...[
+                    const SizedBox(height: 14),
+                    const Divider(height: 1),
+                    const SizedBox(height: 14),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        text.t('Technical details'),
+                        style: const TextStyle(
+                          color: AppColours.textMuted,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    SelectableText(
+                      technicalDetails,
+                      style: const TextStyle(
+                        fontSize: AppTextSize.s13,
+                        height: 1.4,
+                        color: AppColours.textMain,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 16),
+                  if (apiError != null) ...[
+                    SizedBox(
+                      width: double.infinity,
+                      child: ReportErrorButton(
+                        error: apiError!,
+                        onReportError: onReportError,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: onRetry,
+                      child: Text(text.t('Retry')),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: onClearSession,
+                    child: Text(text.t('Return to login')),
+                  ),
+                ],
               ),
-              const SizedBox(height: 8),
-              Text(
-                message,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: AppColours.textMuted,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: onRetry,
-                  child: Text(text.t('Retry')),
-                ),
-              ),
-              TextButton(
-                onPressed: onClearSession,
-                child: Text(text.t('Return to login')),
-              ),
-            ],
+            ),
           ),
         ),
       ),

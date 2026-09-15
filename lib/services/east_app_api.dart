@@ -49,6 +49,13 @@ class EastAppApiException implements Exception {
 
   bool get isUnauthorised => statusCode == 401;
 
+  bool get isServerUnavailable =>
+      statusCode == 502 ||
+      statusCode == 503 ||
+      statusCode == 504 ||
+      code == 'NETWORK_ERROR' ||
+      code == 'REQUEST_TIMEOUT';
+
   bool get invalidatesSession => isUnauthorised && const {
         'INVALID_SESSION',
         'UNAUTHENTICATED',
@@ -217,6 +224,23 @@ class EastAppApi {
     _clearMediaBytesCache();
     _clearTaskMemoryCaches();
     await FeatureDataCache.instance.clearAll();
+  }
+
+  Future<void> submitErrorReport(PendingErrorReport report) async {
+    await _requestJson(
+      'POST',
+      '/api/v1/support/error-reports',
+      body: {
+        'reference': report.reference,
+        'errorDetails': report.errorDetails,
+        'debugReport': report.debugReport,
+      },
+      expectBody: false,
+      notifyOnUnauthorised: false,
+      notifyUserOnError: false,
+      observeContent: false,
+      blockUi: false,
+    );
   }
 
   void invalidateTaskRecords(String tenantId) {
@@ -3240,6 +3264,7 @@ class EastAppApi {
     bool expectBody = true,
     bool notifyOnUnauthorised = true,
     bool reportError = true,
+    bool notifyUserOnError = true,
     bool observeContent = true,
     bool blockUi = true,
     Duration? timeout,
@@ -3259,6 +3284,7 @@ class EastAppApi {
         expectBody: expectBody,
         notifyOnUnauthorised: notifyOnUnauthorised,
         reportError: reportError,
+        notifyUserOnError: notifyUserOnError,
         timeout: timeout,
       );
       if (authenticated && observeContent && value != null) {
@@ -3278,6 +3304,7 @@ class EastAppApi {
     bool expectBody = true,
     bool notifyOnUnauthorised = true,
     bool reportError = true,
+    bool notifyUserOnError = true,
     Duration? timeout,
   }) async {
     final stopwatch = Stopwatch()..start();
@@ -3304,6 +3331,7 @@ class EastAppApi {
             error,
             requestParameters: body,
             notifyUser:
+                notifyUserOnError &&
                 errorNotificationGeneration == _errorNotificationGeneration,
           );
         }
@@ -3365,6 +3393,7 @@ class EastAppApi {
           error,
           requestParameters: body,
           notifyUser:
+              notifyUserOnError &&
               errorNotificationGeneration == _errorNotificationGeneration,
         );
       }
@@ -3383,6 +3412,7 @@ class EastAppApi {
           error,
           requestParameters: body,
           notifyUser:
+              notifyUserOnError &&
               errorNotificationGeneration == _errorNotificationGeneration,
         );
       }
@@ -3402,6 +3432,7 @@ class EastAppApi {
           error,
           requestParameters: body,
           notifyUser:
+              notifyUserOnError &&
               errorNotificationGeneration == _errorNotificationGeneration,
         );
       }
@@ -3431,6 +3462,7 @@ class EastAppApi {
           error,
           requestParameters: body,
           notifyUser:
+              notifyUserOnError &&
               errorNotificationGeneration == _errorNotificationGeneration,
         );
       }

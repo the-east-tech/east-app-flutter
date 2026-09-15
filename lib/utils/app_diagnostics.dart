@@ -61,9 +61,40 @@ class _DiagnosticEventEntry {
   }
 }
 
+class PendingErrorReport {
+  final String reference;
+  final String errorDetails;
+  final String debugReport;
+  final DateTime queuedAt;
+
+  const PendingErrorReport({
+    required this.reference,
+    required this.errorDetails,
+    required this.debugReport,
+    required this.queuedAt,
+  });
+
+  Map<String, Object?> toJson() => {
+        'reference': reference,
+        'errorDetails': errorDetails,
+        'debugReport': debugReport,
+        'queuedAt': queuedAt.toIso8601String(),
+      };
+
+  factory PendingErrorReport.fromJson(Map<String, dynamic> json) {
+    return PendingErrorReport(
+      reference: json['reference'] as String,
+      errorDetails: json['errorDetails'] as String,
+      debugReport: json['debugReport'] as String,
+      queuedAt: DateTime.parse(json['queuedAt'] as String),
+    );
+  }
+}
+
 class AppDiagnostics {
   AppDiagnostics._() {
-    unawaited(_initialiseStorage());
+    _storageInitialised = _initialiseStorage();
+    unawaited(_storageInitialised);
   }
 
   static final AppDiagnostics instance = AppDiagnostics._();
@@ -72,16 +103,22 @@ class AppDiagnostics {
   static const String _legacyRecentErrorsKey = 'eastapp_recent_errors_v1';
   static const String _legacyRecentEventsKeyV1 = 'eastapp_recent_events_v1';
   static const String _legacyRecentEventsKeyV2 = 'eastapp_recent_events_v2';
+  static const String _pendingErrorReportsKey =
+      'eastapp_pending_error_reports_v1';
   static const int _maximumRecentErrors = 5;
   static const int _maximumRecentEvents = 10;
+  static const int _maximumPendingErrorReports = 10;
 
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
+  late final Future<void> _storageInitialised;
   final DateTime _startedAt = DateTime.now();
   final Set<String> _privateValues = <String>{};
   String? _latestDeviceInfo;
   String? _latestCameraInfo;
   final List<_DiagnosticErrorEntry> _recentErrors = <_DiagnosticErrorEntry>[];
   final List<_DiagnosticEventEntry> _recentEvents = <_DiagnosticEventEntry>[];
+  final List<PendingErrorReport> _pendingErrorReports =
+      <PendingErrorReport>[];
 
   Future<void> _initialiseStorage() async {
     try {
@@ -96,7 +133,37 @@ class AppDiagnostics {
     await Future.wait<void>([
       _loadPersistedErrors(),
       _loadPersistedEvents(),
+      _loadPendingErrorReports(),
     ]);
+  }
+
+  Future<void> queueErrorReport(PendingErrorReport report) async {
+    await _storageInitialised;
+    final existingIndex = _pendingErrorReports.indexWhere(
+      (item) => item.reference == report.reference,
+    );
+    if (existingIndex >= 0) {
+      _pendingErrorReports[existingIndex] = report;
+    } else {
+      if (_pendingErrorReports.length >= _maximumPendingErrorReports) {
+        throw StateError(
+          'The pending error report queue is full. Retry an existing report first.',
+        );
+      }
+      _pendingErrorReports.add(report);
+    }
+    await _persistPendingErrorReports();
+  }
+
+  Future<List<PendingErrorReport>> pendingErrorReports() async {
+    await _storageInitialised;
+    return List<PendingErrorReport>.unmodifiable(_pendingErrorReports);
+  }
+
+  Future<void> removePendingErrorReport(String reference) async {
+    await _storageInitialised;
+    _pendingErrorReports.removeWhere((item) => item.reference == reference);
+    await _persistPendingErrorReports();
   }
 
   void registerPrivateEndpoint(String endpoint) {
@@ -176,6 +243,35 @@ class AppDiagnostics {
         // Ignore unavailable secure storage.
       }
     }
+  }
+
+  Future<void> _loadPendingErrorReports() async {
+    try {
+      final raw = await _storage.read(key: _pendingErrorReportsKey);
+      if (raw == null || raw.isEmpty) return;
+      final values = jsonDecode(raw) as List<dynamic>;
+      _pendingErrorReports
+        ..clear()
+        ..addAll(
+          values.map(
+            (item) => PendingErrorReport.fromJson(
+              item as Map<String, dynamic>,
+            ),
+          ),
+        );
+    } on Object catch (error, stackTrace) {
+      debugPrint('Failed to load pending error reports: $error\n$stackTrace');
+      rethrow;
+    }
+  }
+
+  Future<void> _persistPendingErrorReports() {
+    return _storage.write(
+      key: _pendingErrorReportsKey,
+      value: jsonEncode(
+        _pendingErrorReports.map((item) => item.toJson()).toList(),
+      ),
+    );
   }
 
   Future<void> _persistEvents() async {

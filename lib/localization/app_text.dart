@@ -1560,6 +1560,16 @@ const Map<String, String> _myanmar = {
   'Records': 'မှတ်တမ်းများ',
   'Waste Evidence': 'စွန့်ပစ်မှု အထောက်အထား',
   'Technical Error': 'နည်းပညာဆိုင်ရာ အမှား',
+  'Server temporarily unavailable': 'ဆာဗာကို ယာယီ အသုံးမပြုနိုင်ပါ',
+  'The server may be updating. Please try again shortly.':
+      'ဆာဗာကို အပ်ဒိတ်လုပ်နေခြင်း ဖြစ်နိုင်ပါသည်။ ခဏအကြာ ထပ်မံကြိုးစားပါ။',
+  'Technical details': 'နည်းပညာဆိုင်ရာ အသေးစိတ်',
+  'Report Error': 'အမှားကို တင်ပြရန်',
+  'Reporting error…': 'အမှားကို တင်ပြနေသည်…',
+  'Error report sent': 'အမှားအစီရင်ခံစာ ပို့ပြီးပါပြီ',
+  'Error report queued and will send automatically':
+      'အမှားအစီရင်ခံစာကို သိမ်းထားပြီး အလိုအလျောက် ပို့ပါမည်',
+  'Error report failed': 'အမှားအစီရင်ခံစာ ပို့မရပါ',
   'Error details copied': 'အမှားအသေးစိတ်ကို ကူးယူပြီး',
   'Please review the information carefully. This will change business data.':
       'အချက်အလက်ကို သေချာစစ်ဆေးပါ။ ဤလုပ်ဆောင်ချက်သည် လုပ်ငန်းဒေတာကို ပြောင်းလဲမည်။',
@@ -2857,6 +2867,15 @@ const Map<String, String> _chinese = {
   'Records': '记录',
   'Waste Evidence': '损耗凭证',
   'Technical Error': '技术错误',
+  'Server temporarily unavailable': '服务器暂时不可用',
+  'The server may be updating. Please try again shortly.':
+      '服务器可能正在更新，请稍后重试。',
+  'Technical details': '技术详情',
+  'Report Error': '报告错误',
+  'Reporting error…': '正在报告错误…',
+  'Error report sent': '错误报告已发送',
+  'Error report queued and will send automatically': '错误报告已排队，将自动发送',
+  'Error report failed': '错误报告发送失败',
   'Error details copied': '错误详情已复制',
   'Please review the information carefully. This will change business data.':
       '请仔细检查信息。此操作将更改业务数据。',
