@@ -18,6 +18,7 @@ class _RestockMessagePage extends StatefulWidget {
 }
 
 class _RestockMessagePageState extends State<_RestockMessagePage> {
+  final searchController = TextEditingController();
   bool lowStockOnly = true;
   bool loadingStates = true;
   Map<String, StockPurchaseSupplierState> purchaseStates = const {};
@@ -33,6 +34,12 @@ class _RestockMessagePageState extends State<_RestockMessagePage> {
     WidgetsBinding.instance.addPostFrameCallback(
       (_) => unawaited(loadPurchaseStates()),
     );
+  }
+
+  @override
+  void dispose() {
+    searchController.dispose();
+    super.dispose();
   }
 
   Future<void> loadPurchaseStates({bool forceRefresh = false}) async {
@@ -60,7 +67,20 @@ class _RestockMessagePageState extends State<_RestockMessagePage> {
 
   List<({SupplierProfile supplier, List<StockSku> skus})> get supplierGroups {
     final result = <({SupplierProfile supplier, List<StockSku> skus})>[];
+    final query = searchController.text.trim().toLowerCase();
     for (final supplier in widget.suppliers) {
+      if (query.isNotEmpty &&
+          ![
+            supplier.supplierName,
+            supplier.contactPerson,
+            supplier.phone,
+            supplier.address,
+            supplier.address2,
+            supplier.websiteOrGoogleLink,
+            supplier.notes,
+          ].join(' ').toLowerCase().contains(query)) {
+        continue;
+      }
       final skus = visibleSkus
           .where((sku) => sku.supplierIds.contains(supplier.id))
           .toList(growable: false)
@@ -438,6 +458,15 @@ class _RestockMessagePageState extends State<_RestockMessagePage> {
             ],
           ),
         ),
+        TextField(
+          controller: searchController,
+          style: AppTextStyles.formValue,
+          onChanged: (_) => setState(() {}),
+          decoration: _inputDecoration(text.t('Search')).copyWith(
+            prefixIcon: const Icon(Icons.search_rounded),
+          ),
+        ),
+        const SizedBox(height: 12),
         if (groups.isEmpty)
           WhiteCard(
             child: Padding(
@@ -445,9 +474,11 @@ class _RestockMessagePageState extends State<_RestockMessagePage> {
               child: Center(
                 child: Text(
                   text.t(
-                    lowStockOnly
-                        ? 'No low-stock supplier orders to prepare.'
-                        : 'No supplier SKUs available.',
+                    searchController.text.trim().isNotEmpty
+                        ? 'No supplier found'
+                        : lowStockOnly
+                            ? 'No low-stock supplier orders to prepare.'
+                            : 'No supplier SKUs available.',
                   ),
                   style: const TextStyle(
                     color: AppColours.textMuted,
@@ -458,25 +489,35 @@ class _RestockMessagePageState extends State<_RestockMessagePage> {
             ),
           )
         else
-          for (final group in groups) ...[
-            _PurchaseSupplierCard(
-              supplier: group.supplier,
-              skuCount: group.skus.length,
-              onTap: () => openSupplierOrder(group.supplier, group.skus),
+          WhiteCard(
+            padding: EdgeInsets.zero,
+            child: Column(
+              children: [
+                for (var i = 0; i < groups.length; i++) ...[
+                  _PurchaseSupplierRow(
+                    supplier: groups[i].supplier,
+                    skuCount: groups[i].skus.length,
+                    onTap: () => openSupplierOrder(
+                      groups[i].supplier,
+                      groups[i].skus,
+                    ),
+                  ),
+                  if (i != groups.length - 1) const Divider(height: 1),
+                ],
+              ],
             ),
-            const SizedBox(height: 10),
-          ],
+          ),
       ],
     );
   }
 }
 
-class _PurchaseSupplierCard extends StatelessWidget {
+class _PurchaseSupplierRow extends StatelessWidget {
   final SupplierProfile supplier;
   final int skuCount;
   final VoidCallback onTap;
 
-  const _PurchaseSupplierCard({
+  const _PurchaseSupplierRow({
     required this.supplier,
     required this.skuCount,
     required this.onTap,
@@ -485,56 +526,59 @@ class _PurchaseSupplierCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = AppTextScope.of(context);
-    return WhiteCard(
-      padding: EdgeInsets.zero,
-      child: Pressable(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(18),
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Row(
-            children: [
-              Container(
-                width: 46,
-                height: 46,
-                decoration: BoxDecoration(
-                  color: AppColours.blueSoft,
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: const Icon(
-                  Icons.local_shipping_outlined,
-                  color: AppColours.blue,
-                ),
+    return Pressable(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        child: Row(
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: const Color(0xFFEAF3FF),
+                borderRadius: BorderRadius.circular(12),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      text.content(supplier.supplierName),
-                      style: const TextStyle(
-                        fontSize: AppTextSize.s16,
-                        fontWeight: FontWeight.w900,
-                      ),
+              child: const Icon(
+                Icons.local_shipping_outlined,
+                color: AppColours.blue,
+                size: 21,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    text.content(supplier.supplierName),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: AppTextSize.s17,
+                      fontWeight: FontWeight.w700,
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '$skuCount ${text.t('SKU')}',
-                      style: const TextStyle(
-                        color: AppColours.textMuted,
-                        fontWeight: FontWeight.w700,
-                      ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '$skuCount ${text.t('SKU')}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: AppTextSize.s12,
+                      color: AppColours.textMuted,
+                      fontWeight: FontWeight.w700,
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-              const Icon(
-                Icons.chevron_right_rounded,
-                color: AppColours.textMuted,
-              ),
-            ],
-          ),
+            ),
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: AppColours.textMuted,
+            ),
+          ],
         ),
       ),
     );
