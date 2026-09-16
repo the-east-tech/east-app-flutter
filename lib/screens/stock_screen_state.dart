@@ -15,9 +15,6 @@ class _StockScreenState extends State<StockScreen> {
   StockPage? dataLoadingPage;
   bool pageLoading = false;
   bool loadingMore = false;
-  int stockPageSlideDirection = 1;
-  double stockSwipeStartX = 0;
-  double stockSwipeDeltaX = 0;
   bool returnToMainHomeOnBack = false;
 
   void resetCountTimers(List<String> skuIds) {
@@ -68,7 +65,6 @@ class _StockScreenState extends State<StockScreen> {
       dataLoadingPage = null;
     }
     if (widget.resetSignal != oldWidget.resetSignal && page != StockPage.home) {
-      stockPageSlideDirection = -1;
       returnToMainHomeOnBack = false;
       page = StockPage.home;
     }
@@ -122,12 +118,10 @@ class _StockScreenState extends State<StockScreen> {
 
   Future<void> openPage(StockPage nextPage) async {
     if (page == nextPage || pageLoading) return;
-    AppFeedback.select();
 
     final dataPage = _dataPageFor(nextPage);
     if (_directLoadPages.contains(dataPage)) {
       setState(() {
-        stockPageSlideDirection = 1;
         page = nextPage;
       });
       unawaited(_loadData(dataPage));
@@ -144,7 +138,6 @@ class _StockScreenState extends State<StockScreen> {
 
     setState(() {
       pageLoading = false;
-      stockPageSlideDirection = 1;
       page = nextPage;
     });
   }
@@ -214,20 +207,15 @@ class _StockScreenState extends State<StockScreen> {
     }
   }
 
-  void goHome({bool fromSwipe = false}) {
+  void goHome({bool feedback = true}) {
     if (page == StockPage.home) return;
-    if (fromSwipe) {
-      AppFeedback.swipeBack();
-    } else {
-      AppFeedback.select();
-    }
+    if (feedback) AppFeedback.select();
     if (returnToMainHomeOnBack) {
       returnToMainHomeOnBack = false;
       widget.onExitToMainHome();
       return;
     }
     setState(() {
-      stockPageSlideDirection = -1;
       page = StockPage.home;
     });
   }
@@ -235,25 +223,6 @@ class _StockScreenState extends State<StockScreen> {
   Future<bool> handleBackNavigation() async {
     if (page != StockPage.home) goHome();
     return false;
-  }
-
-  void handleStockSwipeStart(DragStartDetails details) {
-    stockSwipeStartX = details.globalPosition.dx;
-    stockSwipeDeltaX = 0;
-  }
-
-  void handleStockSwipeUpdate(DragUpdateDetails details) {
-    stockSwipeDeltaX += details.delta.dx;
-  }
-
-  void handleStockSwipeEnd(DragEndDetails details) {
-    if (page == StockPage.home) return;
-    final isRightSwipe = stockSwipeDeltaX > 72 ||
-        details.primaryVelocity != null && details.primaryVelocity! > 380;
-    final isLeftEdgeSwipe = stockSwipeStartX <= 48 &&
-        (stockSwipeDeltaX > 32 ||
-            details.primaryVelocity != null && details.primaryVelocity! > 180);
-    if (isRightSwipe || isLeftEdgeSwipe) goHome(fromSwipe: true);
   }
 
   Future<void> _loadData(
@@ -326,8 +295,8 @@ class _StockScreenState extends State<StockScreen> {
     );
   }
 
-  Widget buildCurrentPage() {
-    switch (page) {
+  Widget buildPage(StockPage target) {
+    switch (target) {
       case StockPage.dailyCount:
       case StockPage.review:
         return _countPage();
@@ -436,16 +405,15 @@ class _StockScreenState extends State<StockScreen> {
         onPopInvokedWithResult: (didPop, result) {
           if (!didPop) unawaited(handleBackNavigation());
         },
-        child: GestureDetector(
-          behavior: HitTestBehavior.translucent,
-          onHorizontalDragStart: handleStockSwipeStart,
-          onHorizontalDragUpdate: handleStockSwipeUpdate,
-          onHorizontalDragEnd: handleStockSwipeEnd,
+        child: InteractiveSwipeBack(
+          enabled: page != StockPage.home,
+          previousPage: buildPage(StockPage.home),
+          onBack: () => goHome(feedback: false),
           child: KeyedSubtree(
             key: ValueKey<StockPage>(page),
             child: Column(
               children: [
-                Expanded(child: buildCurrentPage()),
+                Expanded(child: buildPage(page)),
                 if (canLoadMoreCurrentPage)
                   SafeArea(
                     top: false,

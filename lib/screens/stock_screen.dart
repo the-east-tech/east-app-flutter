@@ -27,6 +27,7 @@ import '../widgets/app_number_pad.dart';
 import '../widgets/dashboard_menu.dart';
 import '../widgets/device_contact_picker.dart';
 import '../widgets/google_place_picker.dart';
+import '../widgets/interactive_swipe_back.dart';
 import '../widgets/schedule_selector.dart';
 
 part 'stock_screen_common.dart';

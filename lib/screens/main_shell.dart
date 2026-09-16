@@ -91,9 +91,6 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   bool knowledgeLoading = false;
   int stockResetSignal = 0;
   int homeRefreshSignal = 0;
-  int pageSlideDirection = 1;
-  double mainSwipeStartX = 0;
-  double mainSwipeDeltaX = 0;
   EastAppLeaderboard? pointsLeaderboard;
   Future<EastAppLeaderboard>? pointsLeaderboardRequest;
   StockReviewSummary? homeReviewSummary;
@@ -439,7 +436,6 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
 
   void exitStockToMainHome() {
     setState(() {
-      pageSlideDirection = -1;
       requestedStockPage = null;
       requestedStockPageBackToHome = false;
       selectedIndex = 0;
@@ -654,9 +650,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   }
 
   void goToTab(int index) {
-    AppFeedback.select();
     setState(() {
-      pageSlideDirection = index >= selectedIndex ? 1 : -1;
       if (index == 0) {
         unawaited(loadPointsLeaderboard());
         unawaited(loadHomeData(forceRefresh: true));
@@ -1449,34 +1443,11 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     if (selectedIndex != 0) {
       AppFeedback.select();
       setState(() {
-        pageSlideDirection = -1;
         selectedIndex = 0;
       });
     }
 
     return false;
-  }
-
-  void handleMainSwipeStart(DragStartDetails details) {
-    mainSwipeStartX = details.globalPosition.dx;
-    mainSwipeDeltaX = 0;
-  }
-
-  void handleMainSwipeUpdate(DragUpdateDetails details) {
-    mainSwipeDeltaX += details.delta.dx;
-  }
-
-  void handleMainSwipeEnd(DragEndDetails details) {
-    final isRightSwipe = mainSwipeDeltaX > 72 || details.primaryVelocity != null && details.primaryVelocity! > 380;
-    final isLeftEdgeSwipe = mainSwipeStartX <= 48 && (mainSwipeDeltaX > 32 || details.primaryVelocity != null && details.primaryVelocity! > 180);
-
-    if ((isRightSwipe || isLeftEdgeSwipe) && selectedIndex != 0) {
-      AppFeedback.swipeBack();
-      setState(() {
-        pageSlideDirection = -1;
-        selectedIndex = 0;
-      });
-    }
   }
 
   Future<void> showContextSwitcher() async {
@@ -1822,16 +1793,9 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
             onPopInvokedWithResult: (didPop, result) {
               if (!didPop) unawaited(handleMainBackNavigation());
             },
-            child: GestureDetector(
-              behavior: HitTestBehavior.translucent,
-              onHorizontalDragStart: handleMainSwipeStart,
-              onHorizontalDragUpdate: handleMainSwipeUpdate,
-              onHorizontalDragEnd: handleMainSwipeEnd,
-              child: Scaffold(
-              body: Stack(
+            child: Scaffold(
+              body: Column(
                 children: [
-                  Column(
-              children: [
                 AppHeader(
                   businessName: widget.session.tenant.businessName,
                   onIdentityTap: widget.session.user.role.isOwner
@@ -1846,48 +1810,22 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
                   onLogout: logoutToLogin,
                 ),
                 Expanded(
-                  child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 220),
-                    switchInCurve: Curves.easeOutCubic,
-                    switchOutCurve: Curves.easeOutCubic,
-                    transitionBuilder: (child, animation) {
-                      final slide = Tween<Offset>(
-                        begin: Offset(
-                          pageSlideDirection >= 0 ? .018 : -.018,
-                          0,
-                        ),
-                        end: Offset.zero,
-                      ).animate(
-                        CurvedAnimation(
-                          parent: animation,
-                          curve: Curves.easeOutCubic,
-                        ),
-                      );
-                      return FadeTransition(
-                        opacity: animation,
-                        child: SlideTransition(
-                          position: slide,
-                          child: child,
-                        ),
-                      );
-                    },
-                    child: KeyedSubtree(
-                      key: ValueKey<int>(selectedIndex),
-                      child: pages[selectedIndex],
-                    ),
+                  child: KeyedSubtree(
+                    key: ValueKey<int>(selectedIndex),
+                    child: pages[selectedIndex],
                   ),
                 ),
-              ],
-            ),
                 ],
               ),
-              bottomNavigationBar: NavigationBar(
-                height: 66,
-              backgroundColor: Colors.white,
-              indicatorColor: Colors.transparent,
-              selectedIndex: selectedIndex,
-              onDestinationSelected: goToTab,
-              destinations: [
+              bottomNavigationBar: Listener(
+                onPointerDown: (_) => AppFeedback.select(),
+                child: NavigationBar(
+                  height: 66,
+                  backgroundColor: Colors.white,
+                  indicatorColor: Colors.transparent,
+                  selectedIndex: selectedIndex,
+                  onDestinationSelected: goToTab,
+                  destinations: [
                 NavigationDestination(
                   icon: const Icon(Icons.home_outlined),
                   selectedIcon: const Icon(
@@ -1936,9 +1874,9 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
                   ),
                   label: text.t('Knowledge'),
                 ),
-              ],
-            ),
-          ),
+                  ],
+                ),
+              ),
             ),
           );
         },
