@@ -373,39 +373,14 @@ class _StockReceivablePageState extends State<_StockReceivablePage> {
       subtitle: text.t('Choose the supplier delivering stock.'),
       onBack: widget.onBack,
       children: [
-        WhiteCard(
-          margin: const EdgeInsets.only(bottom: 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                text.t('Suppliers'),
-                style: const TextStyle(
-                  fontSize: AppTextSize.s18,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                text.t(
-                  'Select any active supplier whenever stock arrives.',
-                ),
-                style: const TextStyle(
-                  color: AppColours.textMuted,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: supplierSearchController,
-                decoration: InputDecoration(
-                  prefixIcon: const Icon(Icons.search_rounded),
-                  hintText: text.t('Search supplier'),
-                ),
-              ),
-            ],
+        TextField(
+          controller: supplierSearchController,
+          style: AppTextStyles.formValue,
+          decoration: _inputDecoration(text.t('Search')).copyWith(
+            prefixIcon: const Icon(Icons.search_rounded),
           ),
         ),
+        const SizedBox(height: 12),
         if (suppliers.isEmpty)
           WhiteCard(
             child: Padding(
@@ -414,13 +389,23 @@ class _StockReceivablePageState extends State<_StockReceivablePage> {
             ),
           )
         else
-          for (final supplier in suppliers) ...[
-            _ReceivableSupplierCard(
-              supplier: supplier,
-              onTap: () => selectSupplier(supplier),
+          WhiteCard(
+            padding: EdgeInsets.zero,
+            child: Column(
+              children: [
+                for (var i = 0; i < suppliers.length; i++) ...[
+                  _CompactSupplierRow(
+                    supplier: suppliers[i],
+                    selected: false,
+                    selecting: false,
+                    onTap: () => selectSupplier(suppliers[i]),
+                    onLongPress: () => selectSupplier(suppliers[i]),
+                  ),
+                  if (i != suppliers.length - 1) const Divider(height: 1),
+                ],
+              ],
             ),
-            const SizedBox(height: 10),
-          ],
+          ),
       ],
     );
   }
@@ -531,79 +516,6 @@ class _StockReceivablePageState extends State<_StockReceivablePage> {
     return supplier == null
         ? buildSupplierList(text)
         : buildSupplierReceivable(text, supplier);
-  }
-}
-
-class _ReceivableSupplierCard extends StatelessWidget {
-  final SupplierProfile supplier;
-  final VoidCallback onTap;
-
-  const _ReceivableSupplierCard({
-    required this.supplier,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final text = AppTextScope.of(context);
-    return WhiteCard(
-        padding: EdgeInsets.zero,
-        child: Pressable(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(18),
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Row(
-              children: [
-                Container(
-                  width: 46,
-                  height: 46,
-                  decoration: BoxDecoration(
-                    color: AppColours.blueSoft,
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Icon(
-                    Icons.local_shipping_outlined,
-                    color: AppColours.blue,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        text.content(supplier.supplierName),
-                        style: const TextStyle(
-                          fontSize: AppTextSize.s16,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                      if (supplier.contactPerson.trim().isNotEmpty ||
-                          supplier.phone.trim().isNotEmpty) ...[
-                        const SizedBox(height: 3),
-                        Text(
-                          [supplier.contactPerson, supplier.phone]
-                              .where((value) => value.trim().isNotEmpty)
-                              .join(' · '),
-                          style: const TextStyle(
-                            color: AppColours.textMuted,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                const Icon(
-                  Icons.chevron_right_rounded,
-                  color: AppColours.textMuted,
-                ),
-              ],
-            ),
-          ),
-        ),
-    );
   }
 }
 
