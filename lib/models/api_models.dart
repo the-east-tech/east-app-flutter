@@ -105,3 +105,72 @@ class EastAppCsvImportResult {
     );
   }
 }
+
+class EastAppDeletionDependency {
+  final String code;
+  final String label;
+  final int count;
+  final String location;
+
+  const EastAppDeletionDependency({
+    required this.code,
+    required this.label,
+    required this.count,
+    required this.location,
+  });
+
+  factory EastAppDeletionDependency.fromJson(Map<String, dynamic> json) {
+    return EastAppDeletionDependency(
+      code: json['code'] as String? ?? '',
+      label: json['label'] as String? ?? '',
+      count: (json['count'] as num? ?? 0).toInt(),
+      location: json['location'] as String? ?? '',
+    );
+  }
+}
+
+class EastAppDeletionPreview {
+  final bool deletable;
+  final List<EastAppDeletionDependency> dependencies;
+
+  const EastAppDeletionPreview({
+    required this.deletable,
+    required this.dependencies,
+  });
+
+  factory EastAppDeletionPreview.fromJson(Map<String, dynamic> json) {
+    return EastAppDeletionPreview(
+      deletable: json['deletable'] as bool? ?? false,
+      dependencies: (json['dependencies'] as List<dynamic>? ?? const [])
+          .map(
+            (item) => EastAppDeletionDependency.fromJson(
+              item as Map<String, dynamic>,
+            ),
+          )
+          .toList(growable: false),
+    );
+  }
+
+  factory EastAppDeletionPreview.merge(
+    Iterable<EastAppDeletionPreview> previews,
+  ) {
+    final merged = <String, EastAppDeletionDependency>{};
+    for (final preview in previews) {
+      for (final dependency in preview.dependencies) {
+        final key = '${dependency.code}:${dependency.location}';
+        final existing = merged[key];
+        merged[key] = EastAppDeletionDependency(
+          code: dependency.code,
+          label: dependency.label,
+          count: (existing?.count ?? 0) + dependency.count,
+          location: dependency.location,
+        );
+      }
+    }
+    final dependencies = merged.values.toList(growable: false);
+    return EastAppDeletionPreview(
+      deletable: dependencies.isEmpty,
+      dependencies: dependencies,
+    );
+  }
+}

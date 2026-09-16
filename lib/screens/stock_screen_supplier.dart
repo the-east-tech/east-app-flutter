@@ -138,6 +138,20 @@ class _SupplierSetupPageState extends State<_SupplierSetupPage> {
   }
 
   Future<void> deleteSelected() async {
+    try {
+      final preview = EastAppDeletionPreview.merge(
+        await Future.wait(
+          selectedIds.map(widget.api.previewStockSupplierDeletion),
+        ),
+      );
+      if (!mounted) return;
+      if (!preview.deletable) {
+        await showDeletionDependenciesDialog(context, preview);
+        return;
+      }
+    } on EastAppApiException {
+      return;
+    }
     final confirmed = await confirmDataChange(
       context,
       action: 'Delete Selected Suppliers?',
@@ -270,6 +284,17 @@ class _SupplierSetupPageState extends State<_SupplierSetupPage> {
                   onPressed: () async {
                     if (editing) {
                       setSheetState(() => editing = false);
+                      return;
+                    }
+                    try {
+                      final preview = await widget.api
+                          .previewStockSupplierDeletion(supplier.id);
+                      if (!context.mounted) return;
+                      if (!preview.deletable) {
+                        await showDeletionDependenciesDialog(context, preview);
+                        return;
+                      }
+                    } on EastAppApiException {
                       return;
                     }
                     final confirmed = await confirmDataChange(context, action: 'Delete Supplier?', details: 'This will permanently delete this unassigned supplier.');

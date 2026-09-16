@@ -245,6 +245,16 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
         .toSet();
     final groupCount = selectedGroups.length;
     final videoCount = sopIds.length;
+    try {
+      final preview = await widget.api.previewKnowledgeSopDeletion(sopIds);
+      if (!mounted) return;
+      if (!preview.deletable) {
+        await showDeletionDependenciesDialog(context, preview);
+        return;
+      }
+    } on EastAppApiException {
+      return;
+    }
     final confirmed = await confirmDataChange(
       context,
       action: groupCount == 1

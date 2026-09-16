@@ -32,6 +32,7 @@ import 'tenant_setup_screen.dart';
 class AttendanceScreen extends StatefulWidget {
   final UserRole role;
   final EastAppApi api;
+  final bool isSystemAdmin;
   final EastAppUser currentUser;
   final EastAppTenant currentTenant;
   final EastAppLeaderboard? pointsLeaderboard;
@@ -49,6 +50,7 @@ class AttendanceScreen extends StatefulWidget {
     super.key,
     required this.role,
     required this.api,
+    required this.isSystemAdmin,
     required this.currentUser,
     required this.currentTenant,
     required this.pointsLeaderboard,
@@ -156,6 +158,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   double peopleSwipeDeltaX = 0;
 
   bool get isOwner => widget.currentUser.role.isOwner;
+  bool get isSystemAdmin => widget.isSystemAdmin;
   bool get isHead => widget.role == UserRole.head;
   bool get isManager => widget.role == UserRole.manager;
   bool get canManageUsers => isOwner || isHead || isManager;
@@ -410,6 +413,11 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     return user.roleSystemKey != 'OWNER' &&
         user.roleSystemKey != 'HEAD' &&
         user.roleSystemKey != 'MANAGER';
+  }
+
+  bool canPermanentlyDeleteUser(_PeopleUser user) {
+    if (user.id == widget.currentUser.id) return false;
+    return isSystemAdmin || isOwner && user.roleSystemKey != 'OWNER';
   }
 
   void showComingSoon(String title) {
@@ -917,13 +925,15 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         tenant: widget.currentTenant,
         initialRoles: roles,
         allowRoleEdit: true,
-        allowedRoleSystemKeys: user.roleSystemKey == 'OWNER'
+        allowedRoleSystemKeys: isSystemAdmin
+            ? null
+            : user.roleSystemKey == 'OWNER'
             ? const {'OWNER'}
             : isManager
                 ? const {'SUPERVISOR', 'SENIOR_STAFF', 'STAFF', 'PART_TIME'}
                 : null,
         allowPasswordReset: isOwner || user.id != widget.currentUser.id,
-        allowStatusEdit:
+        allowStatusEdit: isSystemAdmin ||
             user.id != widget.currentUser.id && user.roleSystemKey != 'OWNER',
         onSaveUser: (draft) async {
           final updatedUser = await widget.api.updateUser(
@@ -953,58 +963,42 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
           ]);
           return null;
         },
-        onDeleteUser: () {
-          Navigator.of(context).pop();
-          Future.microtask(() => openDeleteUserForm(user));
-        },
+        onDeleteUser: canPermanentlyDeleteUser(user)
+            ? () {
+                Navigator.of(context).pop();
+                Future.microtask(() => deleteUserPermanently(user));
+              }
+            : null,
       ),
     );
   }
 
-  void openDeleteUserForm(_PeopleUser user) {
-    if (!canEditUser(user)) {
-      showWarningSnackBar(
-        context,
-        isManager
-            ? 'Manager cannot deactivate Owner, Head or Manager users.'
-            : 'Head cannot deactivate Owner users.',
-      );
-      return;
-    }
+  Future<void> deleteUserPermanently(_PeopleUser user) async {
+    try {
+      final preview = await widget.api.previewUserDeletion(user.id);
+      if (!mounted) return;
+      if (!preview.deletable) {
+        await showDeletionDependenciesDialog(context, preview);
+        return;
+      }
 
-    _showPeopleBottomSheet<void>(
-      context,
-      heightFactor: 0.68,
-      child: _DeleteUserSheet(
-        user: user,
-        onDeactivateUser: (lastWorkingDate) async {
-          await widget.api.updateUser(
-            userId: user.id,
-            fullName: user.fullName,
-            phoneE164: user.phoneNumber,
-            roleId: user.roleId,
-            active: false,
-            profilePhotoKey: user.profilePhotoKey,
-            birthDate: user.bornDate,
-            startDate: user.startDate,
-            endDate: lastWorkingDate,
-          );
-          await invalidateUserRelatedCaches();
-          await Future.wait([
-            if (usersLoaded) loadUsers(reset: true, forceRefresh: true),
-            loadRoles(force: true),
-          ]);
-        },
-        onDeletePermanently: () async {
-          await widget.api.deleteUser(user.id);
-          await invalidateUserRelatedCaches();
-          await Future.wait([
-            if (usersLoaded) loadUsers(reset: true, forceRefresh: true),
-            loadRoles(force: true),
-          ]);
-        },
-      ),
-    );
+      final confirmed = await confirmDataChange(
+        context,
+        action: 'Delete User Permanently?',
+        details:
+            'This permanently deletes ${user.fullName} and cannot be undone.',
+      );
+      if (!confirmed || !mounted) return;
+      await widget.api.deleteUser(user.id);
+      await invalidateUserRelatedCaches();
+      await Future.wait([
+        if (usersLoaded) loadUsers(reset: true, forceRefresh: true),
+        loadRoles(force: true),
+      ]);
+      if (mounted) showSuccessSnackBar(context, 'User permanently deleted');
+    } on EastAppApiException {
+      // Global API error handling already presents the backend reason.
+    }
   }
 
   Widget buildPeopleHome(BuildContext context) {
@@ -1472,12 +1466,21 @@ class _UserSetupPageState extends State<_UserSetupPage> {
           ? Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                SizedBox(
-                  width: 130,
-                  child: PrimaryButton(
-                    text: text.t('Create User'),
-                    icon: Icons.add_rounded,
-                    onPressed: widget.onCreateUser,
+                Tooltip(
+                  message: text.t('Create User'),
+                  child: SizedBox(
+                    width: 52,
+                    height: 48,
+                    child: FilledButton(
+                      style: FilledButton.styleFrom(
+                        padding: EdgeInsets.zero,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      onPressed: widget.onCreateUser,
+                      child: const Icon(Icons.add_rounded, size: 28),
+                    ),
                   ),
                 ),
                 if (widget.canImportExport)
@@ -3350,14 +3353,17 @@ class _UserFormSheetState extends State<_UserFormSheet> {
                       },
               ),
             ],
-            if (isEditing &&
-                widget.allowStatusEdit &&
-                widget.user?.active == true) ...[
+            if (isEditing && widget.onDeleteUser != null) ...[
               const SizedBox(height: 12),
-              _DangerButton(
-                text: 'Deactivate User',
-                icon: Icons.person_remove_outlined,
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColours.red,
+                  side: const BorderSide(color: AppColours.red),
+                  minimumSize: const Size.fromHeight(50),
+                ),
                 onPressed: saving ? null : widget.onDeleteUser,
+                icon: const Icon(Icons.delete_forever_outlined),
+                label: Text(text.t('Delete User Permanently')),
               ),
             ],
             const SizedBox(height: 16),
@@ -3369,247 +3375,6 @@ class _UserFormSheetState extends State<_UserFormSheet> {
                       : 'Save User'),
               icon: Icons.save_outlined,
               onPressed: saving ? null : submit,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _DeleteUserSheet extends StatefulWidget {
-  final _PeopleUser user;
-  final Future<void> Function(DateTime lastWorkingDate) onDeactivateUser;
-  final Future<void> Function() onDeletePermanently;
-
-  const _DeleteUserSheet({
-    required this.user,
-    required this.onDeactivateUser,
-    required this.onDeletePermanently,
-  });
-
-  @override
-  State<_DeleteUserSheet> createState() => _DeleteUserSheetState();
-}
-
-class _DeleteUserSheetState extends State<_DeleteUserSheet> {
-  DateTime lastWorkingDate = DateTime.now();
-  bool saving = false;
-
-  String formatDate(DateTime value) => _formatPeopleDate(value);
-
-  Future<void> pickLastWorkingDate() async {
-    FocusScope.of(context).unfocus();
-    AppFeedback.select();
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: lastWorkingDate,
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2035),
-    );
-    if (picked == null || !mounted) return;
-    setState(() => lastWorkingDate = picked);
-  }
-
-  Future<void> submit() async {
-    final text = AppTextScope.of(context);
-    final confirmed = await confirmDataChange(
-      context,
-      action: text.t('Deactivate User?'),
-      details: text.t(
-        'This will set the user to inactive using the selected last working date.',
-      ),
-    );
-    if (!confirmed || !mounted) return;
-
-    setState(() => saving = true);
-    try {
-      await widget.onDeactivateUser(lastWorkingDate);
-      if (!mounted) return;
-      Navigator.of(context).pop();
-      showSuccessSnackBar(context, text.t('User set to inactive'));
-    } on EastAppApiException catch (_) {
-      if (!mounted) return;
-    } finally {
-      if (mounted) setState(() => saving = false);
-    }
-  }
-
-  Future<void> deletePermanently() async {
-    final text = AppTextScope.of(context);
-    final confirmed = await confirmDataChange(
-      context,
-      action: text.t('Delete User Permanently?'),
-      details: text.t(
-        'This cannot be undone. EastApp will refuse deletion if this user has protected business history; deactivate them instead.',
-      ),
-    );
-    if (!confirmed || !mounted) return;
-    setState(() => saving = true);
-    try {
-      await widget.onDeletePermanently();
-      if (!mounted) return;
-      Navigator.of(context).pop();
-      showSuccessSnackBar(context, text.t('User permanently deleted'));
-    } on EastAppApiException {
-      // Global API error handling already presents the backend reason.
-    } finally {
-      if (mounted) setState(() => saving = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final text = AppTextScope.of(context);
-    return Padding(
-      padding: EdgeInsets.fromLTRB(
-        16,
-        10,
-        16,
-        18 + MediaQuery.of(context).viewInsets.bottom,
-      ),
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const _PeopleSheetHandle(),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                Container(
-                  width: 42,
-                  height: 42,
-                  decoration: BoxDecoration(
-                    color: AppColours.redSoft,
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: const Icon(
-                    Icons.person_remove_outlined,
-                    color: AppColours.red,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        text.t('Deactivate User'),
-                        style: const TextStyle(
-                          fontSize: AppTextSize.s24,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      Text(
-                        '${widget.user.fullName} · ${widget.user.employeeId}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: AppTextSize.s14,
-                          color: AppColours.textMuted,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                IconButton(
-                  onPressed: saving ? null : () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.close_rounded),
-                ),
-              ],
-            ),
-            const SizedBox(height: 14),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              decoration: BoxDecoration(
-                color: AppColours.redSoft,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: AppColours.red.withValues(alpha: 0.18)),
-              ),
-              child: Text(
-                text.t(
-                  'Status will be set to Inactive and all sessions will be revoked.',
-                ),
-                style: const TextStyle(
-                  fontSize: AppTextSize.s14,
-                  color: AppColours.red,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            _DateField(
-              label: 'Last Working Date',
-              value: formatDate(lastWorkingDate),
-              icon: Icons.event_busy_outlined,
-              onTap: saving ? null : pickLastWorkingDate,
-            ),
-            const SizedBox(height: 16),
-            _DangerButton(
-              text: saving ? 'Saving...' : 'Set User Inactive',
-              icon: Icons.block_outlined,
-              onPressed: saving ? null : submit,
-            ),
-            const SizedBox(height: 10),
-            OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColours.red,
-                side: const BorderSide(color: AppColours.red),
-                minimumSize: const Size.fromHeight(50),
-              ),
-              onPressed: saving ? null : deletePermanently,
-              icon: const Icon(Icons.delete_forever_outlined),
-              label: Text(text.t('Delete Permanently')),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _DangerButton extends StatelessWidget {
-  final String text;
-  final IconData icon;
-  final VoidCallback? onPressed;
-
-  const _DangerButton({
-    required this.text,
-    required this.icon,
-    required this.onPressed,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final appText = AppTextScope.of(context);
-    return Pressable(
-      onTap: onPressed,
-      borderRadius: BorderRadius.circular(10),
-      child: Container(
-        height: 46,
-        decoration: BoxDecoration(
-          color: AppColours.redSoft,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: AppColours.red.withValues(alpha: 0.28)),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: AppColours.red, size: 22),
-            const SizedBox(width: 10),
-            Flexible(
-              child: Text(
-                appText.t(text),
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: AppTextSize.s18,
-                  color: AppColours.red,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
             ),
           ],
         ),
