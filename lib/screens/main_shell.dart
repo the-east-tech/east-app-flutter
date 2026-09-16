@@ -1788,6 +1788,8 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
             AttendanceScreen(
               role: widget.role,
               api: widget.api,
+              isSystemAdmin:
+                  widget.session.can(EastAppPermission.storageAdmin),
               currentUser: widget.session.user,
               currentTenant: widget.session.tenant,
               pointsLeaderboard: pointsLeaderboard,

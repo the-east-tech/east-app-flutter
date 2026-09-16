@@ -106,6 +106,20 @@ class _TagSetupPageState extends State<_TagSetupPage> {
 
   Future<void> deleteSelected() async {
     final text = AppTextScope.of(context);
+    try {
+      final preview = EastAppDeletionPreview.merge(
+        await Future.wait(
+          selectedIds.map(widget.api.previewStockTagDeletion),
+        ),
+      );
+      if (!mounted) return;
+      if (!preview.deletable) {
+        await showDeletionDependenciesDialog(context, preview);
+        return;
+      }
+    } on EastAppApiException {
+      return;
+    }
     final confirmed = await confirmDataChange(context, action: 'Delete Selected Tags?', details: 'This will permanently delete the selected unassigned tags.');
     if (!confirmed || !mounted) return;
     final deleted = await widget.onDeleteTags(Set<String>.from(selectedIds));
@@ -170,9 +184,20 @@ class _TagSetupPageState extends State<_TagSetupPage> {
             : Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  SizedBox(
-                    width: 110,
-                    child: PrimaryButton(text: text.t('Add Tag'), icon: Icons.add_rounded, onPressed: addTag),
+                  Tooltip(
+                    message: text.t('Add Tag'),
+                    child: SizedBox(
+                      width: 52,
+                      height: 48,
+                      child: FilledButton(
+                        style: FilledButton.styleFrom(
+                          padding: EdgeInsets.zero,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        ),
+                        onPressed: addTag,
+                        child: const Icon(Icons.add_rounded, size: 28),
+                      ),
+                    ),
                   ),
                   if (widget.isOwner)
                     PopupMenuButton<String>(
@@ -343,6 +368,18 @@ class _TagEditorSheetState extends State<_TagEditorSheet> {
     final callback = widget.onDelete;
     if (callback == null) return;
     final text = AppTextScope.of(context);
+    try {
+      final tag = widget.tag;
+      if (tag == null) return;
+      final preview = await widget.api.previewStockTagDeletion(tag.id);
+      if (!mounted) return;
+      if (!preview.deletable) {
+        await showDeletionDependenciesDialog(context, preview);
+        return;
+      }
+    } on EastAppApiException {
+      return;
+    }
     final confirmed = await confirmDataChange(context, action: 'Delete Tag?', details: 'This permanently deletes this unused tag.');
     if (!confirmed || !mounted) return;
     final deleted = await callback();

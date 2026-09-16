@@ -416,6 +416,18 @@ class _SkuEditorFormState extends State<_SkuEditorForm> {
   Future<void> deleteSku() async {
     final onDelete = widget.onDelete;
     if (onDelete == null || saving) return;
+    final skuId = widget.initialSku?.id;
+    if (skuId == null) return;
+    try {
+      final preview = await widget.api.previewStockSkuDeletion(skuId);
+      if (!mounted) return;
+      if (!preview.deletable) {
+        await showDeletionDependenciesDialog(context, preview);
+        return;
+      }
+    } on EastAppApiException {
+      return;
+    }
     final confirmed = await confirmDataChange(
       context,
       action: 'Delete SKU?',

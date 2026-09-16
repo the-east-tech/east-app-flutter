@@ -1235,7 +1235,9 @@ class _AdvertisementManagerScreenState
       builder: (dialogContext) => AlertDialog(
         title: Text(text.t('Delete Advertisement?')),
         content: Text(
-          text.t('This advertisement will be removed permanently.'),
+          text.t(
+            'This advertisement will be removed permanently. Its image remains in storage until Business Backup & Cleanup removes the orphaned file.',
+          ),
         ),
         actions: [
           TextButton(

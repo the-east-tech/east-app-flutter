@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../localization/app_text_scope.dart';
+import '../models/api_models.dart';
 import '../services/east_app_api.dart';
 import '../theme/app_theme.dart';
 import '../utils/app_diagnostics.dart';
@@ -254,6 +255,72 @@ Future<bool> confirmDataChange(
   );
 
   return confirmed ?? false;
+}
+
+Future<void> showDeletionDependenciesDialog(
+  BuildContext context,
+  EastAppDeletionPreview preview,
+) {
+  return showDialog<void>(
+    context: context,
+    builder: (dialogContext) {
+      final text = AppTextScope.of(dialogContext);
+      return AlertDialog(
+        title: Text(text.t('Delete linked records first')),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView.separated(
+            shrinkWrap: true,
+            itemCount: preview.dependencies.length,
+            separatorBuilder: (_, _) => const Divider(height: 18),
+            itemBuilder: (_, index) {
+              final dependency = preview.dependencies[index];
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  CircleAvatar(
+                    radius: 15,
+                    backgroundColor: AppColours.red.withValues(alpha: .10),
+                    child: Text(
+                      '${dependency.count}',
+                      style: const TextStyle(
+                        color: AppColours.red,
+                        fontSize: AppTextSize.s12,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          text.t(dependency.label),
+                          style: const TextStyle(fontWeight: FontWeight.w800),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '${text.t('Remove at')}: ${text.t(dependency.location)}',
+                          style: AppTextStyles.formHint,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: Text(text.t('Close')),
+          ),
+        ],
+      );
+    },
+  );
 }
 
 void showSuccessSnackBar(BuildContext context, String message) {

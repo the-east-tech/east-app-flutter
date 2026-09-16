@@ -1536,6 +1536,14 @@ class EastAppApi {
     invalidateAvailableContextsCache();
   }
 
+  Future<EastAppDeletionPreview> previewUserDeletion(String userId) async {
+    final body = await _requestJson(
+      'GET',
+      '/api/v1/users/$userId/deletion-preview',
+    ) as Map<String, dynamic>;
+    return EastAppDeletionPreview.fromJson(body);
+  }
+
   Future<EastAppCsvFile> exportUsersCsv() =>
       _exportCsv('/api/v1/users/export', 'eastapp-users.csv');
 
@@ -1731,6 +1739,18 @@ class EastAppApi {
       body: {'sopIds': ids},
       expectBody: false,
     );
+  }
+
+  Future<EastAppDeletionPreview> previewKnowledgeSopDeletion(
+    Set<String> sopIds,
+  ) async {
+    final ids = sopIds.where((id) => id.trim().isNotEmpty).toList()..sort();
+    final body = await _requestJson(
+      'POST',
+      '/api/v1/knowledge/sops/bulk-delete/preview',
+      body: {'sopIds': ids},
+    ) as Map<String, dynamic>;
+    return EastAppDeletionPreview.fromJson(body);
   }
 
   Future<void> recordSopWatchTime({
@@ -2531,6 +2551,14 @@ class EastAppApi {
     );
   }
 
+  Future<EastAppDeletionPreview> previewStockTagDeletion(String tagId) async {
+    final body = await _requestJson(
+      'GET',
+      '/api/v1/stock/tags/$tagId/deletion-preview',
+    ) as Map<String, dynamic>;
+    return EastAppDeletionPreview.fromJson(body);
+  }
+
   Future<SupplierProfile> createStockSupplier(
     SupplierProfile supplier,
   ) async {
@@ -2559,6 +2587,16 @@ class EastAppApi {
       '/api/v1/stock/suppliers/$supplierId',
       expectBody: false,
     );
+  }
+
+  Future<EastAppDeletionPreview> previewStockSupplierDeletion(
+    String supplierId,
+  ) async {
+    final body = await _requestJson(
+      'GET',
+      '/api/v1/stock/suppliers/$supplierId/deletion-preview',
+    ) as Map<String, dynamic>;
+    return EastAppDeletionPreview.fromJson(body);
   }
 
   Future<SupplierProfile> updateStockSupplierBalance({
@@ -3138,6 +3176,14 @@ class EastAppApi {
       '/api/v1/stock/skus/$skuId',
     ) as Map<String, dynamic>;
     return StockSkuChangeRequest.fromJson(body);
+  }
+
+  Future<EastAppDeletionPreview> previewStockSkuDeletion(String skuId) async {
+    final body = await _requestJson(
+      'GET',
+      '/api/v1/stock/skus/$skuId/deletion-preview',
+    ) as Map<String, dynamic>;
+    return EastAppDeletionPreview.fromJson(body);
   }
 
   Future<List<StockSkuChangeRequest>> stockSkuChangeRequests() async {
