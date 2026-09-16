@@ -25,6 +25,7 @@ import '../widgets/app_feedback.dart';
 import '../widgets/device_contact_picker.dart';
 import '../widgets/dashboard_menu.dart';
 import '../widgets/phone_number_field.dart';
+import '../widgets/interactive_swipe_back.dart';
 import 'people_audit_screen.dart';
 import 'points_screen.dart';
 import 'tenant_setup_screen.dart';
@@ -154,8 +155,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   bool attendanceLoading = false;
   String? attendanceError;
   _PeoplePage page = _PeoplePage.home;
-  double peopleSwipeStartX = 0;
-  double peopleSwipeDeltaX = 0;
 
   bool get isOwner => widget.currentUser.role.isOwner;
   bool get isSystemAdmin => widget.isSystemAdmin;
@@ -355,7 +354,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       showWarningSnackBar(context, 'Only Owner and Head can view People Audit.');
       return;
     }
-    AppFeedback.select();
     setState(() => page = nextPage);
     if (nextPage == _PeoplePage.users) {
       unawaited(loadRoles());
@@ -364,13 +362,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     }
   }
 
-  void goPeopleHome({bool fromSwipe = false}) {
+  void goPeopleHome({bool feedback = true}) {
     if (page == _PeoplePage.home) return;
-    if (fromSwipe) {
-      AppFeedback.swipeBack();
-    } else {
-      AppFeedback.select();
-    }
+    if (feedback) AppFeedback.select();
     setState(() => page = _PeoplePage.home);
   }
 
@@ -379,27 +373,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       goPeopleHome();
     }
     return false;
-  }
-
-  void handlePeopleSwipeStart(DragStartDetails details) {
-    peopleSwipeStartX = details.globalPosition.dx;
-    peopleSwipeDeltaX = 0;
-  }
-
-  void handlePeopleSwipeUpdate(DragUpdateDetails details) {
-    peopleSwipeDeltaX += details.delta.dx;
-  }
-
-  void handlePeopleSwipeEnd(DragEndDetails details) {
-    if (page == _PeoplePage.home) return;
-    final isRightSwipe = peopleSwipeDeltaX > 72 ||
-        details.primaryVelocity != null && details.primaryVelocity! > 380;
-    final isLeftEdgeSwipe = peopleSwipeStartX <= 48 &&
-        (peopleSwipeDeltaX > 32 ||
-            details.primaryVelocity != null && details.primaryVelocity! > 180);
-    if (isRightSwipe || isLeftEdgeSwipe) {
-      goPeopleHome(fromSwipe: true);
-    }
   }
 
   int assignedUserCount(String roleName) {
@@ -1083,8 +1056,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     );
   }
 
-  Widget buildCurrentPage() {
-    switch (page) {
+  Widget buildPage(_PeoplePage target) {
+    switch (target) {
       case _PeoplePage.users:
         return _withPeopleSetupRefresh(
           updatedAt: usersUpdatedAt,
@@ -1161,14 +1134,13 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       onPopInvokedWithResult: (didPop, result) {
         if (!didPop) unawaited(handleBackNavigation());
       },
-      child: GestureDetector(
-        behavior: HitTestBehavior.translucent,
-        onHorizontalDragStart: handlePeopleSwipeStart,
-        onHorizontalDragUpdate: handlePeopleSwipeUpdate,
-        onHorizontalDragEnd: handlePeopleSwipeEnd,
+      child: InteractiveSwipeBack(
+        enabled: page != _PeoplePage.home,
+        previousPage: buildPage(_PeoplePage.home),
+        onBack: () => goPeopleHome(feedback: false),
         child: KeyedSubtree(
           key: ValueKey<_PeoplePage>(page),
-          child: buildCurrentPage(),
+          child: buildPage(page),
         ),
       ),
     );

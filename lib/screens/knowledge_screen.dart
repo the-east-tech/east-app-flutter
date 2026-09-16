@@ -11,6 +11,7 @@ import '../services/east_app_api.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_components.dart';
 import '../widgets/dashboard_menu.dart';
+import '../widgets/interactive_swipe_back.dart';
 import 'knowledge_audit_screen.dart';
 
 class KnowledgeScreen extends StatefulWidget {
@@ -671,32 +672,39 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
             : showSopList
                 ? 1
                 : 0;
+    final currentPage = selected != null
+        ? KnowledgeSopDetailView(
+            api: widget.api,
+            item: selected,
+            versions: selectedGroup?.versions ?? [selected],
+            tagNameFor: tagNameFor,
+            onBack: closeSopDetail,
+            onEdit: canManageSops && selectedSopOpenedFromManagement
+                ? openEditSop
+                : null,
+          )
+        : showAudit
+            ? KnowledgeAuditScreen(api: widget.api, onBack: closeAudit)
+            : showSopList
+                ? buildSopList(context)
+                : buildKnowledgeHome(context);
+    final previousPage = selected != null && selectedSopOpenedFromManagement
+        ? buildSopList(context)
+        : buildKnowledgeHome(context);
+
     return PopScope(
       canPop: selected == null && !showSopList && !showAudit,
       onPopInvokedWithResult: (didPop, result) {
         if (!didPop) unawaited(handleBackNavigation());
       },
-      child: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 180),
+      child: InteractiveSwipeBack(
+        enabled: !deleteMode &&
+            (selected != null || showSopList || showAudit),
+        previousPage: previousPage,
+        onBack: () => unawaited(handleBackNavigation()),
         child: KeyedSubtree(
           key: ValueKey<int>(viewKey),
-          child: selected != null
-              ? KnowledgeSopDetailView(
-                  api: widget.api,
-                  item: selected,
-                  versions: selectedGroup?.versions ?? [selected],
-                  tagNameFor: tagNameFor,
-                  onBack: closeSopDetail,
-                  onEdit:
-                      canManageSops && selectedSopOpenedFromManagement
-                          ? openEditSop
-                          : null,
-                )
-              : showAudit
-                  ? KnowledgeAuditScreen(api: widget.api, onBack: closeAudit)
-                  : showSopList
-                      ? buildSopList(context)
-                      : buildKnowledgeHome(context),
+          child: currentPage,
         ),
       ),
     );
