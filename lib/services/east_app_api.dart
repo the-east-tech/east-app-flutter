@@ -1527,6 +1527,28 @@ class EastAppApi {
     );
   }
 
+  Future<void> deleteUser(String userId) async {
+    await _requestJson(
+      'DELETE',
+      '/api/v1/users/$userId',
+      expectBody: false,
+    );
+    invalidateAvailableContextsCache();
+  }
+
+  Future<EastAppCsvFile> exportUsersCsv() =>
+      _exportCsv('/api/v1/users/export', 'eastapp-users.csv');
+
+  Future<EastAppCsvPreview> previewUserCsv({
+    required String fileName,
+    required Uint8List bytes,
+  }) => _previewCsv('/api/v1/users/import/preview', fileName, bytes);
+
+  Future<EastAppCsvImportResult> importUserCsv({
+    required String fileName,
+    required Uint8List bytes,
+  }) => _importCsv('/api/v1/users/import', fileName, bytes);
+
   Future<List<EastAppRole>> listRoles({
     String? tenantId,
     String? viewerRole,
@@ -2114,17 +2136,6 @@ class EastAppApi {
     );
   }
 
-  Future<Object?> markStockPurchaseSupplierOrdered({
-    required String supplierId,
-    required String message,
-  }) {
-    return _requestJson(
-      'POST',
-      '/api/v1/stock/purchases/suppliers/$supplierId/ordered',
-      body: {'message': message},
-    );
-  }
-
   Future<void> invalidateStockPurchaseSupplierStates(String tenantId) {
     return invalidateFeatureCache(
       stockPurchaseSupplierStatesCacheKey(tenantId),
@@ -2214,6 +2225,85 @@ class EastAppApi {
     return StockSkuCsvFile(
       fileName: match?.group(1)?.trim() ?? 'eastapp-suppliers.csv',
       bytes: Uint8List.fromList(response.bodyBytes),
+    );
+  }
+
+  Future<EastAppCsvFile> exportStockTagsCsv() =>
+      _exportCsv('/api/v1/stock/tags/export', 'eastapp-tags.csv');
+
+  Future<EastAppCsvPreview> previewStockTagCsv({
+    required String fileName,
+    required Uint8List bytes,
+  }) => _previewCsv('/api/v1/stock/tags/import/preview', fileName, bytes);
+
+  Future<EastAppCsvImportResult> importStockTagCsv({
+    required String fileName,
+    required Uint8List bytes,
+  }) => _importCsv('/api/v1/stock/tags/import', fileName, bytes);
+
+  Future<EastAppCsvFile> exportSalesReportsCsv({
+    required DateTime from,
+    required DateTime to,
+  }) {
+    final query = Uri(queryParameters: {
+      'from': formatApiDate(from),
+      'to': formatApiDate(to),
+    }).query;
+    return _exportCsv(
+      '/api/v1/reports/sales/export?$query',
+      'eastapp-sales-reports.csv',
+    );
+  }
+
+  Future<EastAppCsvPreview> previewSalesReportCsv({
+    required String fileName,
+    required Uint8List bytes,
+  }) => _previewCsv('/api/v1/reports/sales/import/preview', fileName, bytes);
+
+  Future<EastAppCsvImportResult> importSalesReportCsv({
+    required String fileName,
+    required Uint8List bytes,
+  }) => _importCsv('/api/v1/reports/sales/import', fileName, bytes);
+
+  Future<EastAppCsvFile> _exportCsv(String path, String fallbackName) async {
+    final response = await _stockCsvResponse('GET', path);
+    final disposition = response.headers['content-disposition'] ?? '';
+    final match = RegExp(r'filename="?([^";]+)').firstMatch(disposition);
+    return EastAppCsvFile(
+      fileName: match?.group(1)?.trim() ?? fallbackName,
+      bytes: Uint8List.fromList(response.bodyBytes),
+    );
+  }
+
+  Future<EastAppCsvPreview> _previewCsv(
+    String path,
+    String fileName,
+    Uint8List bytes,
+  ) async {
+    final response = await _stockCsvResponse(
+      'POST',
+      path,
+      fileName: fileName,
+      bytes: bytes,
+    );
+    return EastAppCsvPreview.fromJson(
+      jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>,
+    );
+  }
+
+  Future<EastAppCsvImportResult> _importCsv(
+    String path,
+    String fileName,
+    Uint8List bytes,
+  ) async {
+    final response = await _stockCsvResponse(
+      'POST',
+      path,
+      fileName: fileName,
+      bytes: bytes,
+    );
+    return EastAppCsvImportResult.fromJson(
+      jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>,
     );
   }
 

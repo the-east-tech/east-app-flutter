@@ -66,7 +66,7 @@ Future<void> showApiErrorDialog(
                   if (serverUnavailable) ...[
                     Text(
                       text.t(
-                        'The server may be updating. Please try again shortly.',
+                        'The server may be updating. Please try again in about 5 minutes.',
                       ),
                       style: const TextStyle(
                         fontSize: AppTextSize.s14,

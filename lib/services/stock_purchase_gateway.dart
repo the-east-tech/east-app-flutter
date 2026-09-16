@@ -3,39 +3,16 @@ import 'east_app_api.dart';
 class StockPurchaseSupplierState {
   final String supplierId;
   final String messageTemplate;
-  final String orderState;
-  final bool receivableEnabled;
-  final String? currentOrderReference;
-  final DateTime? orderedAt;
-  final String orderedBy;
-  final String orderedMessage;
 
   const StockPurchaseSupplierState({
     required this.supplierId,
     required this.messageTemplate,
-    required this.orderState,
-    required this.receivableEnabled,
-    required this.currentOrderReference,
-    required this.orderedAt,
-    required this.orderedBy,
-    required this.orderedMessage,
   });
 
-  bool get hasActiveOrder => orderState != 'NONE';
-  bool get awaitingReview => orderState == 'SUBMITTED';
-  bool get correctionRequired => orderState == 'CORRECTION_REQUIRED';
-
   factory StockPurchaseSupplierState.fromJson(Map<String, dynamic> json) {
-    final orderedAtValue = json['orderedAt'] as String?;
     return StockPurchaseSupplierState(
       supplierId: json['supplierId'] as String,
       messageTemplate: (json['messageTemplate'] as String? ?? '').trim(),
-      orderState: (json['orderState'] as String? ?? 'NONE').trim(),
-      receivableEnabled: json['receivableEnabled'] as bool? ?? false,
-      currentOrderReference: json['currentOrderReference'] as String?,
-      orderedAt: orderedAtValue == null ? null : DateTime.tryParse(orderedAtValue),
-      orderedBy: (json['orderedBy'] as String? ?? '').trim(),
-      orderedMessage: (json['orderedMessage'] as String? ?? '').trim(),
     );
   }
 }
@@ -85,23 +62,6 @@ class StockPurchaseGateway {
       body,
       method: 'PATCH',
       path: '/api/v1/stock/purchases/suppliers/$supplierId/template',
-    );
-    await _invalidateCacheSafely();
-    return saved;
-  }
-
-  Future<StockPurchaseSupplierState> markOrdered(
-    String supplierId,
-    String message,
-  ) async {
-    final body = await api.markStockPurchaseSupplierOrdered(
-      supplierId: supplierId,
-      message: message,
-    );
-    final saved = _parseSupplier(
-      body,
-      method: 'POST',
-      path: '/api/v1/stock/purchases/suppliers/$supplierId/ordered',
     );
     await _invalidateCacheSafely();
     return saved;

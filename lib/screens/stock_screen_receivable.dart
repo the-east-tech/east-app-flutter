@@ -31,8 +31,6 @@ class _StockReceivablePage extends StatefulWidget {
 class _StockReceivablePageState extends State<_StockReceivablePage> {
   final TextEditingController supplierSearchController = TextEditingController();
   final TextEditingController skuSearchController = TextEditingController();
-  Map<String, StockPurchaseSupplierState> purchaseStates = const {};
-  bool loadingStates = true;
   SupplierProfile? selectedSupplier;
   final Map<String, _ReceivableDraft> drafts = {};
   String invoicePhotoPath = '';
@@ -44,19 +42,11 @@ class _StockReceivablePageState extends State<_StockReceivablePage> {
     return staffId;
   }
 
-  StockPurchaseGateway get gateway => StockPurchaseGateway(
-        _StockMediaScope.of(context).api,
-        tenantId: widget.tenantId,
-      );
-
   @override
   void initState() {
     super.initState();
     supplierSearchController.addListener(_refresh);
     skuSearchController.addListener(_refresh);
-    WidgetsBinding.instance.addPostFrameCallback(
-      (_) => unawaited(loadPurchaseStates()),
-    );
   }
 
   @override
@@ -70,26 +60,10 @@ class _StockReceivablePageState extends State<_StockReceivablePage> {
     if (mounted) setState(() {});
   }
 
-  Future<void> loadPurchaseStates({bool forceRefresh = false}) async {
-    if (!mounted) return;
-    setState(() => loadingStates = true);
-    try {
-      final values = await gateway.suppliers(forceRefresh: forceRefresh);
-      if (!mounted) return;
-      setState(() {
-        purchaseStates = {
-          for (final value in values) value.supplierId: value,
-        };
-        loadingStates = false;
-      });
-    } on EastAppApiException {
-      if (mounted) setState(() => loadingStates = false);
-    }
-  }
-
   List<SupplierProfile> get filteredSuppliers {
     final query = supplierSearchController.text.trim().toLowerCase();
     final values = widget.suppliers.where((supplier) {
+      if (!supplier.active) return false;
       if (query.isEmpty) return true;
       return supplier.supplierName.toLowerCase().contains(query) ||
           supplier.contactPerson.toLowerCase().contains(query) ||
@@ -115,29 +89,7 @@ class _StockReceivablePageState extends State<_StockReceivablePage> {
     return values;
   }
 
-  String supplierStatus(StockPurchaseSupplierState? state) {
-    if (state == null || state.orderState == 'NONE') {
-      return 'Order not marked done';
-    }
-    if (state.orderState == 'ORDERED') return 'Ready to receive';
-    if (state.orderState == 'SUBMITTED') return 'Awaiting review';
-    if (state.orderState == 'CORRECTION_REQUIRED') return 'Needs correction';
-    return state.orderState;
-  }
-
-  Color supplierStatusColour(StockPurchaseSupplierState? state) {
-    if (state?.orderState == 'ORDERED') return AppColours.green;
-    if (state?.orderState == 'SUBMITTED') return AppColours.blue;
-    if (state?.orderState == 'CORRECTION_REQUIRED') return AppColours.orange;
-    return AppColours.textMuted;
-  }
-
   void selectSupplier(SupplierProfile supplier) {
-    final state = purchaseStates[supplier.id];
-    if (state?.receivableEnabled != true) {
-      AppFeedback.warning();
-      return;
-    }
     AppFeedback.select();
     setState(() {
       selectedSupplier = supplier;
@@ -156,7 +108,6 @@ class _StockReceivablePageState extends State<_StockReceivablePage> {
       goodsPhotoPath = '';
       skuSearchController.clear();
     });
-    unawaited(loadPurchaseStates());
   }
 
   Future<void> captureInvoicePhoto() async {
@@ -428,7 +379,7 @@ class _StockReceivablePageState extends State<_StockReceivablePage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                text.t('Orders awaiting delivery'),
+                text.t('Suppliers'),
                 style: const TextStyle(
                   fontSize: AppTextSize.s18,
                   fontWeight: FontWeight.w900,
@@ -437,7 +388,7 @@ class _StockReceivablePageState extends State<_StockReceivablePage> {
               const SizedBox(height: 4),
               Text(
                 text.t(
-                  'Suppliers become available after Purchase → Ordered Done.',
+                  'Select any active supplier whenever stock arrives.',
                 ),
                 style: const TextStyle(
                   color: AppColours.textMuted,
@@ -455,12 +406,7 @@ class _StockReceivablePageState extends State<_StockReceivablePage> {
             ],
           ),
         ),
-        if (loadingStates)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 60),
-            child: Center(child: CircularProgressIndicator()),
-          )
-        else if (suppliers.isEmpty)
+        if (suppliers.isEmpty)
           WhiteCard(
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 28),
@@ -471,9 +417,6 @@ class _StockReceivablePageState extends State<_StockReceivablePage> {
           for (final supplier in suppliers) ...[
             _ReceivableSupplierCard(
               supplier: supplier,
-              state: purchaseStates[supplier.id],
-              statusLabel: supplierStatus(purchaseStates[supplier.id]),
-              statusColour: supplierStatusColour(purchaseStates[supplier.id]),
               onTap: () => selectSupplier(supplier),
             ),
             const SizedBox(height: 10),
@@ -483,7 +426,6 @@ class _StockReceivablePageState extends State<_StockReceivablePage> {
   }
 
   Widget buildSupplierReceivable(AppText text, SupplierProfile supplier) {
-    final state = purchaseStates[supplier.id];
     final skus = skusForSupplier(supplier);
     return _PageScaffold(
       title: text.t('Receivable'),
@@ -503,14 +445,6 @@ class _StockReceivablePageState extends State<_StockReceivablePage> {
                       style: const TextStyle(
                         fontSize: AppTextSize.s18,
                         fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      supplierStatus(state),
-                      style: TextStyle(
-                        color: supplierStatusColour(state),
-                        fontWeight: FontWeight.w800,
                       ),
                     ),
                   ],
@@ -602,29 +536,20 @@ class _StockReceivablePageState extends State<_StockReceivablePage> {
 
 class _ReceivableSupplierCard extends StatelessWidget {
   final SupplierProfile supplier;
-  final StockPurchaseSupplierState? state;
-  final String statusLabel;
-  final Color statusColour;
   final VoidCallback onTap;
 
   const _ReceivableSupplierCard({
     required this.supplier,
-    required this.state,
-    required this.statusLabel,
-    required this.statusColour,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     final text = AppTextScope.of(context);
-    final enabled = state?.receivableEnabled == true;
-    return Opacity(
-      opacity: enabled ? 1 : 0.48,
-      child: WhiteCard(
+    return WhiteCard(
         padding: EdgeInsets.zero,
         child: Pressable(
-          onTap: enabled ? onTap : null,
+          onTap: onTap,
           borderRadius: BorderRadius.circular(18),
           child: Padding(
             padding: const EdgeInsets.all(14),
@@ -634,14 +559,12 @@ class _ReceivableSupplierCard extends StatelessWidget {
                   width: 46,
                   height: 46,
                   decoration: BoxDecoration(
-                    color: enabled
-                        ? AppColours.blueSoft
-                        : AppColours.background,
+                    color: AppColours.blueSoft,
                     borderRadius: BorderRadius.circular(14),
                   ),
                   child: Icon(
                     Icons.local_shipping_outlined,
-                    color: enabled ? AppColours.blue : AppColours.textMuted,
+                    color: AppColours.blue,
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -669,29 +592,17 @@ class _ReceivableSupplierCard extends StatelessWidget {
                           ),
                         ),
                       ],
-                      const SizedBox(height: 4),
-                      Text(
-                        statusLabel,
-                        style: TextStyle(
-                          color: statusColour,
-                          fontSize: AppTextSize.s12,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
                     ],
                   ),
                 ),
-                Icon(
-                  enabled
-                      ? Icons.chevron_right_rounded
-                      : Icons.lock_outline_rounded,
+                const Icon(
+                  Icons.chevron_right_rounded,
                   color: AppColours.textMuted,
                 ),
               ],
             ),
           ),
         ),
-      ),
     );
   }
 }

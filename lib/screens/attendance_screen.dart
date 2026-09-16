@@ -3,12 +3,15 @@ import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../localization/app_text_scope.dart';
 import '../models/app_models.dart';
+import '../models/api_models.dart';
 import '../models/attendance_models.dart';
 import '../models/auth_models.dart';
 import '../models/people_models.dart';
@@ -71,6 +74,56 @@ enum _PeoplePage {
   points,
   tenants,
   audit,
+}
+
+Future<bool?> _confirmPeopleCsvImport(
+  BuildContext context,
+  EastAppCsvPreview preview,
+) {
+  return showDialog<bool>(
+    context: context,
+    builder: (dialogContext) {
+      final text = AppTextScope.of(dialogContext);
+      Widget row(String label, int value, {Color? colour}) => Padding(
+            padding: const EdgeInsets.symmetric(vertical: 3),
+            child: Row(
+              children: [
+                Expanded(child: Text(text.t(label))),
+                Text('$value', style: TextStyle(fontWeight: FontWeight.w800, color: colour)),
+              ],
+            ),
+          );
+      return AlertDialog(
+        title: Text(text.t(preview.invalidRows == 0 ? 'Import Users?' : 'CSV cannot be submitted')),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              row('Total rows', preview.totalRows),
+              row('Ready to submit', preview.readyRows, colour: AppColours.green),
+              row('Existing duplicates skipped', preview.duplicateRows),
+              row('Invalid rows', preview.invalidRows, colour: preview.invalidRows == 0 ? null : AppColours.red),
+              const SizedBox(height: 10),
+              Text(
+                text.t('Passwords and profile photos are not exported. Add initial_password for each new identity before importing.'),
+                style: const TextStyle(color: AppColours.textMuted),
+              ),
+              if (preview.errors.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                ...preview.errors.map((error) => Text(error, style: const TextStyle(color: AppColours.red))),
+              ],
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: Text(text.t('Cancel'))),
+          if (preview.canImport)
+            FilledButton(onPressed: () => Navigator.of(dialogContext).pop(true), child: Text(text.t('Import'))),
+        ],
+      );
+    },
+  );
 }
 
 class _AttendanceScreenState extends State<AttendanceScreen> {
@@ -751,6 +804,57 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     widget.onReportDataInvalidated();
   }
 
+  Future<void> exportUsers() async {
+    try {
+      final csv = await widget.api.exportUsersCsv();
+      if (!mounted) return;
+      final renderBox = context.findRenderObject() as RenderBox?;
+      await SharePlus.instance.share(
+        ShareParams(
+          title: AppTextScope.of(context).t('Share User Export'),
+          files: [XFile.fromData(csv.bytes, mimeType: 'text/csv')],
+          fileNameOverrides: [csv.fileName],
+          sharePositionOrigin: renderBox == null || !renderBox.hasSize
+              ? null
+              : renderBox.localToGlobal(Offset.zero) & renderBox.size,
+          downloadFallbackEnabled: true,
+        ),
+      );
+    } on EastAppApiException {
+      // Global API error handling already presents the failure.
+    }
+  }
+
+  Future<void> importUsers() async {
+    try {
+      final file = await FilePicker.pickFile(
+        type: FileType.custom,
+        allowedExtensions: const ['csv'],
+      );
+      if (file == null) return;
+      final bytes = await file.readAsBytes();
+      final preview = await widget.api.previewUserCsv(
+        fileName: file.name,
+        bytes: bytes,
+      );
+      if (!mounted) return;
+      final confirmed = await _confirmPeopleCsvImport(context, preview);
+      if (confirmed != true || !mounted) return;
+      final result = await widget.api.importUserCsv(
+        fileName: file.name,
+        bytes: bytes,
+      );
+      await invalidateUserRelatedCaches();
+      await Future.wait([
+        loadUsers(reset: true, forceRefresh: true),
+        loadRoles(force: true),
+      ]);
+      if (mounted) showSuccessSnackBar(context, '${result.importedRows} users imported');
+    } on EastAppApiException {
+      // Global API error handling already presents the failure.
+    }
+  }
+
   Future<void> openUserForm() async {
     if (!canCreateUsers) {
       showWarningSnackBar(
@@ -870,7 +974,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
     _showPeopleBottomSheet<void>(
       context,
-      heightFactor: 0.52,
+      heightFactor: 0.68,
       child: _DeleteUserSheet(
         user: user,
         onDeactivateUser: (lastWorkingDate) async {
@@ -885,6 +989,14 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
             startDate: user.startDate,
             endDate: lastWorkingDate,
           );
+          await invalidateUserRelatedCaches();
+          await Future.wait([
+            if (usersLoaded) loadUsers(reset: true, forceRefresh: true),
+            loadRoles(force: true),
+          ]);
+        },
+        onDeletePermanently: () async {
+          await widget.api.deleteUser(user.id);
           await invalidateUserRelatedCaches();
           await Future.wait([
             if (usersLoaded) loadUsers(reset: true, forceRefresh: true),
@@ -996,8 +1108,11 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
             roles: roles,
             canManageUsers: canManageUsers,
             canCreateUsers: canCreateUsers,
+            canImportExport: isOwner,
             onBack: goPeopleHome,
             onCreateUser: openUserForm,
+            onImportUsers: importUsers,
+            onExportUsers: exportUsers,
             onUserTap: canManageUsers ? openEditUserForm : null,
             onSearchChanged: updateUsersSearch,
             onSearch: () => unawaited(loadUsers(reset: true)),
@@ -1195,8 +1310,11 @@ class _UserSetupPage extends StatefulWidget {
   final List<_PeopleRole> roles;
   final bool canManageUsers;
   final bool canCreateUsers;
+  final bool canImportExport;
   final VoidCallback onBack;
   final VoidCallback onCreateUser;
+  final Future<void> Function() onImportUsers;
+  final Future<void> Function() onExportUsers;
   final ValueChanged<_PeopleUser>? onUserTap;
   final ValueChanged<String> onSearchChanged;
   final VoidCallback onSearch;
@@ -1218,8 +1336,11 @@ class _UserSetupPage extends StatefulWidget {
     required this.roles,
     required this.canManageUsers,
     required this.canCreateUsers,
+    required this.canImportExport,
     required this.onBack,
     required this.onCreateUser,
+    required this.onImportUsers,
+    required this.onExportUsers,
     required this.onUserTap,
     required this.onSearchChanged,
     required this.onSearch,
@@ -1348,13 +1469,30 @@ class _UserSetupPageState extends State<_UserSetupPage> {
           : text.t('View users.'),
       onBack: widget.onBack,
       trailing: widget.canCreateUsers
-          ? SizedBox(
-              width: 150,
-              child: PrimaryButton(
-                text: text.t('Create User'),
-                icon: Icons.add_rounded,
-                onPressed: widget.onCreateUser,
-              ),
+          ? Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  width: 130,
+                  child: PrimaryButton(
+                    text: text.t('Create User'),
+                    icon: Icons.add_rounded,
+                    onPressed: widget.onCreateUser,
+                  ),
+                ),
+                if (widget.canImportExport)
+                  PopupMenuButton<String>(
+                    icon: const Icon(Icons.more_vert_rounded),
+                    onSelected: (value) {
+                      if (value == 'import') unawaited(widget.onImportUsers());
+                      if (value == 'export') unawaited(widget.onExportUsers());
+                    },
+                    itemBuilder: (_) => [
+                      PopupMenuItem(value: 'import', child: Text(text.t('Import Users'))),
+                      PopupMenuItem(value: 'export', child: Text(text.t('Export Users'))),
+                    ],
+                  ),
+              ],
             )
           : null,
       children: [
@@ -3242,10 +3380,12 @@ class _UserFormSheetState extends State<_UserFormSheet> {
 class _DeleteUserSheet extends StatefulWidget {
   final _PeopleUser user;
   final Future<void> Function(DateTime lastWorkingDate) onDeactivateUser;
+  final Future<void> Function() onDeletePermanently;
 
   const _DeleteUserSheet({
     required this.user,
     required this.onDeactivateUser,
+    required this.onDeletePermanently,
   });
 
   @override
@@ -3290,6 +3430,29 @@ class _DeleteUserSheetState extends State<_DeleteUserSheet> {
       showSuccessSnackBar(context, text.t('User set to inactive'));
     } on EastAppApiException catch (_) {
       if (!mounted) return;
+    } finally {
+      if (mounted) setState(() => saving = false);
+    }
+  }
+
+  Future<void> deletePermanently() async {
+    final text = AppTextScope.of(context);
+    final confirmed = await confirmDataChange(
+      context,
+      action: text.t('Delete User Permanently?'),
+      details: text.t(
+        'This cannot be undone. EastApp will refuse deletion if this user has protected business history; deactivate them instead.',
+      ),
+    );
+    if (!confirmed || !mounted) return;
+    setState(() => saving = true);
+    try {
+      await widget.onDeletePermanently();
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      showSuccessSnackBar(context, text.t('User permanently deleted'));
+    } on EastAppApiException {
+      // Global API error handling already presents the backend reason.
     } finally {
       if (mounted) setState(() => saving = false);
     }
@@ -3389,6 +3552,17 @@ class _DeleteUserSheetState extends State<_DeleteUserSheet> {
               text: saving ? 'Saving...' : 'Set User Inactive',
               icon: Icons.block_outlined,
               onPressed: saving ? null : submit,
+            ),
+            const SizedBox(height: 10),
+            OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColours.red,
+                side: const BorderSide(color: AppColours.red),
+                minimumSize: const Size.fromHeight(50),
+              ),
+              onPressed: saving ? null : deletePermanently,
+              icon: const Icon(Icons.delete_forever_outlined),
+              label: Text(text.t('Delete Permanently')),
             ),
           ],
         ),
