@@ -30,6 +30,8 @@ class _SetupDetailRow extends StatelessWidget {
                 : Text(value.isEmpty ? '-' : AppTextScope.of(context).content(value), textAlign: TextAlign.right, style: AppTextStyles.formValue),
           ),
         ),
+        if (editable && keyboardType == TextInputType.phone)
+          _SupplierPhoneContactButton(controller: controller!),
       ]),
     );
   }
@@ -89,6 +91,63 @@ class _InlineError extends StatelessWidget {
   Widget build(BuildContext context) => Padding(padding: const EdgeInsets.only(top: 5), child: Text(text, style: const TextStyle(color: AppColours.red, fontSize: AppTextSize.s12, fontWeight: FontWeight.w700)));
 }
 
+class _SupplierPhoneContactButton extends StatefulWidget {
+  final TextEditingController controller;
+
+  const _SupplierPhoneContactButton({required this.controller});
+
+  @override
+  State<_SupplierPhoneContactButton> createState() => _SupplierPhoneContactButtonState();
+}
+
+class _SupplierPhoneContactButtonState extends State<_SupplierPhoneContactButton> {
+  bool loading = false;
+
+  Future<void> pickContact() async {
+    if (loading) return;
+    FocusScope.of(context).unfocus();
+    await AppFeedback.select();
+    if (!mounted) return;
+    setState(() => loading = true);
+    final text = AppTextScope.of(context);
+    try {
+      final phones = await loadDeviceContactPhones();
+      if (!mounted) return;
+      if (phones.isEmpty) {
+        showErrorSnackBar(context, text.t('No contacts with phone numbers'));
+        return;
+      }
+      final selected = await showDeviceContactPhonePicker(context, phones);
+      if (selected == null || !mounted) return;
+      widget.controller.text = selected.number;
+    } on DeviceContactsPermissionException {
+      if (!mounted) return;
+      showErrorSnackBar(
+        context,
+        text.t('Full Contacts access is required. Allow it in Settings.'),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      showErrorSnackBar(context, text.t('Could not load contacts.'));
+    } finally {
+      if (mounted) setState(() => loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => IconButton(
+    tooltip: AppTextScope.of(context).t('Contacts'),
+    onPressed: loading ? null : pickContact,
+    icon: loading
+        ? const SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          )
+        : const Icon(Icons.contacts_outlined),
+  );
+}
+
 InputDecoration _inputDecoration(String hint, {String? suffixText, String? prefixText}) => AppInputStyle.decoration(hint, suffixText: suffixText, prefixText: prefixText);
 
 class _DialogInput extends StatelessWidget {
@@ -113,7 +172,12 @@ class _DialogInput extends StatelessWidget {
       onChanged: onChanged,
       onSubmitted: (_) => FocusManager.instance.primaryFocus?.unfocus(),
       onTapOutside: (_) => FocusManager.instance.primaryFocus?.unfocus(),
-      decoration: _inputDecoration(hint, suffixText: suffixText).copyWith(errorText: errorText),
+      decoration: _inputDecoration(hint, suffixText: suffixText).copyWith(
+        errorText: errorText,
+        suffixIcon: keyboardType == TextInputType.phone
+            ? _SupplierPhoneContactButton(controller: controller)
+            : null,
+      ),
     ),
   ]);
 }
