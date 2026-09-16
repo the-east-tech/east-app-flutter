@@ -1,5 +1,47 @@
 part of 'stock_screen.dart';
 
+Future<bool?> _confirmCsvImport(
+  BuildContext context, {
+  required String title,
+  required EastAppCsvPreview preview,
+  String? note,
+}) {
+  return showDialog<bool>(
+    context: context,
+    builder: (dialogContext) {
+      final text = AppTextScope.of(dialogContext);
+      return AlertDialog(
+        title: Text(text.t(preview.invalidRows == 0 ? title : 'CSV cannot be submitted')),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _SkuCsvPreviewRow(label: text.t('Total rows'), value: preview.totalRows),
+              _SkuCsvPreviewRow(label: text.t('Ready to submit'), value: preview.readyRows, colour: AppColours.green),
+              _SkuCsvPreviewRow(label: text.t('Existing duplicates skipped'), value: preview.duplicateRows),
+              _SkuCsvPreviewRow(label: text.t('Invalid rows'), value: preview.invalidRows, colour: preview.invalidRows == 0 ? null : AppColours.red),
+              if (note != null) ...[
+                const SizedBox(height: 10),
+                Text(text.t(note), style: const TextStyle(color: AppColours.textMuted)),
+              ],
+              if (preview.errors.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                ...preview.errors.map((error) => Text(error, style: const TextStyle(color: AppColours.red))),
+              ],
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: Text(text.t('Cancel'))),
+          if (preview.canImport)
+            FilledButton(onPressed: () => Navigator.of(dialogContext).pop(true), child: Text(text.t('Import'))),
+        ],
+      );
+    },
+  );
+}
+
 List<SupplierProfile> _sortSuppliersAlphabetically(Iterable<SupplierProfile> source) {
   final items = source.toList();
   items.sort((a, b) {

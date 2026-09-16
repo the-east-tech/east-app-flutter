@@ -3,6 +3,8 @@ part of 'stock_screen.dart';
 class _TagSetupPage extends StatefulWidget {
   final EastAppApi api;
   final String currentTenantId;
+  final bool isOwner;
+  final Future<void> Function() onReloadAfterImport;
   final List<StockTag> tags;
   final VoidCallback onBack;
   final Future<void> Function(StockTag tag) onCreateTag;
@@ -12,6 +14,8 @@ class _TagSetupPage extends StatefulWidget {
   const _TagSetupPage({
     required this.api,
     required this.currentTenantId,
+    required this.isOwner,
+    required this.onReloadAfterImport,
     required this.tags,
     required this.onBack,
     required this.onCreateTag,
@@ -26,6 +30,64 @@ class _TagSetupPage extends StatefulWidget {
 class _TagSetupPageState extends State<_TagSetupPage> {
   final searchController = TextEditingController();
   final Set<String> selectedIds = <String>{};
+  bool exportingTags = false;
+
+  Future<void> exportTags() async {
+    if (exportingTags) return;
+    setState(() => exportingTags = true);
+    try {
+      final csv = await widget.api.exportStockTagsCsv();
+      if (!mounted) return;
+      final renderBox = context.findRenderObject() as RenderBox?;
+      await SharePlus.instance.share(
+        ShareParams(
+          title: AppTextScope.of(context).t('Share Tag Export'),
+          files: [XFile.fromData(csv.bytes, mimeType: 'text/csv')],
+          fileNameOverrides: [csv.fileName],
+          sharePositionOrigin: renderBox == null || !renderBox.hasSize
+              ? null
+              : renderBox.localToGlobal(Offset.zero) & renderBox.size,
+          downloadFallbackEnabled: true,
+        ),
+      );
+    } on EastAppApiException {
+      // Global API error handling already presents the failure.
+    } finally {
+      if (mounted) setState(() => exportingTags = false);
+    }
+  }
+
+  Future<void> importTags() async {
+    try {
+      final file = await FilePicker.pickFile(
+        type: FileType.custom,
+        allowedExtensions: const ['csv'],
+      );
+      if (file == null) return;
+      final bytes = await file.readAsBytes();
+      final preview = await widget.api.previewStockTagCsv(
+        fileName: file.name,
+        bytes: bytes,
+      );
+      if (!mounted) return;
+      final confirmed = await _confirmCsvImport(
+        context,
+        title: 'Import Tags?',
+        preview: preview,
+      );
+      if (confirmed != true || !mounted) return;
+      final result = await widget.api.importStockTagCsv(
+        fileName: file.name,
+        bytes: bytes,
+      );
+      await widget.onReloadAfterImport();
+      if (mounted) {
+        showSuccessSnackBar(context, '${result.importedRows} ${AppTextScope.of(context).t('Tags imported')}');
+      }
+    } on EastAppApiException {
+      // Global API error handling already presents the failure.
+    }
+  }
 
   @override
   void dispose() {
@@ -103,12 +165,30 @@ class _TagSetupPageState extends State<_TagSetupPage> {
       title: text.t('Tag'),
       subtitle: text.t('Custom Category'),
       onBack: widget.onBack,
-      trailing: SizedBox(
-        width: selecting ? 120 : 150,
-        child: selecting
+      trailing: selecting
             ? ElevatedButton.icon(style: ElevatedButton.styleFrom(backgroundColor: AppColours.red, foregroundColor: Colors.white), onPressed: deleteSelected, icon: const Icon(Icons.delete_outline), label: Text(text.t('Delete')))
-            : PrimaryButton(text: text.t('Add Tag'), icon: Icons.add_rounded, onPressed: addTag),
-      ),
+            : Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    width: 110,
+                    child: PrimaryButton(text: text.t('Add Tag'), icon: Icons.add_rounded, onPressed: addTag),
+                  ),
+                  if (widget.isOwner)
+                    PopupMenuButton<String>(
+                      enabled: !exportingTags,
+                      icon: const Icon(Icons.more_vert_rounded),
+                      onSelected: (value) {
+                        if (value == 'import') unawaited(importTags());
+                        if (value == 'export') unawaited(exportTags());
+                      },
+                      itemBuilder: (_) => [
+                        PopupMenuItem(value: 'import', child: Text(text.t('Import Tags'))),
+                        PopupMenuItem(value: 'export', child: Text(text.t('Export Tags'))),
+                      ],
+                    ),
+                ],
+              ),
       children: [
         TextField(controller: searchController, style: AppTextStyles.formValue, onChanged: (_) => setState(() {}), decoration: _inputDecoration(text.t('Search')).copyWith(prefixIcon: const Icon(Icons.search_rounded))),
         const SizedBox(height: 12),

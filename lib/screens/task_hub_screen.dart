@@ -4,10 +4,13 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:camera/camera.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../localization/app_text_scope.dart';
 import '../models/app_models.dart';
+import '../models/api_models.dart';
 import '../models/auth_models.dart';
 import '../models/people_models.dart';
 import '../models/report_models.dart';
@@ -320,10 +323,30 @@ class _TaskHubScreenState extends State<TaskHubScreen> {
 
   Future<void> showSalesHistory() async {
     if (!mounted) return;
+    final historyKey = GlobalKey<_SalesHistorySheetState>();
     await _showReportPage<void>(
       context,
       title: 'Sales Reports',
+      actions: [
+        PopupMenuButton<String>(
+          icon: const Icon(Icons.more_vert_rounded),
+          onSelected: (value) {
+            final state = historyKey.currentState;
+            if (state == null) return;
+            if (value == 'import') unawaited(state.importCsv());
+            if (value == 'export') unawaited(state.exportCsv());
+          },
+          itemBuilder: (menuContext) {
+            final text = AppTextScope.of(menuContext);
+            return [
+              PopupMenuItem(value: 'import', child: Text(text.t('Import Sales Reports'))),
+              PopupMenuItem(value: 'export', child: Text(text.t('Export Loaded Range'))),
+            ];
+          },
+        ),
+      ],
       builder: (_) => _SalesHistorySheet(
+        key: historyKey,
         api: widget.api,
         tenantId: widget.tenantId,
         role: widget.role,
@@ -955,10 +978,61 @@ Future<T?> _showReportSheet<T>(
   );
 }
 
+Future<bool?> _confirmSalesCsvImport(
+  BuildContext context,
+  EastAppCsvPreview preview,
+) {
+  return showDialog<bool>(
+    context: context,
+    builder: (dialogContext) {
+      final text = AppTextScope.of(dialogContext);
+      Widget row(String label, int value, {Color? colour}) => Padding(
+            padding: const EdgeInsets.symmetric(vertical: 3),
+            child: Row(
+              children: [
+                Expanded(child: Text(text.t(label))),
+                Text('$value', style: TextStyle(fontWeight: FontWeight.w800, color: colour)),
+              ],
+            ),
+          );
+      return AlertDialog(
+        title: Text(text.t(preview.invalidRows == 0 ? 'Import Sales Reports?' : 'CSV cannot be submitted')),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              row('Total rows', preview.totalRows),
+              row('Ready to submit', preview.readyRows, colour: AppColours.green),
+              row('Existing duplicates skipped', preview.duplicateRows),
+              row('Invalid rows', preview.invalidRows, colour: preview.invalidRows == 0 ? null : AppColours.red),
+              const SizedBox(height: 10),
+              Text(
+                text.t('Imported rows become submitted Sales reports. Void bills and photos are not imported.'),
+                style: const TextStyle(color: AppColours.textMuted),
+              ),
+              if (preview.errors.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                ...preview.errors.map((error) => Text(error, style: const TextStyle(color: AppColours.red))),
+              ],
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: Text(text.t('Cancel'))),
+          if (preview.canImport)
+            FilledButton(onPressed: () => Navigator.of(dialogContext).pop(true), child: Text(text.t('Import'))),
+        ],
+      );
+    },
+  );
+}
+
 Future<T?> _showReportPage<T>(
   BuildContext context, {
   required String title,
   required WidgetBuilder builder,
+  List<Widget>? actions,
 }) {
   return Navigator.of(context).push<T>(
     MaterialPageRoute(
@@ -968,6 +1042,7 @@ Future<T?> _showReportPage<T>(
           backgroundColor: AppColours.background,
           appBar: AppBar(
             title: Text(text.t(title)),
+            actions: actions,
             backgroundColor: AppColours.background,
             surfaceTintColor: Colors.transparent,
           ),
@@ -986,6 +1061,7 @@ class _SalesHistorySheet extends StatefulWidget {
   final Future<void> Function() onChanged;
 
   const _SalesHistorySheet({
+    super.key,
     required this.api,
     required this.tenantId,
     required this.role,
@@ -1073,6 +1149,57 @@ class _SalesHistorySheetState extends State<_SalesHistorySheet> {
       // Keep the previously loaded range visible after a handled API failure.
     } finally {
       if (mounted) setState(() => loading = false);
+    }
+  }
+
+  Future<void> exportCsv() async {
+    try {
+      final csv = await widget.api.exportSalesReportsCsv(
+        from: selectedRange.start,
+        to: selectedRange.end,
+      );
+      if (!mounted) return;
+      final renderBox = context.findRenderObject() as RenderBox?;
+      await SharePlus.instance.share(
+        ShareParams(
+          title: AppTextScope.of(context).t('Share Sales Report Export'),
+          files: [XFile.fromData(csv.bytes, mimeType: 'text/csv')],
+          fileNameOverrides: [csv.fileName],
+          sharePositionOrigin: renderBox == null || !renderBox.hasSize
+              ? null
+              : renderBox.localToGlobal(Offset.zero) & renderBox.size,
+          downloadFallbackEnabled: true,
+        ),
+      );
+    } on EastAppApiException {
+      // Global API error handling already presents the failure.
+    }
+  }
+
+  Future<void> importCsv() async {
+    try {
+      final file = await FilePicker.pickFile(
+        type: FileType.custom,
+        allowedExtensions: const ['csv'],
+      );
+      if (file == null) return;
+      final bytes = await file.readAsBytes();
+      final preview = await widget.api.previewSalesReportCsv(
+        fileName: file.name,
+        bytes: bytes,
+      );
+      if (!mounted) return;
+      final confirmed = await _confirmSalesCsvImport(context, preview);
+      if (confirmed != true || !mounted) return;
+      final result = await widget.api.importSalesReportCsv(
+        fileName: file.name,
+        bytes: bytes,
+      );
+      await widget.onChanged();
+      await load(forceRefresh: true);
+      if (mounted) showSuccessSnackBar(context, '${result.importedRows} Sales reports imported');
+    } on EastAppApiException {
+      // Global API error handling already presents the failure.
     }
   }
 

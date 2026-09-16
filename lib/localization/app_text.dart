@@ -1561,8 +1561,8 @@ const Map<String, String> _myanmar = {
   'Waste Evidence': 'စွန့်ပစ်မှု အထောက်အထား',
   'Technical Error': 'နည်းပညာဆိုင်ရာ အမှား',
   'Server temporarily unavailable': 'ဆာဗာကို ယာယီ အသုံးမပြုနိုင်ပါ',
-  'The server may be updating. Please try again shortly.':
-      'ဆာဗာကို အပ်ဒိတ်လုပ်နေခြင်း ဖြစ်နိုင်ပါသည်။ ခဏအကြာ ထပ်မံကြိုးစားပါ။',
+  'The server may be updating. Please try again in about 5 minutes.':
+      'ဆာဗာကို အပ်ဒိတ်လုပ်နေခြင်း ဖြစ်နိုင်ပါသည်။ ၅ မိနစ်ခန့်အကြာ ထပ်မံကြိုးစားပါ။',
   'Technical details': 'နည်းပညာဆိုင်ရာ အသေးစိတ်',
   'Report Error': 'အမှားကို တင်ပြရန်',
   'Reporting error…': 'အမှားကို တင်ပြနေသည်…',
@@ -2868,8 +2868,8 @@ const Map<String, String> _chinese = {
   'Waste Evidence': '损耗凭证',
   'Technical Error': '技术错误',
   'Server temporarily unavailable': '服务器暂时不可用',
-  'The server may be updating. Please try again shortly.':
-      '服务器可能正在更新，请稍后重试。',
+  'The server may be updating. Please try again in about 5 minutes.':
+      '服务器可能正在更新，请在大约5分钟后重试。',
   'Technical details': '技术详情',
   'Report Error': '报告错误',
   'Reporting error…': '正在报告错误…',

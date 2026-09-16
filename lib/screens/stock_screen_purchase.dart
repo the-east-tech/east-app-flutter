@@ -4,14 +4,12 @@ class _RestockMessagePage extends StatefulWidget {
   final String tenantId;
   final List<SupplierProfile> suppliers;
   final List<StockSku> skus;
-  final Future<void> Function() onOrderChanged;
   final VoidCallback onBack;
 
   const _RestockMessagePage({
     required this.tenantId,
     required this.suppliers,
     required this.skus,
-    required this.onOrderChanged,
     required this.onBack,
   });
 
@@ -106,25 +104,6 @@ class _RestockMessagePageState extends State<_RestockMessagePage> {
     return result.replaceAll('{date}', date).trim();
   }
 
-  String stateLabel(StockPurchaseSupplierState? state) {
-    if (state == null || state.orderState == 'NONE') return 'Not ordered';
-    if (state.orderState == 'ORDERED') return 'Ordered · Ready to receive';
-    if (state.orderState == 'SUBMITTED') return 'Receivable · Awaiting review';
-    if (state.orderState == 'CORRECTION_REQUIRED') {
-      return 'Receivable · Needs correction';
-    }
-    return state.orderState;
-  }
-
-  Color stateColour(StockPurchaseSupplierState? state) {
-    if (state == null || state.orderState == 'NONE') {
-      return AppColours.textMuted;
-    }
-    if (state.orderState == 'ORDERED') return AppColours.green;
-    if (state.orderState == 'SUBMITTED') return AppColours.blue;
-    return AppColours.orange;
-  }
-
   void showCopiedFeedback() {
     AppFeedback.select();
     final messenger = ScaffoldMessenger.of(context);
@@ -165,7 +144,6 @@ class _RestockMessagePageState extends State<_RestockMessagePage> {
     var state = currentState;
     var editingTemplate = false;
     var savingTemplate = false;
-    var markingOrdered = false;
 
     try {
       await showStockBottomSheet<void>(
@@ -173,7 +151,6 @@ class _RestockMessagePageState extends State<_RestockMessagePage> {
         maxHeightFactor: 0.94,
         builder: (sheetContext) => StatefulBuilder(
           builder: (sheetContext, setSheetState) {
-            final activeOrder = state?.hasActiveOrder == true;
             final savedTemplate = state?.messageTemplate.trim().isNotEmpty == true
                 ? state!.messageTemplate
                 : initialTemplate;
@@ -240,10 +217,9 @@ class _RestockMessagePageState extends State<_RestockMessagePage> {
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                '${skus.length} ${text.t('SKU')} · '
-                                '${stateLabel(state)}',
-                                style: TextStyle(
-                                  color: stateColour(state),
+                                '${skus.length} ${text.t('SKU')}',
+                                style: const TextStyle(
+                                  color: AppColours.textMuted,
                                   fontWeight: FontWeight.w800,
                                 ),
                               ),
@@ -346,69 +322,6 @@ class _RestockMessagePageState extends State<_RestockMessagePage> {
                         ),
                       ),
                       const SizedBox(height: 16),
-                      PrimaryButton(
-                        text: activeOrder
-                            ? text.t('Order Already Marked Done')
-                            : text.t('Ordered Done'),
-                        icon: activeOrder
-                            ? Icons.check_circle_rounded
-                            : Icons.task_alt_rounded,
-                        onPressed: activeOrder || markingOrdered
-                            ? null
-                            : () async {
-                                final message = messageController.text.trim();
-                                if (message.isEmpty) {
-                                  showWarningSnackBar(
-                                    context,
-                                    text.t('Order message cannot be empty.'),
-                                  );
-                                  return;
-                                }
-                                final confirmed = await confirmDataChange(
-                                  context,
-                                  action: text.t('Confirm Ordered Done?'),
-                                  details: text.t(
-                                    'This will enable this supplier in Receivable. '
-                                    'Only confirm after the order has actually been placed.',
-                                  ),
-                                );
-                                if (!confirmed || !sheetContext.mounted) return;
-                                setSheetState(() => markingOrdered = true);
-                                try {
-                                  final saved = await gateway.markOrdered(
-                                    supplier.id,
-                                    message,
-                                  );
-                                  if (!mounted) return;
-                                  setState(() {
-                                    purchaseStates = {
-                                      ...purchaseStates,
-                                      supplier.id: saved,
-                                    };
-                                  });
-                                  await widget.onOrderChanged();
-                                  if (!mounted) return;
-                                  if (sheetContext.mounted) {
-                                    setSheetState(() => state = saved);
-                                  }
-                                  showSuccessSnackBar(
-                                    context,
-                                    text.t(
-                                      'Order marked done. Receivable is now enabled.',
-                                    ),
-                                  );
-                                } on EastAppApiException {
-                                  // Global API error UI handles this.
-                                } finally {
-                                  if (sheetContext.mounted) {
-                                    setSheetState(
-                                      () => markingOrdered = false,
-                                    );
-                                  }
-                                }
-                              },
-                      ),
-                      const SizedBox(height: 9),
                       SizedBox(
                         width: double.infinity,
                         child: OutlinedButton.icon(
@@ -416,8 +329,11 @@ class _RestockMessagePageState extends State<_RestockMessagePage> {
                             await Clipboard.setData(
                               ClipboardData(text: messageController.text),
                             );
-                            if (!mounted) return;
-                            showCopiedFeedback();
+                            if (!sheetContext.mounted) return;
+                            Navigator.of(sheetContext).pop();
+                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                              if (mounted) showCopiedFeedback();
+                            });
                           },
                           icon: const Icon(Icons.copy_rounded),
                           label: Text(text.t('Copy Message')),
@@ -426,7 +342,7 @@ class _RestockMessagePageState extends State<_RestockMessagePage> {
                       const SizedBox(height: 8),
                       Text(
                         text.t(
-                          'Copy Message never changes the order status and can be used multiple times.',
+                          'Copy Message can be used multiple times. It does not create a Receivable.',
                         ),
                         style: const TextStyle(
                           color: AppColours.textMuted,
@@ -455,7 +371,7 @@ class _RestockMessagePageState extends State<_RestockMessagePage> {
     return _PageScaffold(
       title: text.t('Purchase'),
       subtitle: text.t(
-        'Prepare supplier messages, then confirm only when the order is actually placed.',
+        'Prepare and copy supplier order messages.',
       ),
       onBack: widget.onBack,
       children: [
@@ -466,7 +382,7 @@ class _RestockMessagePageState extends State<_RestockMessagePage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                text.t('Supplier Orders'),
+                text.t('Supplier Messages'),
                 style: const TextStyle(
                   fontSize: AppTextSize.s16,
                   fontWeight: FontWeight.w900,
@@ -475,7 +391,7 @@ class _RestockMessagePageState extends State<_RestockMessagePage> {
               const SizedBox(height: 3),
               Text(
                 text.t(
-                  'Mark an order as Done to make it appear in Receivable.',
+                  'Choose a supplier to prepare a message. Purchase and Receivable are separate.',
                 ),
                 style: const TextStyle(
                   color: AppColours.textMuted,
@@ -546,8 +462,6 @@ class _RestockMessagePageState extends State<_RestockMessagePage> {
             _PurchaseSupplierCard(
               supplier: group.supplier,
               skuCount: group.skus.length,
-              stateLabel: stateLabel(purchaseStates[group.supplier.id]),
-              stateColour: stateColour(purchaseStates[group.supplier.id]),
               onTap: () => openSupplierOrder(group.supplier, group.skus),
             ),
             const SizedBox(height: 10),
@@ -560,15 +474,11 @@ class _RestockMessagePageState extends State<_RestockMessagePage> {
 class _PurchaseSupplierCard extends StatelessWidget {
   final SupplierProfile supplier;
   final int skuCount;
-  final String stateLabel;
-  final Color stateColour;
   final VoidCallback onTap;
 
   const _PurchaseSupplierCard({
     required this.supplier,
     required this.skuCount,
-    required this.stateLabel,
-    required this.stateColour,
     required this.onTap,
   });
 
@@ -610,9 +520,9 @@ class _PurchaseSupplierCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '$skuCount ${text.t('SKU')} · $stateLabel',
-                      style: TextStyle(
-                        color: stateColour,
+                      '$skuCount ${text.t('SKU')}',
+                      style: const TextStyle(
+                        color: AppColours.textMuted,
                         fontWeight: FontWeight.w700,
                       ),
                     ),

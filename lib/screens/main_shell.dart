@@ -690,8 +690,8 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
       builder: (sheetContext) => AppSettingsSheet(
         language: language,
         translationDirection: widget.api.translationDirection,
-        canManageStorage: widget.session.can(EastAppPermission.storageAdmin),
-        canManageBusinessCleanup: widget.session.user.role.isOwner,
+        canManageStorage: widget.session.user.role.isAdmin,
+        canManageBusinessCleanup: widget.session.user.role.isAdmin,
         onStorageManagement: () {
           Navigator.of(sheetContext).pop();
           unawaited(
@@ -1666,14 +1666,11 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
                   ? pendingStockCheckCount
                   : 0;
           final stockBadgeCount = widget.session.user.role.isOwner
-              ? (homeReviewSummary?.outstandingPending ?? 0) +
-                  (homeReviewSummary?.readyToReceive ?? 0)
+              ? (homeReviewSummary?.outstandingPending ?? 0)
               : widget.role == UserRole.head
                   ? (homeReviewSummary?.dailyCountPending ?? 0) +
-                      (homeReviewSummary?.receivablePending ?? 0) +
-                      (homeReviewSummary?.readyToReceive ?? 0)
-                  : inventoryBadgeCount +
-                      (homeReviewSummary?.readyToReceive ?? 0);
+                      (homeReviewSummary?.receivablePending ?? 0)
+                  : inventoryBadgeCount;
           final taskBadgeCount =
               (homeReportDashboard?.pendingSalesApprovals ?? 0) +
               (homeReportDashboard?.pendingWasteApprovals ?? 0) +

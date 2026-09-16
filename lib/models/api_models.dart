@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 class EastAppPage<T> {
   final List<T> content;
   final int page;
@@ -41,4 +43,65 @@ String? formatApiDate(DateTime? value) {
   final month = value.month.toString().padLeft(2, '0');
   final day = value.day.toString().padLeft(2, '0');
   return '$year-$month-$day';
+}
+
+class EastAppCsvFile {
+  final String fileName;
+  final Uint8List bytes;
+
+  const EastAppCsvFile({required this.fileName, required this.bytes});
+}
+
+class EastAppCsvPreview {
+  final String format;
+  final int formatVersion;
+  final int totalRows;
+  final int readyRows;
+  final int duplicateRows;
+  final int invalidRows;
+  final List<String> errors;
+
+  const EastAppCsvPreview({
+    required this.format,
+    required this.formatVersion,
+    required this.totalRows,
+    required this.readyRows,
+    required this.duplicateRows,
+    required this.invalidRows,
+    required this.errors,
+  });
+
+  bool get canImport => readyRows > 0 && invalidRows == 0;
+
+  factory EastAppCsvPreview.fromJson(Map<String, dynamic> json) {
+    return EastAppCsvPreview(
+      format: json['format'] as String? ?? '',
+      formatVersion: (json['formatVersion'] as num? ?? 0).toInt(),
+      totalRows: (json['totalRows'] as num? ?? 0).toInt(),
+      readyRows: (json['readyRows'] as num? ?? 0).toInt(),
+      duplicateRows: (json['duplicateRows'] as num? ?? 0).toInt(),
+      invalidRows: (json['invalidRows'] as num? ?? 0).toInt(),
+      errors: (json['errors'] as List<dynamic>? ?? const [])
+          .map((item) => item.toString())
+          .toList(growable: false),
+    );
+  }
+}
+
+class EastAppCsvImportResult {
+  final int importedRows;
+  final int skippedDuplicateRows;
+
+  const EastAppCsvImportResult({
+    required this.importedRows,
+    required this.skippedDuplicateRows,
+  });
+
+  factory EastAppCsvImportResult.fromJson(Map<String, dynamic> json) {
+    return EastAppCsvImportResult(
+      importedRows: (json['importedRows'] as num? ?? 0).toInt(),
+      skippedDuplicateRows:
+          (json['skippedDuplicateRows'] as num? ?? 0).toInt(),
+    );
+  }
 }

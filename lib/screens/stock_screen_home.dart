@@ -61,10 +61,7 @@ class _StockHomePage extends StatelessWidget {
                 subtitle: text.t('Invoice & goods check'),
                 icon: Icons.assignment_turned_in_outlined,
                 badge: countBadge(
-                  (reviewSummary?.readyToReceive ?? 0) +
-                      (canReview
-                          ? (reviewSummary?.receivablePending ?? 0)
-                          : 0),
+                  canReview ? (reviewSummary?.receivablePending ?? 0) : 0,
                 ),
                 onTap: () => onOpenPage(StockPage.receivable),
               ),

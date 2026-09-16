@@ -353,9 +353,6 @@ class _StockScreenState extends State<StockScreen> {
             tenantId: widget.currentTenantId,
             suppliers: widget.suppliers.where((supplier) => supplier.active).toList(),
             skus: widget.stockSkus.where((sku) => sku.active).toList(),
-            onOrderChanged: () async {
-              await widget.onLoadPageData(StockPage.home, true);
-            },
             onBack: goHome,
           ),
         );
@@ -400,6 +397,8 @@ class _StockScreenState extends State<StockScreen> {
           child: _TagSetupPage(
             api: widget.api,
             currentTenantId: widget.currentTenantId,
+            isOwner: widget.isOwner,
+            onReloadAfterImport: widget.onReloadAfterSkuImport,
             tags: widget.tags,
             onBack: goHome,
             onCreateTag: widget.onCreateTag,
