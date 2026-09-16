@@ -50,7 +50,6 @@ class _StockApprovalLauncher extends StatelessWidget {
   bool get isSku => kind == _StockApprovalKind.sku;
 
   Future<void> _open(BuildContext context) async {
-    AppFeedback.select();
     await showStockBottomSheet<void>(
       context,
       maxHeightFactor: 0.94,
