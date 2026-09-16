@@ -35,6 +35,10 @@
 	</dict>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>EastApp connects to the local development backend on your network.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
