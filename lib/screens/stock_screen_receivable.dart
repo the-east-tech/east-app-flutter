@@ -90,7 +90,6 @@ class _StockReceivablePageState extends State<_StockReceivablePage> {
   }
 
   void selectSupplier(SupplierProfile supplier) {
-    AppFeedback.select();
     setState(() {
       selectedSupplier = supplier;
       drafts.clear();
