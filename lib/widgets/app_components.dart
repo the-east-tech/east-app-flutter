@@ -786,10 +786,7 @@ class _PressableState extends State<Pressable> {
   @override
   Widget build(BuildContext context) {
     return Listener(
-      onPointerDown: (_) {
-        updatePressed(true);
-        if (widget.onTap != null) AppFeedback.tap();
-      },
+      onPointerDown: (_) => updatePressed(true),
       onPointerUp: (_) => updatePressed(false),
       onPointerCancel: (_) => updatePressed(false),
       child: AnimatedScale(
@@ -797,7 +794,12 @@ class _PressableState extends State<Pressable> {
         duration: const Duration(milliseconds: 90),
         curve: Curves.easeOut,
         child: InkWell(
-          onTap: widget.onTap,
+          onTap: widget.onTap == null
+              ? null
+              : () {
+                  AppFeedback.tap();
+                  widget.onTap!();
+                },
           borderRadius: widget.borderRadius ?? BorderRadius.circular(18),
           child: widget.child,
         ),
