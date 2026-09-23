@@ -383,7 +383,6 @@ class StockSkuCsvFile {
 
 class StockSkuCsvPreview {
   final String format;
-  final int formatVersion;
   final int totalRows;
   final int readyRows;
   final int duplicateRows;
@@ -395,7 +394,6 @@ class StockSkuCsvPreview {
 
   const StockSkuCsvPreview({
     required this.format,
-    required this.formatVersion,
     required this.totalRows,
     required this.readyRows,
     required this.duplicateRows,
@@ -411,7 +409,6 @@ class StockSkuCsvPreview {
   factory StockSkuCsvPreview.fromJson(Map<String, dynamic> json) {
     return StockSkuCsvPreview(
       format: json['format'] as String? ?? '',
-      formatVersion: (json['formatVersion'] as num? ?? 0).toInt(),
       totalRows: (json['totalRows'] as num? ?? 0).toInt(),
       readyRows: (json['readyRows'] as num? ?? 0).toInt(),
       duplicateRows: (json['duplicateRows'] as num? ?? 0).toInt(),

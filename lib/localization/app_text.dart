@@ -520,7 +520,6 @@ const Map<String, String> _myanmar = {
   'The SKU CSV must not exceed 2 MB.': 'SKU CSV သည် 2 MB ထက် မကျော်ရပါ။',
   'Import SKUs?': 'SKU များ ထည့်သွင်းမည်လား။',
   'CSV cannot be imported': 'CSV ကို ထည့်သွင်း၍မရပါ',
-  'Recognised format': 'အသိအမှတ်ပြုထားသော ဖော်မတ်',
   'Total rows': 'စုစုပေါင်း အတန်းများ',
   'Ready to import': 'ထည့်သွင်းရန် အသင့်',
   'Existing duplicates skipped': 'ရှိပြီးသား ထပ်နေမှုများကို ကျော်မည်',
@@ -528,8 +527,8 @@ const Map<String, String> _myanmar = {
   'Invalid rows': 'မမှန်ကန်သော အတန်းများ',
   'Unmatched suppliers will remain unlinked:':
       'မကိုက်ညီသော ပေးသွင်းသူများကို မချိတ်ဆက်ပါ:',
-  'Images, current balances and assignees are not imported.':
-      'ဓာတ်ပုံ၊ လက်ရှိလက်ကျန်နှင့် တာဝန်ခံများကို မထည့်သွင်းပါ။',
+  'Images and assignees are not imported.':
+      'ဓာတ်ပုံနှင့် တာဝန်ခံများကို မထည့်သွင်းပါ။',
   'Import': 'ထည့်သွင်းရန်',
   'Unable to read the selected SKU CSV file.':
       'ရွေးထားသော SKU CSV ဖိုင်ကို မဖတ်နိုင်ပါ။',
@@ -1846,15 +1845,13 @@ const Map<String, String> _chinese = {
   'The SKU CSV must not exceed 2 MB.': 'SKU CSV文件不得超过2 MB。',
   'Import SKUs?': '导入SKU？',
   'CSV cannot be imported': '无法导入CSV',
-  'Recognised format': '已识别格式',
   'Total rows': '总行数',
   'Ready to import': '可导入',
   'Existing duplicates skipped': '跳过现有重复项',
   'New tags': '新标签',
   'Invalid rows': '无效行',
   'Unmatched suppliers will remain unlinked:': '以下供应商无法匹配，将不会关联：',
-  'Images, current balances and assignees are not imported.':
-      '不会导入图片、当前库存和负责人。',
+  'Images and assignees are not imported.': '不会导入图片和负责人。',
   'Import': '导入',
   'Unable to read the selected SKU CSV file.': '无法读取所选SKU CSV文件。',
   'Exported': '已导出',

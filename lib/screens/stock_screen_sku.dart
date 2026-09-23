@@ -203,8 +203,6 @@ class _SkuSetupPageState extends State<_SkuSetupPage> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('${text.t('Recognised format')}: ${preview.format} v${preview.formatVersion}', style: const TextStyle(fontWeight: FontWeight.w700)),
-                    const SizedBox(height: 14),
                     _SkuCsvPreviewRow(label: text.t('Total rows'), value: preview.totalRows),
                     _SkuCsvPreviewRow(label: text.t('Ready to submit'), value: preview.readyRows, colour: AppColours.green),
                     _SkuCsvPreviewRow(label: text.t('Existing duplicates skipped'), value: preview.duplicateRows),
@@ -221,7 +219,7 @@ class _SkuSetupPageState extends State<_SkuSetupPage> {
                       ...preview.errors.map((error) => Padding(padding: const EdgeInsets.only(bottom: 4), child: Text(error, style: const TextStyle(color: AppColours.red)))),
                     ],
                     const SizedBox(height: 12),
-                    Text(text.t('Images, current balances and assignees are not imported.'), style: const TextStyle(color: AppColours.textMuted, fontSize: AppTextSize.s12, fontWeight: FontWeight.w600)),
+                    Text(text.t('Images and assignees are not imported.'), style: const TextStyle(color: AppColours.textMuted, fontSize: AppTextSize.s12, fontWeight: FontWeight.w600)),
                   ],
                 ),
               ),
