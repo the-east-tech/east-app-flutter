@@ -342,7 +342,7 @@ class StockSku {
   double get suggestedRestockAmount {
     final targetBalance = maximumBalanceValue * (recoveryPercent / 100);
     final amount = targetBalance - currentBalanceValue;
-    return amount < 0 ? 0 : amount;
+    return amount <= 0 ? 0 : amount.roundToDouble();
   }
 
   StockSku copyWith({

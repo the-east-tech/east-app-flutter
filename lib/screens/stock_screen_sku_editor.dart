@@ -75,6 +75,7 @@ class _SkuEditorFormState extends State<_SkuEditorForm> {
   late final TextEditingController nameController;
   late final List<TextEditingController> checklistControllers;
   late final TextEditingController minBalanceController;
+  late final TextEditingController currentBalanceController;
   late final TextEditingController maxBalanceController;
   late final TextEditingController minPriceController;
   late final TextEditingController maxPriceController;
@@ -114,6 +115,9 @@ class _SkuEditorFormState extends State<_SkuEditorForm> {
     minBalanceController = TextEditingController(
       text: sku == null ? '' : formatStockNumber(sku.minimumBalanceValue),
     );
+    currentBalanceController = TextEditingController(
+      text: sku == null ? '' : formatStockNumber(sku.currentBalanceValue),
+    );
     maxBalanceController = TextEditingController(
       text: sku == null ? '' : formatStockNumber(sku.maximumBalanceValue),
     );
@@ -146,6 +150,7 @@ class _SkuEditorFormState extends State<_SkuEditorForm> {
       controller.dispose();
     }
     minBalanceController.dispose();
+    currentBalanceController.dispose();
     maxBalanceController.dispose();
     minPriceController.dispose();
     maxPriceController.dispose();
@@ -288,8 +293,10 @@ class _SkuEditorFormState extends State<_SkuEditorForm> {
     setState(() => showErrors = true);
     final name = nameController.text.trim();
     final minBalance = double.tryParse(minBalanceController.text.trim());
+    final currentBalance = double.tryParse(
+      currentBalanceController.text.trim(),
+    );
     final maxBalance = double.tryParse(maxBalanceController.text.trim());
-    final currentBalance = widget.initialSku?.currentBalanceValue ?? minBalance;
     final minPrice = double.tryParse(minPriceController.text.trim());
     final maxPrice = double.tryParse(maxPriceController.text.trim());
     final requiresPhoto = !editing;
@@ -312,8 +319,14 @@ class _SkuEditorFormState extends State<_SkuEditorForm> {
       showWarningSnackBar(context, text.t('Select one date.'));
       return;
     }
-    if (minBalance < 0 || maxBalance <= 0 || maxBalance < minBalance) {
-      showWarningSnackBar(context, text.t('Balance must be Min / Max.'));
+    if (minBalance < 0 ||
+        currentBalance < 0 ||
+        maxBalance <= 0 ||
+        maxBalance < minBalance) {
+      showWarningSnackBar(
+        context,
+        text.t('Balance must be Min / Current / Max.'),
+      );
       return;
     }
     if (minPrice < 0 || maxPrice < minPrice) {
@@ -684,6 +697,18 @@ class _SkuEditorFormState extends State<_SkuEditorForm> {
                       errorText: requiredNumber(
                         minBalanceController,
                         text.t('Min required'),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _DialogBareInput(
+                      controller: currentBalanceController,
+                      hint: text.t('Current'),
+                      suffixText: unit,
+                      errorText: requiredNumber(
+                        currentBalanceController,
+                        text.t('Current required'),
                       ),
                     ),
                   ),

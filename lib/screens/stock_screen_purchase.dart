@@ -95,10 +95,7 @@ class _RestockMessagePageState extends State<_RestockMessagePage> {
     return result;
   }
 
-  double suggestedAmount(StockSku sku) {
-    final shortage = sku.maximumBalanceValue - sku.currentBalanceValue;
-    return shortage <= 0 ? 0 : shortage;
-  }
+  double suggestedAmount(StockSku sku) => sku.suggestedRestockAmount;
 
   String itemLines(List<StockSku> skus) {
     return List.generate(
