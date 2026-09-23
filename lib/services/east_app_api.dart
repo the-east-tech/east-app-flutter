@@ -2205,6 +2205,14 @@ class EastAppApi {
     );
   }
 
+  Future<StockSkuCsvRequest> requestStockSkuExport() async {
+    final body = await _requestJson(
+      'POST',
+      '/api/v1/stock/skus/export-requests',
+    ) as Map<String, dynamic>;
+    return StockSkuCsvRequest.fromJson(body);
+  }
+
   Future<StockSkuCsvPreview> previewStockSkuCsv({
     required String fileName,
     required Uint8List bytes,
@@ -2220,7 +2228,7 @@ class EastAppApi {
     );
   }
 
-  Future<StockSkuCsvImportResult> importStockSkuCsv({
+  Future<StockSkuCsvRequest> importStockSkuCsv({
     required String fileName,
     required Uint8List bytes,
   }) async {
@@ -2230,7 +2238,7 @@ class EastAppApi {
       fileName: fileName,
       bytes: bytes,
     );
-    return StockSkuCsvImportResult.fromJson(
+    return StockSkuCsvRequest.fromJson(
       jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>,
     );
   }
@@ -3198,6 +3206,33 @@ class EastAppApi {
           ),
         )
         .toList(growable: false);
+  }
+
+  Future<List<StockSkuCsvRequest>> stockSkuCsvRequests() async {
+    final body = await _requestJson(
+      'GET',
+      '/api/v1/stock/sku-csv-requests',
+    ) as List<dynamic>;
+    return body
+        .map(
+          (item) => StockSkuCsvRequest.fromJson(
+            item as Map<String, dynamic>,
+          ),
+        )
+        .toList(growable: false);
+  }
+
+  Future<StockSkuCsvRequest> reviewStockSkuCsvRequest({
+    required String requestId,
+    required String status,
+    String note = '',
+  }) async {
+    final body = await _requestJson(
+      'PATCH',
+      '/api/v1/stock/sku-csv-requests/$requestId/review',
+      body: {'status': status, 'note': note},
+    ) as Map<String, dynamic>;
+    return StockSkuCsvRequest.fromJson(body);
   }
 
   Future<StockSkuChangeRequest> reviewStockSkuChange({

@@ -427,27 +427,58 @@ class StockSkuCsvPreview {
   }
 }
 
-class StockSkuCsvImportResult {
-  final int importedRows;
-  final int skippedDuplicateRows;
-  final int createdTags;
-  final int unmatchedSupplierLinks;
+class StockSkuCsvRequest {
+  final String id;
+  final String operation;
+  final String status;
+  final String fileName;
+  final int totalRows;
+  final int readyRows;
+  final int duplicateRows;
+  final int newTagCount;
+  final int unmatchedSupplierCount;
+  final String requestedByName;
+  final DateTime submittedAt;
+  final String reviewedByName;
+  final DateTime? reviewedAt;
+  final String reviewNote;
 
-  const StockSkuCsvImportResult({
-    required this.importedRows,
-    required this.skippedDuplicateRows,
-    required this.createdTags,
-    required this.unmatchedSupplierLinks,
+  const StockSkuCsvRequest({
+    required this.id,
+    required this.operation,
+    required this.status,
+    required this.fileName,
+    required this.totalRows,
+    required this.readyRows,
+    required this.duplicateRows,
+    required this.newTagCount,
+    required this.unmatchedSupplierCount,
+    required this.requestedByName,
+    required this.submittedAt,
+    required this.reviewedByName,
+    required this.reviewedAt,
+    required this.reviewNote,
   });
 
-  factory StockSkuCsvImportResult.fromJson(Map<String, dynamic> json) {
-    return StockSkuCsvImportResult(
-      importedRows: (json['importedRows'] as num? ?? 0).toInt(),
-      skippedDuplicateRows:
-          (json['skippedDuplicateRows'] as num? ?? 0).toInt(),
-      createdTags: (json['createdTags'] as num? ?? 0).toInt(),
-      unmatchedSupplierLinks:
-          (json['unmatchedSupplierLinks'] as num? ?? 0).toInt(),
+  factory StockSkuCsvRequest.fromJson(Map<String, dynamic> json) {
+    return StockSkuCsvRequest(
+      id: json['id'] as String,
+      operation: json['operation'] as String? ?? '',
+      status: json['status'] as String? ?? '',
+      fileName: json['fileName'] as String? ?? '',
+      totalRows: (json['totalRows'] as num? ?? 0).toInt(),
+      readyRows: (json['readyRows'] as num? ?? 0).toInt(),
+      duplicateRows: (json['duplicateRows'] as num? ?? 0).toInt(),
+      newTagCount: (json['newTagCount'] as num? ?? 0).toInt(),
+      unmatchedSupplierCount:
+          (json['unmatchedSupplierCount'] as num? ?? 0).toInt(),
+      requestedByName: json['requestedByName'] as String? ?? '',
+      submittedAt: DateTime.parse(json['submittedAt'] as String).toLocal(),
+      reviewedByName: json['reviewedByName'] as String? ?? '',
+      reviewedAt: json['reviewedAt'] == null
+          ? null
+          : DateTime.parse(json['reviewedAt'] as String).toLocal(),
+      reviewNote: json['reviewNote'] as String? ?? '',
     );
   }
 }
