@@ -2,7 +2,6 @@ part of 'stock_screen.dart';
 
 class _SkuSetupPage extends StatefulWidget {
   final EastAppApi api;
-  final bool isOwner;
   final Future<void> Function() onReloadAfterSkuImport;
   final List<StockTag> tags;
   final List<SupplierProfile> suppliers;
@@ -14,7 +13,6 @@ class _SkuSetupPage extends StatefulWidget {
 
   const _SkuSetupPage({
     required this.api,
-    required this.isOwner,
     required this.onReloadAfterSkuImport,
     required this.tags,
     required this.suppliers,
@@ -149,7 +147,25 @@ class _SkuSetupPageState extends State<_SkuSetupPage> {
     );
   }
 
-  Future<void> exportSkus() async {
+  Future<void> requestExport() async {
+    if (exportingSkus) return;
+    AppFeedback.tap();
+    setState(() => exportingSkus = true);
+    try {
+      await widget.api.requestStockSkuExport();
+      if (!mounted) return;
+      await widget.onReloadAfterSkuImport();
+      if (mounted) {
+        showSuccessSnackBar(context, 'Export submitted for approval');
+      }
+    } on EastAppApiException {
+      // Global API error handling already presents the failure.
+    } finally {
+      if (mounted) setState(() => exportingSkus = false);
+    }
+  }
+
+  Future<void> downloadApprovedExport() async {
     if (exportingSkus) return;
     AppFeedback.tap();
     setState(() => exportingSkus = true);
@@ -168,7 +184,7 @@ class _SkuSetupPageState extends State<_SkuSetupPage> {
         ),
       );
       if (!mounted || result.status != ShareResultStatus.success) return;
-      showSuccessSnackBar(context, 'Exported');
+      showSuccessSnackBar(context, 'Approved export downloaded');
     } on EastAppApiException {
       // Global API error handling already presents the failure.
     } catch (_) {
@@ -277,23 +293,25 @@ class _SkuSetupPageState extends State<_SkuSetupPage> {
               ),
             ),
           ),
-          if (widget.isOwner) ...[
-            const SizedBox(width: 2),
-            PopupMenuButton<String>(
-              enabled: !exportingSkus,
-              tooltip: text.t('More SKU actions'),
-              popUpAnimationStyle: fastMenuAnimation,
-              icon: const Icon(Icons.more_vert_rounded),
-              onSelected: (value) {
-                if (value == 'import') unawaited(importSkus());
-                if (value == 'export') unawaited(exportSkus());
-              },
-              itemBuilder: (_) => [
-                PopupMenuItem<String>(value: 'import', child: ListTile(dense: true, contentPadding: EdgeInsets.zero, leading: const Icon(Icons.file_upload_outlined), title: Text(text.t('Import SKUs')))),
-                PopupMenuItem<String>(value: 'export', child: ListTile(dense: true, contentPadding: EdgeInsets.zero, leading: const Icon(Icons.ios_share_rounded), title: Text(text.t('Export SKUs')))),
-              ],
-            ),
-          ],
+          const SizedBox(width: 2),
+          PopupMenuButton<String>(
+            enabled: !exportingSkus,
+            tooltip: text.t('More SKU actions'),
+            popUpAnimationStyle: fastMenuAnimation,
+            icon: const Icon(Icons.more_vert_rounded),
+            onSelected: (value) {
+              if (value == 'import') unawaited(importSkus());
+              if (value == 'request_export') unawaited(requestExport());
+              if (value == 'download_export') {
+                unawaited(downloadApprovedExport());
+              }
+            },
+            itemBuilder: (_) => [
+              PopupMenuItem<String>(value: 'import', child: ListTile(dense: true, contentPadding: EdgeInsets.zero, leading: const Icon(Icons.file_upload_outlined), title: Text(text.t('Import SKUs')))),
+              PopupMenuItem<String>(value: 'request_export', child: ListTile(dense: true, contentPadding: EdgeInsets.zero, leading: const Icon(Icons.approval_outlined), title: Text(text.t('Request SKU Export')))),
+              PopupMenuItem<String>(value: 'download_export', child: ListTile(dense: true, contentPadding: EdgeInsets.zero, leading: const Icon(Icons.download_rounded), title: Text(text.t('Download Approved Export')))),
+            ],
+          ),
         ],
       ),
       children: [

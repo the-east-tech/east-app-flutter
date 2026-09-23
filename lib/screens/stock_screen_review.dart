@@ -1137,13 +1137,27 @@ class _SkuChangeApprovalSheet extends StatefulWidget {
 
 class _SkuChangeApprovalSheetState extends State<_SkuChangeApprovalSheet> {
   List<StockSkuChangeRequest> records = const [];
-  StockWorkflowStatus statusFilter = StockWorkflowStatus.submitted;
+  List<StockSkuCsvRequest> csvRecords = const [];
+  String statusFilter = 'SUBMITTED';
   bool loading = true;
   String? reviewingId;
 
-  List<StockSkuChangeRequest> get visibleRecords => records
-      .where((record) => record.workflowStatus == statusFilter)
-      .toList(growable: false);
+  List<StockSkuChangeRequest> get visibleRecords {
+    final workflowStatus = switch (statusFilter) {
+      'APPROVED' => StockWorkflowStatus.done,
+      'REJECTED' => StockWorkflowStatus.pending,
+      _ => StockWorkflowStatus.submitted,
+    };
+    return records
+        .where((record) => record.workflowStatus == workflowStatus)
+        .toList(growable: false);
+  }
+
+  List<StockSkuCsvRequest> get visibleCsvRecords {
+    return csvRecords
+        .where((record) => record.status == statusFilter)
+        .toList(growable: false);
+  }
 
   static const proposalKeys = [
     'name',
@@ -1276,9 +1290,15 @@ class _SkuChangeApprovalSheetState extends State<_SkuChangeApprovalSheet> {
   Future<void> loadRecords() async {
     if (mounted) setState(() => loading = true);
     try {
-      final loaded = await widget.api.stockSkuChangeRequests();
+      final loaded = await Future.wait<dynamic>([
+        widget.api.stockSkuChangeRequests(),
+        widget.api.stockSkuCsvRequests(),
+      ]);
       if (!mounted) return;
-      setState(() => records = loaded);
+      setState(() {
+        records = loaded[0] as List<StockSkuChangeRequest>;
+        csvRecords = loaded[1] as List<StockSkuCsvRequest>;
+      });
     } on EastAppApiException {
       // Global API error handling already presents the failure.
     } finally {
@@ -1319,6 +1339,199 @@ class _SkuChangeApprovalSheetState extends State<_SkuChangeApprovalSheet> {
     );
     controller.dispose();
     return reason;
+  }
+
+  Future<String?> rejectCsvReason() async {
+    final controller = TextEditingController();
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Reject CSV Request?'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          maxLength: 1000,
+          maxLines: 3,
+          decoration: const InputDecoration(
+            labelText: 'Reason',
+            hintText: 'A new request must be submitted after rejection',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final value = controller.text.trim();
+              if (value.isNotEmpty) Navigator.of(dialogContext).pop(value);
+            },
+            child: const Text('Reject'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    return reason;
+  }
+
+  Future<void> reviewCsv(
+    StockSkuCsvRequest record,
+    String decision,
+  ) async {
+    if (!widget.canReview || reviewingId != null) return;
+    String note = '';
+    if (decision == 'REJECTED') {
+      final reason = await rejectCsvReason();
+      if (reason == null || !mounted) return;
+      note = reason;
+    } else {
+      final confirmed = await confirmDataChange(
+        context,
+        action: 'Approve SKU CSV ${record.operation.toLowerCase()}?',
+        details: record.operation == 'IMPORT'
+            ? 'This will apply all ${record.readyRows} staged SKU rows to live data.'
+            : 'This will publish the frozen pre-approval CSV and replace the previous approved export.',
+      );
+      if (!confirmed || !mounted) return;
+    }
+
+    setState(() => reviewingId = record.id);
+    try {
+      final updated = await widget.api.reviewStockSkuCsvRequest(
+        requestId: record.id,
+        status: decision,
+        note: note,
+      );
+      await widget.onReviewed();
+      if (!mounted) return;
+      setState(() {
+        csvRecords = csvRecords
+            .map((item) => item.id == updated.id ? updated : item)
+            .toList(growable: false);
+      });
+      showSuccessSnackBar(
+        context,
+        decision == 'APPROVED'
+            ? 'SKU CSV ${record.operation.toLowerCase()} approved'
+            : 'SKU CSV request rejected',
+      );
+    } on EastAppApiException {
+      // Global API error handling already presents the failure.
+    } finally {
+      if (mounted) setState(() => reviewingId = null);
+    }
+  }
+
+  Widget csvRequestCard(StockSkuCsvRequest record) {
+    final isSubmitted = record.status == 'SUBMITTED';
+    final statusColour = switch (record.status) {
+      'APPROVED' => AppColours.green,
+      'REJECTED' => AppColours.red,
+      _ => AppColours.orange,
+    };
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: WhiteCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'SKU CSV ${record.operation == 'IMPORT' ? 'Import' : 'Export'}',
+                    style: const TextStyle(
+                      fontSize: AppTextSize.s17,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+                SmallStatusPill(
+                  text: record.status,
+                  textColour: statusColour,
+                  backgroundColour: statusColour.withValues(alpha: 0.1),
+                ),
+              ],
+            ),
+            const SizedBox(height: 5),
+            Text(
+              record.fileName,
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Requested by ${record.requestedByName.isEmpty ? 'Unknown' : record.requestedByName}',
+              style: const TextStyle(
+                color: AppColours.textMuted,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 3),
+            Text(
+              requestTime(record.submittedAt),
+              style: const TextStyle(
+                color: AppColours.textMuted,
+                fontSize: AppTextSize.s12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 6),
+            ExpansionTile(
+              tilePadding: EdgeInsets.zero,
+              childrenPadding: EdgeInsets.zero,
+              title: const Text(
+                'Batch Summary',
+                style: TextStyle(fontWeight: FontWeight.w800),
+              ),
+              children: [
+                _ReviewInfoRows(
+                  rows: [
+                    _ReviewInfoRow(label: 'Total Rows', value: '${record.totalRows}'),
+                    _ReviewInfoRow(label: 'Ready Rows', value: '${record.readyRows}'),
+                    _ReviewInfoRow(label: 'Duplicates Skipped', value: '${record.duplicateRows}'),
+                    _ReviewInfoRow(label: 'New Tags', value: '${record.newTagCount}'),
+                    _ReviewInfoRow(label: 'Unmatched Suppliers', value: '${record.unmatchedSupplierCount}'),
+                  ],
+                ),
+              ],
+            ),
+            if (record.reviewNote.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Text('Reason: ${record.reviewNote}'),
+            ],
+            if (isSubmitted && widget.canReview) ...[
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: PrimaryButton(
+                      text: 'Reject',
+                      outlined: true,
+                      icon: Icons.close_rounded,
+                      onPressed: reviewingId == null
+                          ? () => reviewCsv(record, 'REJECTED')
+                          : null,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: PrimaryButton(
+                      text: reviewingId == record.id ? 'Applying...' : 'Approve',
+                      icon: Icons.check_rounded,
+                      onPressed: reviewingId == null
+                          ? () => reviewCsv(record, 'APPROVED')
+                          : null,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> review(
@@ -1372,6 +1585,7 @@ class _SkuChangeApprovalSheetState extends State<_SkuChangeApprovalSheet> {
   Widget build(BuildContext context) {
     final text = AppTextScope.of(context);
     final visible = visibleRecords;
+    final visibleCsv = visibleCsvRecords;
     return SizedBox(
       height: MediaQuery.sizeOf(context).height * 0.86,
       child: Column(
@@ -1410,14 +1624,18 @@ class _SkuChangeApprovalSheetState extends State<_SkuChangeApprovalSheet> {
             child: ListView(
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
               children: [
-                DropdownButtonFormField<StockWorkflowStatus>(
+                DropdownButtonFormField<String>(
                   initialValue: statusFilter,
                   decoration: _inputDecoration(text.t('Status')),
-                  items: StockWorkflowStatus.values
+                  items: const {
+                    'SUBMITTED': 'Waiting Approval',
+                    'APPROVED': 'Approved',
+                    'REJECTED': 'Rejected / Returned',
+                  }.entries
                       .map(
-                        (status) => DropdownMenuItem(
-                          value: status,
-                          child: Text(status.label),
+                        (entry) => DropdownMenuItem(
+                          value: entry.key,
+                          child: Text(entry.value),
                         ),
                       )
                       .toList(growable: false),
@@ -1430,7 +1648,7 @@ class _SkuChangeApprovalSheetState extends State<_SkuChangeApprovalSheet> {
                   const Padding(
                     padding: EdgeInsets.only(bottom: 12),
                     child: Text(
-                      'Only Owner can approve or return SKU changes.',
+                      'Only Admin or Owner can approve, reject or return SKU changes.',
                       style: TextStyle(
                         color: AppColours.textMuted,
                         fontWeight: FontWeight.w600,
@@ -1439,14 +1657,15 @@ class _SkuChangeApprovalSheetState extends State<_SkuChangeApprovalSheet> {
                   ),
                 if (loading)
                   const Center(child: CircularProgressIndicator())
-                else if (visible.isEmpty)
+                else if (visible.isEmpty && visibleCsv.isEmpty)
                   const WhiteCard(
                     child: Text(
                       'No SKU change records found.',
                       style: TextStyle(fontWeight: FontWeight.w700),
                     ),
                   )
-                else
+                else ...[
+                  ...visibleCsv.map(csvRequestCard),
                   ...visible.map(
                     (record) => Padding(
                       padding: const EdgeInsets.only(bottom: 10),
@@ -1553,6 +1772,7 @@ class _SkuChangeApprovalSheetState extends State<_SkuChangeApprovalSheet> {
                       ),
                     ),
                   ),
+                ],
               ],
             ),
           ),

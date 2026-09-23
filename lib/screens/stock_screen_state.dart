@@ -333,7 +333,6 @@ class _StockScreenState extends State<StockScreen> {
             kind: _StockApprovalKind.sku,
             child: _SkuSetupPage(
               api: widget.api,
-              isOwner: widget.isOwner,
               onReloadAfterSkuImport: widget.onReloadAfterSkuImport,
               tags: widget.tags,
               suppliers: widget.suppliers,
