@@ -1,7 +1,7 @@
 name: east_app
 description: EastApp prototype
 publish_to: 'none'
-version: 1.0.0+391
+version: 1.0.0+393
 
 environment:
   sdk: '>=3.10.0 <4.0.0'
@@ -12,12 +12,14 @@ dependencies:
     sdk: flutter
   audioplayers: ^6.8.1
   camera: ^0.12.0+2
+  crypto: ^3.0.7
   geolocator: ^14.0.3
   mobile_scanner: ^7.4.0
   qr_flutter: ^4.1.0
   geocoding: ^5.0.0
   http: ^1.6.0
   image_picker: ^1.2.3
+  path_provider: ^2.1.6
   flutter_secure_storage: ^11.0.0
   flutter_contacts: 2.1.0
   firebase_core: ^4.14.0
