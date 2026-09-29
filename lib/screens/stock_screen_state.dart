@@ -22,9 +22,13 @@ class _StockScreenState extends State<StockScreen> {
   }
 
   Future<Uint8List> loadThumbnail(String storageKey) {
+    final cacheKey = '${widget.currentTenantId}\u0000$storageKey';
     return _thumbnailCache.putIfAbsent(
-      storageKey,
-      () => widget.api.stockSkuThumbnailBytes(storageKey),
+      cacheKey,
+      () => widget.api.stockSkuThumbnailBytes(
+        tenantId: widget.currentTenantId,
+        storageKey: storageKey,
+      ),
     );
   }
 

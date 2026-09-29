@@ -24,6 +24,7 @@ import '../models/app_models.dart';
 import '../models/translation_models.dart';
 import 'api_configuration.dart';
 import 'feature_data_cache.dart';
+import 'sku_thumbnail_cache.dart';
 import '../utils/app_diagnostics.dart';
 
 class EastAppApiException implements Exception {
@@ -3000,10 +3001,29 @@ class EastAppApi {
     throw error;
   }
 
-  Future<Uint8List> stockSkuThumbnailBytes(String storageKey) {
+  Future<Uint8List> stockSkuThumbnailBytes({
+    required String tenantId,
+    required String storageKey,
+  }) {
+    final normalizedTenantId = tenantId.trim();
+    final normalizedStorageKey = storageKey.trim();
     return _loadMediaBytes(
-      'stock-sku:$storageKey',
-      () => _fetchStockSkuThumbnailBytes(storageKey),
+      'stock-sku:$normalizedTenantId:$normalizedStorageKey',
+      () async {
+        final cached = await SkuThumbnailCache.instance.read(
+          tenantId: normalizedTenantId,
+          storageKey: normalizedStorageKey,
+        );
+        if (cached != null) return cached;
+
+        final bytes = await _fetchStockSkuThumbnailBytes(normalizedStorageKey);
+        await SkuThumbnailCache.instance.write(
+          tenantId: normalizedTenantId,
+          storageKey: normalizedStorageKey,
+          bytes: bytes,
+        );
+        return bytes;
+      },
     );
   }
 
