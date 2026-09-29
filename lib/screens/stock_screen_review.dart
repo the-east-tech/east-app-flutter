@@ -110,7 +110,7 @@ class _StockApprovalLauncher extends StatelessWidget {
                             ? 'SKU Change Records'
                             : isReceivable
                                 ? 'Receivable Records'
-                                : 'Daily Count Records',
+                                : 'Latest Count Records',
                       ),
                       style: const TextStyle(
                         fontSize: AppTextSize.s16,
@@ -170,7 +170,7 @@ class _StockApprovalSheet extends StatefulWidget {
 class _StockApprovalSheetState extends State<_StockApprovalSheet> {
   static const int _pageSize = 50;
   static const List<StockWorkflowStatus> _statusOptions =
-      StockWorkflowStatus.values;
+      [StockWorkflowStatus.rejected, StockWorkflowStatus.submitted, StockWorkflowStatus.done];
 
   StockWorkflowStatus statusFilter = StockWorkflowStatus.submitted;
   late DateTime rangeStart;
@@ -349,6 +349,7 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
 
   Color workflowStatusColour(StockWorkflowStatus status) {
     return switch (status) {
+      StockWorkflowStatus.none => AppColours.textMuted,
       StockWorkflowStatus.rejected => AppColours.red,
       StockWorkflowStatus.submitted => AppColours.blue,
       StockWorkflowStatus.done => AppColours.green,
@@ -952,7 +953,7 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
                         text.t(
                           isReceivable
                               ? 'Receivable Records'
-                              : 'Daily Count Records',
+                              : 'Latest Count Records',
                         ),
                         style: const TextStyle(
                           fontSize: AppTextSize.s24,
@@ -1447,6 +1448,7 @@ class _SkuChangeApprovalSheetState extends State<_SkuChangeApprovalSheet> {
                   initialValue: statusFilter,
                   decoration: _inputDecoration(text.t('Status')),
                   items: StockWorkflowStatus.values
+                       .where((status) => status != StockWorkflowStatus.none)
                       .map(
                         (status) => DropdownMenuItem(
                           value: status,

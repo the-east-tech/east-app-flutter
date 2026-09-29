@@ -213,7 +213,7 @@ class _TaskHubScreenState extends State<TaskHubScreen> {
                         : 'Your Tag tasks done',
                 badges: [
                   _CardBadge(
-                    '${data?.tasks.pending ?? 0} pending',
+                    '${data?.tasks.none ?? 0} none',
                     Icons.schedule_rounded,
                   ),
                   _CardBadge(

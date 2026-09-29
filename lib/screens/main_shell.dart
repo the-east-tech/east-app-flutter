@@ -821,7 +821,10 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
 
   void submitStockCheck(StockSubmission submission) {
     setState(() {
-      stockSubmissions = [submission, ...stockSubmissions];
+      stockSubmissions = [
+        submission,
+        ...stockSubmissions.where((item) => item.stockTaskId != submission.stockTaskId),
+      ];
     });
   }
 
@@ -1071,15 +1074,10 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     if (!mounted) return;
     setState(() {
       stockSkusUpdatedAt = DateTime.now();
-      stockSubmissions = [saved, ...stockSubmissions];
-      stockSkus = stockSkus.map((sku) {
-        if (sku.id != saved.stockTaskId) return sku;
-        return sku.copyWith(
-          currentBalanceValue: saved.currentBalanceValue,
-          lastUpdatedAt: saved.submittedAt,
-          lastUpdatedBy: saved.submittedBy,
-        );
-      }).toList();
+      stockSubmissions = [
+        saved,
+        ...stockSubmissions.where((item) => item.stockTaskId != saved.stockTaskId),
+      ];
     });
     await refreshHomeReviewSummary();
   }
@@ -1087,11 +1085,26 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   Future<void> reviewStockCountRemote(StockSubmission submission) async {
     final saved = await widget.api.reviewStockCount(submission);
     await invalidateReportData();
+    if (saved.workflowStatus == StockWorkflowStatus.done) {
+      await invalidateSetupCache(
+        EastAppApi.stockSkusCachePrefix(widget.session.tenant.id),
+      );
+    }
     if (!mounted) return;
     setState(() {
       stockSubmissions = stockSubmissions
           .map((item) => item.id == saved.id ? saved : item)
           .toList();
+      if (saved.workflowStatus == StockWorkflowStatus.done) {
+        stockSkusUpdatedAt = DateTime.now();
+        stockSkus = stockSkus.map((sku) => sku.id == saved.stockTaskId
+            ? sku.copyWith(
+                currentBalanceValue: saved.currentBalanceValue,
+                lastUpdatedAt: saved.reviewedAt,
+                lastUpdatedBy: saved.reviewedBy,
+              )
+            : sku).toList();
+      }
     });
     await refreshHomeReviewSummary();
   }
@@ -1103,10 +1116,31 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     await invalidateReportData();
     if (!mounted) return;
     final byId = {for (final item in saved) item.id: item};
+    final approved = {
+      for (final item in saved)
+        if (item.workflowStatus == StockWorkflowStatus.done) item.stockTaskId: item,
+    };
+    if (approved.isNotEmpty) {
+      await invalidateSetupCache(
+        EastAppApi.stockSkusCachePrefix(widget.session.tenant.id),
+      );
+    }
+    if (!mounted) return;
     setState(() {
       stockSubmissions = stockSubmissions
           .map((item) => byId[item.id] ?? item)
           .toList();
+      if (approved.isNotEmpty) {
+        stockSkusUpdatedAt = DateTime.now();
+        stockSkus = stockSkus.map((sku) {
+          final item = approved[sku.id];
+          return item == null ? sku : sku.copyWith(
+            currentBalanceValue: item.currentBalanceValue,
+            lastUpdatedAt: item.reviewedAt,
+            lastUpdatedBy: item.reviewedBy,
+          );
+        }).toList();
+      }
     });
     await refreshHomeReviewSummary();
   }
@@ -1120,23 +1154,8 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     );
     await invalidateReportData();
     if (!mounted) return;
-    final quantities = <String, double>{};
-    for (final item in saved.items) {
-      quantities[item.skuId] =
-          (quantities[item.skuId] ?? 0) + item.receivedQuantity;
-    }
     setState(() {
-      stockSkusUpdatedAt = DateTime.now();
       stockReceivableRecords = [saved, ...stockReceivableRecords];
-      stockSkus = stockSkus.map((sku) {
-        final received = quantities[sku.id];
-        if (received == null) return sku;
-        return sku.copyWith(
-          currentBalanceValue: sku.currentBalanceValue + received,
-          lastUpdatedAt: saved.receivedAt,
-          lastUpdatedBy: saved.receivedBy,
-        );
-      }).toList();
     });
     await refreshHomeReviewSummary();
   }
@@ -1146,11 +1165,34 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   ) async {
     final saved = await widget.api.reviewStockReceivable(record);
     await invalidateReportData();
+    if (saved.workflowStatus == StockWorkflowStatus.done) {
+      await invalidateSetupCache(
+        EastAppApi.stockSkusCachePrefix(widget.session.tenant.id),
+      );
+    }
     if (!mounted) return;
+    final quantities = <String, double>{};
+    if (saved.workflowStatus == StockWorkflowStatus.done) {
+      for (final item in saved.items) {
+        quantities[item.skuId] =
+            (quantities[item.skuId] ?? 0) + item.receivedQuantity;
+      }
+    }
     setState(() {
       stockReceivableRecords = stockReceivableRecords
           .map((item) => item.id == saved.id ? saved : item)
           .toList();
+      if (quantities.isNotEmpty) {
+        stockSkusUpdatedAt = DateTime.now();
+        stockSkus = stockSkus.map((sku) {
+          final received = quantities[sku.id];
+          return received == null ? sku : sku.copyWith(
+            currentBalanceValue: sku.currentBalanceValue + received,
+            lastUpdatedAt: saved.reviewedAt,
+            lastUpdatedBy: saved.reviewedBy,
+          );
+        }).toList();
+      }
     });
     await refreshHomeReviewSummary();
   }

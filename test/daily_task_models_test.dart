@@ -64,7 +64,7 @@ void main() {
   test('Daily Task overview calculates completion from done tasks', () {
     const overview = TaskOverview(
       total: 4,
-      pending: 1,
+      none: 1,
       submitted: 1,
       done: 2,
     );
@@ -79,7 +79,7 @@ void main() {
       'dateTo': '2026-08-24',
       'overview': {
         'total': 0,
-        'pending': 0,
+        'none': 0,
         'submitted': 0,
         'done': 0,
       },
