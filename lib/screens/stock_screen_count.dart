@@ -188,7 +188,7 @@ class _DailyStockCountPageState extends State<_DailyStockCountPage> {
   }
 
   bool submissionBlocksCount(StockSubmission submission) {
-    return submission.workflowStatus != StockWorkflowStatus.pending;
+    return submission.workflowStatus != StockWorkflowStatus.rejected;
   }
 
   StockSubmission? latestSubmissionFor(
@@ -399,7 +399,7 @@ class _DailyStockCountPageState extends State<_DailyStockCountPage> {
                 ),
               ),
               SmallStatusPill(
-                text: canSubmit ? text.t('Ready') : text.t('Pending'),
+                text: canSubmit ? text.t('Ready') : text.t('Not ready'),
                 textColour: canSubmit ? AppColours.green : AppColours.red,
                 backgroundColour:
                     canSubmit ? AppColours.greenSoft : AppColours.redSoft,
