@@ -24,7 +24,7 @@ enum StockCheckSchedule {
 }
 
 enum StockWorkflowStatus {
-  pending('PENDING', 'Pending'),
+  rejected('REJECTED', 'Rejected'),
   submitted('SUBMITTED', 'Submitted'),
   done('DONE', 'Done');
 
@@ -476,7 +476,7 @@ class StockReceivableRecord {
   });
 
   bool get isApproved => workflowStatus == StockWorkflowStatus.done;
-  bool get isRejected => workflowStatus == StockWorkflowStatus.pending;
+  bool get isRejected => workflowStatus == StockWorkflowStatus.rejected;
   bool get isPendingReview => workflowStatus == StockWorkflowStatus.submitted;
 
   StockReceivableRecord copyWith({
@@ -585,7 +585,7 @@ class StockSubmission {
   });
 
   bool get isApproved => workflowStatus == StockWorkflowStatus.done;
-  bool get isRejected => workflowStatus == StockWorkflowStatus.pending;
+  bool get isRejected => workflowStatus == StockWorkflowStatus.rejected;
   bool get isPendingReview => workflowStatus == StockWorkflowStatus.submitted;
   double get increasedValue => currentBalanceValue - previousBalanceValue;
 

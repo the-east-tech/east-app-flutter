@@ -349,7 +349,7 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
 
   Color workflowStatusColour(StockWorkflowStatus status) {
     return switch (status) {
-      StockWorkflowStatus.pending => AppColours.red,
+      StockWorkflowStatus.rejected => AppColours.red,
       StockWorkflowStatus.submitted => AppColours.blue,
       StockWorkflowStatus.done => AppColours.green,
     };
@@ -412,7 +412,7 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
       action: text.t(
         status == StockWorkflowStatus.done
             ? 'Approve Receivable Record?'
-            : 'Return Receivable Record?',
+            : 'Reject Receivable Record?',
       ),
       details: text.t(
         'This will update the review status of this receivable record.',
@@ -421,7 +421,7 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
     if (!confirmed || !mounted) return false;
     final updated = record.copyWith(
       workflowStatus: status,
-      reviewNote: status == StockWorkflowStatus.done ? 'Approved.' : 'Returned.',
+      reviewNote: status == StockWorkflowStatus.done ? 'Approved.' : 'Rejected.',
     );
     final saved = await runStockRequest(
       context,
@@ -440,7 +440,7 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
       text.t(
         status == StockWorkflowStatus.done
             ? 'Receivable record approved'
-            : 'Receivable record returned',
+            : 'Receivable record rejected',
       ),
     );
     return true;
@@ -456,7 +456,7 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
       action: text.t(
         status == StockWorkflowStatus.done
             ? 'Approve Daily Count?'
-            : 'Return Daily Count?',
+            : 'Reject Daily Count?',
       ),
       details: text.t(
         'This will update the review status of this daily stock count.',
@@ -465,7 +465,7 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
     if (!confirmed || !mounted) return false;
     final updated = submission.copyWith(
       workflowStatus: status,
-      reviewNote: status == StockWorkflowStatus.done ? 'Approved.' : 'Returned.',
+      reviewNote: status == StockWorkflowStatus.done ? 'Approved.' : 'Rejected.',
     );
     final saved = await runStockRequest(
       context,
@@ -484,7 +484,7 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
       text.t(
         status == StockWorkflowStatus.done
             ? 'Daily count approved'
-            : 'Daily count returned',
+            : 'Daily count rejected',
       ),
     );
     return true;
@@ -499,7 +499,7 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
       action: text.t(
         status == StockWorkflowStatus.done
             ? 'Approve $selectedCount records?'
-            : 'Return $selectedCount records?',
+            : 'Reject $selectedCount records?',
       ),
       details: text.t('This will update all selected records.'),
     );
@@ -513,7 +513,7 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
           (item) => item.copyWith(
             workflowStatus: status,
             reviewNote:
-                status == StockWorkflowStatus.done ? 'Approved.' : 'Returned.',
+                status == StockWorkflowStatus.done ? 'Approved.' : 'Rejected.',
           ),
         )
         .toList();
@@ -539,7 +539,7 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
       text.t(
         status == StockWorkflowStatus.done
             ? 'Selected records approved'
-            : 'Selected records returned',
+            : 'Selected records rejected',
       ),
     );
   }
@@ -639,13 +639,13 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
                     children: [
                       Expanded(
                         child: PrimaryButton(
-                          text: text.t('Return'),
+                          text: text.t('Reject'),
                           outlined: true,
                           icon: Icons.close_rounded,
                           onPressed: () async {
                             final ok = await reviewReceivable(
                               record,
-                              StockWorkflowStatus.pending,
+                              StockWorkflowStatus.rejected,
                             );
                             if (ok && detailContext.mounted) {
                               Navigator.of(detailContext).pop();
@@ -802,13 +802,13 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
                     children: [
                       Expanded(
                         child: PrimaryButton(
-                          text: text.t('Return'),
+                          text: text.t('Reject'),
                           outlined: true,
                           icon: Icons.close_rounded,
                           onPressed: () async {
                             final ok = await reviewCount(
                               submission,
-                              StockWorkflowStatus.pending,
+                              StockWorkflowStatus.rejected,
                             );
                             if (ok && detailContext.mounted) {
                               Navigator.of(detailContext).pop();
@@ -912,8 +912,8 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
                 child: FilledButton.tonal(
                   onPressed: selectedIds.isEmpty
                       ? null
-                      : () => bulkReview(StockWorkflowStatus.pending),
-                  child: Text(text.t('Return')),
+                      : () => bulkReview(StockWorkflowStatus.rejected),
+                  child: Text(text.t('Reject')),
                 ),
               ),
               const SizedBox(width: 8),
@@ -1319,12 +1319,12 @@ class _SkuChangeApprovalSheetState extends State<_SkuChangeApprovalSheet> {
     }
   }
 
-  Future<String?> returnReason() async {
+  Future<String?> rejectionReason() async {
     final controller = TextEditingController();
     final reason = await showDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Return SKU Change?'),
+        title: const Text('Reject SKU Change?'),
         content: TextField(
           controller: controller,
           autofocus: true,
@@ -1345,7 +1345,7 @@ class _SkuChangeApprovalSheetState extends State<_SkuChangeApprovalSheet> {
               final value = controller.text.trim();
               if (value.isNotEmpty) Navigator.of(dialogContext).pop(value);
             },
-            child: const Text('Return'),
+            child: const Text('Reject'),
           ),
         ],
       ),
@@ -1360,8 +1360,8 @@ class _SkuChangeApprovalSheetState extends State<_SkuChangeApprovalSheet> {
   ) async {
     if (!widget.canReview || reviewingId != null) return;
     String note = '';
-    if (nextStatus == StockWorkflowStatus.pending) {
-      final reason = await returnReason();
+    if (nextStatus == StockWorkflowStatus.rejected) {
+      final reason = await rejectionReason();
       if (reason == null || !mounted) return;
       note = reason;
     } else {
@@ -1392,7 +1392,7 @@ class _SkuChangeApprovalSheetState extends State<_SkuChangeApprovalSheet> {
         context,
         nextStatus == StockWorkflowStatus.done
             ? 'SKU change approved'
-            : 'SKU change returned',
+            : 'SKU change rejected',
       );
     } on EastAppApiException {
       // Global API error handling already presents the failure.
@@ -1552,13 +1552,13 @@ class _SkuChangeApprovalSheetState extends State<_SkuChangeApprovalSheet> {
                                 children: [
                                   Expanded(
                                     child: PrimaryButton(
-                                      text: 'Return',
+                                      text: 'Reject',
                                       outlined: true,
                                       icon: Icons.undo_rounded,
                                       onPressed: reviewingId == null
                                           ? () => review(
                                                 record,
-                                                StockWorkflowStatus.pending,
+                                                StockWorkflowStatus.rejected,
                                               )
                                           : null,
                                     ),
