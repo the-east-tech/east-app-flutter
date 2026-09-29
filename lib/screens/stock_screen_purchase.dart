@@ -5,12 +5,14 @@ class _RestockMessagePage extends StatefulWidget {
   final List<SupplierProfile> suppliers;
   final List<StockSku> skus;
   final VoidCallback onBack;
+  final Future<String?> Function() onRefreshSkus;
 
   const _RestockMessagePage({
     required this.tenantId,
     required this.suppliers,
     required this.skus,
     required this.onBack,
+    required this.onRefreshSkus,
   });
 
   @override
@@ -148,6 +150,25 @@ class _RestockMessagePageState extends State<_RestockMessagePage> {
     SupplierProfile supplier,
     List<StockSku> skus,
   ) async {
+    if (loadingStates) return;
+    setState(() => loadingStates = true);
+    String? error;
+    try {
+      error = await widget.onRefreshSkus();
+      await WidgetsBinding.instance.endOfFrame;
+    } finally {
+      if (mounted) setState(() => loadingStates = false);
+    }
+    if (!mounted || error != null) return;
+    final currentSkus = widget.skus.where((sku) =>
+        sku.active && sku.supplierIds.contains(supplier.id) &&
+        (!lowStockOnly || sku.currentBalanceValue <= sku.minimumBalanceValue)).toList();
+    if (currentSkus.isEmpty) {
+      showWarningSnackBar(context, AppTextScope.of(context).t(
+          'Stock balance changed. Refresh the purchase list.'));
+      return;
+    }
+    skus = currentSkus;
     final text = AppTextScope.of(context);
     final currentState = purchaseStates[supplier.id];
     final initialTemplate = currentState?.messageTemplate.trim().isNotEmpty == true

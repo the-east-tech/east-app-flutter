@@ -1,5 +1,21 @@
 part of 'stock_screen.dart';
 
+Future<void> showSkuApprovalHoldDialog(BuildContext context, StockSku sku) =>
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('SKU awaiting approval'),
+        content: Text('This SKU is frozen while its ${sku.approvalHoldReason} awaits review. '
+            'Ask a reviewer to approve or return the submitted record before changing this SKU.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+
 void showAddSkuDialog(
   BuildContext context, {
   required List<StockTag> tags,
@@ -75,7 +91,6 @@ class _SkuEditorFormState extends State<_SkuEditorForm> {
   late final TextEditingController nameController;
   late final List<TextEditingController> checklistControllers;
   late final TextEditingController minBalanceController;
-  late final TextEditingController currentBalanceController;
   late final TextEditingController maxBalanceController;
   late final TextEditingController minPriceController;
   late final TextEditingController maxPriceController;
@@ -84,6 +99,7 @@ class _SkuEditorFormState extends State<_SkuEditorForm> {
   late String unit;
   late StockCheckSchedule stockCheckSchedule;
   late int stockCheckDay;
+  int? stockCheckDay2;
   DateTime? stockCheckDate;
   late int recoveryPercent;
   late Set<String> supplierIds;
@@ -115,9 +131,6 @@ class _SkuEditorFormState extends State<_SkuEditorForm> {
     minBalanceController = TextEditingController(
       text: sku == null ? '' : formatStockNumber(sku.minimumBalanceValue),
     );
-    currentBalanceController = TextEditingController(
-      text: sku == null ? '' : formatStockNumber(sku.currentBalanceValue),
-    );
     maxBalanceController = TextEditingController(
       text: sku == null ? '' : formatStockNumber(sku.maximumBalanceValue),
     );
@@ -136,6 +149,7 @@ class _SkuEditorFormState extends State<_SkuEditorForm> {
             (configuredStockCheckDay == null || configuredStockCheckDay > 28)
         ? 0
         : configuredStockCheckDay ?? 1;
+    stockCheckDay2 = sku?.stockCheckDay2;
     stockCheckDate = sku?.stockCheckDate;
     final recovery = sku?.recoveryPercent ?? 100;
     recoveryPercent = ((recovery / 5).round() * 5).clamp(5, 100).toInt();
@@ -150,7 +164,6 @@ class _SkuEditorFormState extends State<_SkuEditorForm> {
       controller.dispose();
     }
     minBalanceController.dispose();
-    currentBalanceController.dispose();
     maxBalanceController.dispose();
     minPriceController.dispose();
     maxPriceController.dispose();
@@ -293,9 +306,7 @@ class _SkuEditorFormState extends State<_SkuEditorForm> {
     setState(() => showErrors = true);
     final name = nameController.text.trim();
     final minBalance = double.tryParse(minBalanceController.text.trim());
-    final currentBalance = double.tryParse(
-      currentBalanceController.text.trim(),
-    );
+    final currentBalance = widget.initialSku?.currentBalanceValue ?? 0.0;
     final maxBalance = double.tryParse(maxBalanceController.text.trim());
     final minPrice = double.tryParse(minPriceController.text.trim());
     final maxPrice = double.tryParse(maxPriceController.text.trim());
@@ -305,7 +316,6 @@ class _SkuEditorFormState extends State<_SkuEditorForm> {
         unit.trim().isEmpty ||
         minBalance == null ||
         maxBalance == null ||
-        currentBalance == null ||
         minPrice == null ||
         maxPrice == null ||
         supplierIds.isEmpty ||
@@ -320,7 +330,6 @@ class _SkuEditorFormState extends State<_SkuEditorForm> {
       return;
     }
     if (minBalance < 0 ||
-        currentBalance < 0 ||
         maxBalance <= 0 ||
         maxBalance < minBalance) {
       showWarningSnackBar(
@@ -360,6 +369,8 @@ class _SkuEditorFormState extends State<_SkuEditorForm> {
           .where((value) => value.isNotEmpty)
           .take(5)
           .toList();
+      final effectiveStockCheckDay2 =
+          stockCheckSchedule == StockCheckSchedule.weekly ? stockCheckDay2 : null;
       final effectiveStockCheckDay =
           stockCheckSchedule == StockCheckSchedule.daily ||
                   stockCheckSchedule == StockCheckSchedule.adHoc ||
@@ -389,6 +400,7 @@ class _SkuEditorFormState extends State<_SkuEditorForm> {
               assignedStaffName: 'Unassigned',
               stockCheckSchedule: stockCheckSchedule,
               stockCheckDay: effectiveStockCheckDay,
+              stockCheckDay2: effectiveStockCheckDay2,
               stockCheckDate: stockCheckDate,
               lastUpdatedAt: 'Not counted yet',
               lastUpdatedBy: headId,
@@ -413,7 +425,9 @@ class _SkuEditorFormState extends State<_SkuEditorForm> {
                 photoPath: photoPath,
                 stockCheckSchedule: stockCheckSchedule,
                 stockCheckDay: effectiveStockCheckDay,
+                stockCheckDay2: effectiveStockCheckDay2,
                 clearStockCheckDay: effectiveStockCheckDay == null,
+                clearStockCheckDay2: effectiveStockCheckDay2 == null,
                 stockCheckDate: stockCheckDate,
                 active: active,
               );
@@ -656,16 +670,25 @@ class _SkuEditorFormState extends State<_SkuEditorForm> {
                 day: stockCheckSchedule == StockCheckSchedule.monthly
                     ? (stockCheckDay == 0 ? null : stockCheckDay)
                     : stockCheckDay,
+                secondWeeklyDay: stockCheckDay2,
+                allowSecondWeeklyDay: true,
+                onSecondWeeklyDayChanged: (day) =>
+                    setState(() => stockCheckDay2 = day),
                 date: stockCheckDate,
                 onTypeChanged: (value) => setState(() {
                   stockCheckSchedule = _stockCheckSchedule(value);
+                  if (stockCheckSchedule != StockCheckSchedule.weekly) {
+                    stockCheckDay2 = null;
+                  }
                   if (stockCheckSchedule == StockCheckSchedule.weekly &&
                       stockCheckDay == 0) {
                     stockCheckDay = 1;
                   }
                 }),
-                onDayChanged: (day) =>
-                    setState(() => stockCheckDay = day ?? 0),
+                onDayChanged: (day) => setState(() {
+                  stockCheckDay = day ?? 0;
+                  if (stockCheckDay2 == stockCheckDay) stockCheckDay2 = null;
+                }),
                 onDateChanged: (date) => setState(() => stockCheckDate = date),
               ),
               const SizedBox(height: 14),
@@ -697,18 +720,6 @@ class _SkuEditorFormState extends State<_SkuEditorForm> {
                       errorText: requiredNumber(
                         minBalanceController,
                         text.t('Min required'),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _DialogBareInput(
-                      controller: currentBalanceController,
-                      hint: text.t('Current'),
-                      suffixText: unit,
-                      errorText: requiredNumber(
-                        currentBalanceController,
-                        text.t('Current required'),
                       ),
                     ),
                   ),

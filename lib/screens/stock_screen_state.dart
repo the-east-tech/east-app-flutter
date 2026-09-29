@@ -327,6 +327,7 @@ class _StockScreenState extends State<StockScreen> {
             suppliers: widget.suppliers.where((supplier) => supplier.active).toList(),
             skus: widget.stockSkus.where((sku) => sku.active).toList(),
             onBack: goHome,
+            onRefreshSkus: () => widget.onLoadPageData(StockPage.restockMessage, true),
           ),
         );
       case StockPage.skuSetup:

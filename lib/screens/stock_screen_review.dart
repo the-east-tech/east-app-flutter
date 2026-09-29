@@ -873,35 +873,59 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
 
   Widget selectionToolbar() {
     final text = AppTextScope.of(context);
+    final allLoadedSelected = countRecords.isNotEmpty &&
+        countRecords.every((record) => selectedIds.contains(record.id));
     return WhiteCard(
-      child: Row(
+      child: Column(
         children: [
-          Expanded(
-            child: Text(
-              text.t('${selectedIds.length} selected'),
-              style: const TextStyle(
-                fontSize: AppTextSize.s14,
-                fontWeight: FontWeight.w800,
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  text.t('${selectedIds.length} selected'),
+                  style: const TextStyle(
+                    fontSize: AppTextSize.s14,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
               ),
-            ),
+              TextButton(
+                onPressed: () => setState(() {
+                  if (allLoadedSelected) {
+                    selectedIds.clear();
+                  } else {
+                    selectedIds.addAll(countRecords.map((record) => record.id));
+                  }
+                }),
+                child: Text(text.t(
+                    allLoadedSelected ? 'Clear selection' : 'Select all loaded')),
+              ),
+              TextButton(
+                onPressed: cancelSelection,
+                child: Text(text.t('Cancel')),
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: cancelSelection,
-            child: Text(text.t('Cancel')),
-          ),
-          const SizedBox(width: 4),
-          FilledButton.tonal(
-            onPressed: selectedIds.isEmpty
-                ? null
-                : () => bulkReview(StockWorkflowStatus.pending),
-            child: Text(text.t('Return')),
-          ),
-          const SizedBox(width: 6),
-          FilledButton(
-            onPressed: selectedIds.isEmpty
-                ? null
-                : () => bulkReview(StockWorkflowStatus.done),
-            child: Text(text.t('Approve')),
+          Row(
+            children: [
+              Expanded(
+                child: FilledButton.tonal(
+                  onPressed: selectedIds.isEmpty
+                      ? null
+                      : () => bulkReview(StockWorkflowStatus.pending),
+                  child: Text(text.t('Return')),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: FilledButton(
+                  onPressed: selectedIds.isEmpty
+                      ? null
+                      : () => bulkReview(StockWorkflowStatus.done),
+                  child: Text(text.t('Approve')),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -996,6 +1020,15 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
                   onPressed: loading ? null : () => loadRecords(reset: true),
                 ),
                 const SizedBox(height: 14),
+                if (loaded && !isReceivable && canReviewSelectedStatus &&
+                    recordsCount > 0 && !selecting) ...[
+                  OutlinedButton.icon(
+                    onPressed: startSelection,
+                    icon: const Icon(Icons.checklist_rounded),
+                    label: Text(text.t('Select records for batch review')),
+                  ),
+                  const SizedBox(height: 12),
+                ],
                 if (!loaded)
                   WhiteCard(
                     child: Text(

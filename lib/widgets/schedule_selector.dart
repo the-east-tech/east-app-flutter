@@ -10,6 +10,9 @@ class ScheduleSelector extends StatelessWidget {
   final String title;
   final AppScheduleType value;
   final int? day;
+  final int? secondWeeklyDay;
+  final bool allowSecondWeeklyDay;
+  final ValueChanged<int?>? onSecondWeeklyDayChanged;
   final DateTime? date;
   final bool compact;
   final ValueChanged<AppScheduleType> onTypeChanged;
@@ -21,6 +24,9 @@ class ScheduleSelector extends StatelessWidget {
     required this.title,
     required this.value,
     required this.day,
+    this.secondWeeklyDay,
+    this.allowSecondWeeklyDay = false,
+    this.onSecondWeeklyDayChanged,
     required this.date,
     this.compact = false,
     required this.onTypeChanged,
@@ -37,8 +43,9 @@ class ScheduleSelector extends StatelessWidget {
           ? text.t('Select one date.')
           : '${text.t('One-time on')} ${_formatDate(date!)}.',
       AppScheduleType.daily => text.t('Repeats every day.'),
-      AppScheduleType.weekly =>
-        '${text.t('Repeats every')} ${text.t(weekdays[(day ?? 1).clamp(1, 7).toInt() - 1])}.',
+      AppScheduleType.weekly => secondWeeklyDay == null
+          ? '${text.t('Repeats every')} ${text.t(weekdays[(day ?? 1).clamp(1, 7).toInt() - 1])}.'
+          : '${text.t('Repeats every')} ${text.t(weekdays[(day ?? 1).clamp(1, 7).toInt() - 1])} + ${text.t(weekdays[secondWeeklyDay!.clamp(1, 7).toInt() - 1])}.',
       AppScheduleType.monthly => day == null
           ? text.t('Repeats on the last day of every month.')
           : '${text.t('Repeats monthly on Day')} $day.',
@@ -92,8 +99,26 @@ class ScheduleSelector extends StatelessWidget {
                 final weekday = index + 1;
                 return ChoiceChip(
                   label: Text(text.t(weekdays[index])),
-                  selected: (day ?? 1) == weekday,
-                  onSelected: (_) => onDayChanged(weekday),
+                  selected: (day ?? 1) == weekday ||
+                      (allowSecondWeeklyDay && secondWeeklyDay == weekday),
+                  onSelected: (_) {
+                    if (!allowSecondWeeklyDay) {
+                      onDayChanged(weekday);
+                    } else if (secondWeeklyDay == weekday) {
+                      onSecondWeeklyDayChanged?.call(null);
+                    } else if (day == weekday) {
+                      if (secondWeeklyDay != null) {
+                        onDayChanged(secondWeeklyDay);
+                        onSecondWeeklyDayChanged?.call(null);
+                      }
+                    } else if (secondWeeklyDay == null) {
+                      onSecondWeeklyDayChanged?.call(weekday);
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(text.t('Select up to 2 days.'))),
+                      );
+                    }
+                  },
                 );
               }),
             ),

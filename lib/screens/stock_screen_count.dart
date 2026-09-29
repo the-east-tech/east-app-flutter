@@ -138,8 +138,11 @@ class _DailyStockCountPageState extends State<_DailyStockCountPage> {
         return today;
       case StockCheckSchedule.weekly:
         final scheduledDay = (sku.stockCheckDay ?? 1).clamp(1, 7).toInt();
-        final daysSinceSchedule = (today.weekday - scheduledDay + 7) % 7;
-        return today.subtract(Duration(days: daysSinceSchedule));
+        final first = (today.weekday - scheduledDay + 7) % 7;
+        final second = sku.stockCheckDay2 == null
+            ? 7
+            : (today.weekday - sku.stockCheckDay2! + 7) % 7;
+        return today.subtract(Duration(days: first < second ? first : second));
       case StockCheckSchedule.monthly:
         final scheduledDay = sku.stockCheckDay;
         var candidate = monthlyStockCheckDate(
@@ -166,7 +169,14 @@ class _DailyStockCountPageState extends State<_DailyStockCountPage> {
       case StockCheckSchedule.daily:
         return start.add(const Duration(days: 1));
       case StockCheckSchedule.weekly:
-        return start.add(const Duration(days: 7));
+        if (sku.stockCheckDay2 == null) {
+          return start.add(const Duration(days: 7));
+        }
+        final primary = ((sku.stockCheckDay ?? 1) - start.weekday + 7) % 7;
+        final secondary = (sku.stockCheckDay2! - start.weekday + 7) % 7;
+        final next = [primary == 0 ? 7 : primary, secondary == 0 ? 7 : secondary]
+            .reduce((a, b) => a < b ? a : b);
+        return start.add(Duration(days: next));
       case StockCheckSchedule.monthly:
         final nextMonth = DateTime(start.year, start.month + 1, 1);
         return monthlyStockCheckDate(
@@ -213,7 +223,8 @@ class _DailyStockCountPageState extends State<_DailyStockCountPage> {
           submissions: submissions,
         ) !=
         null;
-    return sku.active && sku.coolingPeriod && !alreadySubmitted;
+    return sku.active && sku.coolingPeriod &&
+        sku.approvalHoldReason.isEmpty && !alreadySubmitted;
   }
 
   void openSkuPhotoPreview(StockSku sku) {
@@ -257,8 +268,17 @@ class _DailyStockCountPageState extends State<_DailyStockCountPage> {
 
   Future<void> openSkuBalanceKeypad(StockSku sku) async {
     final text = AppTextScope.of(context);
+    final submittedCount = latestSubmissionFor(sku);
+    if (sku.approvalHoldReason.isNotEmpty ||
+        submittedCount?.workflowStatus == StockWorkflowStatus.submitted) {
+      final frozenSku = sku.approvalHoldReason.isNotEmpty
+          ? sku
+          : sku.copyWith(approvalHoldReason: 'Stock Count');
+      await showSkuApprovalHoldDialog(context, frozenSku);
+      return;
+    }
     if (!canEditCountSku(sku)) {
-      showWarningSnackBar(context, text.t('Submitted counts cannot be edited.'));
+      showWarningSnackBar(context, text.t('This SKU is already counted for the current cycle.'));
       return;
     }
     final enteredText = await showAppNumberPad(
@@ -303,7 +323,7 @@ class _DailyStockCountPageState extends State<_DailyStockCountPage> {
       context,
       action: 'Submit Stock Check?',
       details:
-          'This will create stock-check records and update the selected SKU balances.',
+          'This will submit stock-check records for approval. Balances change only when approved.',
     );
     if (!confirmed || !mounted) return;
 
@@ -705,7 +725,7 @@ class _DailyStockMiniCard extends StatelessWidget {
         opacity: autoSaved ? 0.55 : 1,
         duration: const Duration(milliseconds: 140),
         child: Pressable(
-          onTap: editable && !autoSaved ? onBalanceTap : null,
+          onTap: onBalanceTap,
           borderRadius: BorderRadius.circular(18),
           child: Padding(
             padding: const EdgeInsets.all(10),
