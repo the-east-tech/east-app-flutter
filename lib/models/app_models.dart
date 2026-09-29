@@ -284,11 +284,13 @@ class StockSku {
   final List<String> receivableChecklist;
   final StockCheckSchedule stockCheckSchedule;
   final int? stockCheckDay;
+  final int? stockCheckDay2;
   final DateTime? stockCheckDate;
   final String lastUpdatedAt;
   final String lastUpdatedBy;
   final bool active;
   final bool coolingPeriod;
+  final String approvalHoldReason;
 
   StockSku({
     required this.id,
@@ -311,11 +313,13 @@ class StockSku {
     this.receivableChecklist = const [],
     this.stockCheckSchedule = StockCheckSchedule.daily,
     this.stockCheckDay,
+    this.stockCheckDay2,
     this.stockCheckDate,
     required this.lastUpdatedAt,
     required this.lastUpdatedBy,
     this.active = true,
     this.coolingPeriod = true,
+    this.approvalHoldReason = '',
   }) : assignedStaffNames = _normaliseAssignedStaffNames(
           assignedStaffNames.isNotEmpty ? assignedStaffNames : [assignedStaffName],
         );
@@ -365,12 +369,15 @@ class StockSku {
     List<String>? receivableChecklist,
     StockCheckSchedule? stockCheckSchedule,
     int? stockCheckDay,
+    int? stockCheckDay2,
     bool clearStockCheckDay = false,
+    bool clearStockCheckDay2 = false,
     DateTime? stockCheckDate,
     String? lastUpdatedAt,
     String? lastUpdatedBy,
     bool? active,
     bool? coolingPeriod,
+    String? approvalHoldReason,
   }) {
     final nextAssignedStaffNames = assignedStaffNames ??
         (assignedStaffName == null
@@ -401,6 +408,10 @@ class StockSku {
               nextSchedule == StockCheckSchedule.adHoc || clearStockCheckDay
           ? null
           : stockCheckDay ?? this.stockCheckDay,
+      stockCheckDay2: nextSchedule == StockCheckSchedule.weekly &&
+              !clearStockCheckDay2
+          ? stockCheckDay2 ?? this.stockCheckDay2
+          : null,
       stockCheckDate: nextSchedule == StockCheckSchedule.adHoc
           ? stockCheckDate ?? this.stockCheckDate
           : null,
@@ -408,6 +419,7 @@ class StockSku {
       lastUpdatedBy: lastUpdatedBy ?? this.lastUpdatedBy,
       active: active ?? this.active,
       coolingPeriod: coolingPeriod ?? this.coolingPeriod,
+      approvalHoldReason: approvalHoldReason ?? this.approvalHoldReason,
     );
   }
 }

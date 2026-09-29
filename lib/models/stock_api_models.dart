@@ -149,6 +149,7 @@ StockSku stockSkuFromJson(Map<String, dynamic> json) {
     stockCheckSchedule:
         StockCheckSchedule.fromApi(json['stockCheckSchedule'] as String?),
     stockCheckDay: (json['stockCheckDay'] as num?)?.toInt(),
+    stockCheckDay2: (json['stockCheckDay2'] as num?)?.toInt(),
     stockCheckDate: json['stockCheckDate'] == null
         ? null
         : DateTime.parse(json['stockCheckDate'] as String),
@@ -156,6 +157,7 @@ StockSku stockSkuFromJson(Map<String, dynamic> json) {
     lastUpdatedBy: json['lastUpdatedBy'] as String? ?? '',
     active: json['active'] as bool? ?? true,
     coolingPeriod: json['coolingPeriod'] as bool? ?? true,
+    approvalHoldReason: json['approvalHoldReason'] as String? ?? '',
   );
 }
 
@@ -310,6 +312,7 @@ Map<String, Object?> stockSkuToJson(StockSku sku) {
     'receivableChecklist': sku.receivableChecklist,
     'stockCheckSchedule': sku.stockCheckSchedule.apiValue,
     'stockCheckDay': sku.stockCheckDay,
+    'stockCheckDay2': sku.stockCheckDay2,
     'stockCheckDate': sku.stockCheckDate == null
         ? null
         : formatApiDate(sku.stockCheckDate!),

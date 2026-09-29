@@ -148,6 +148,10 @@ class _StockReceivablePageState extends State<_StockReceivablePage> {
   }
 
   Future<void> editSku(StockSku sku) async {
+    if (sku.approvalHoldReason.isNotEmpty) {
+      await showSkuApprovalHoldDialog(context, sku);
+      return;
+    }
     final text = AppTextScope.of(context);
     final existing = drafts[sku.id];
     final invoiceController = TextEditingController(
@@ -316,6 +320,13 @@ class _StockReceivablePageState extends State<_StockReceivablePage> {
         text.t('Capture both photos and select at least one SKU.'),
       );
       return;
+    }
+
+    for (final draft in drafts.values) {
+      if (draft.sku.approvalHoldReason.isNotEmpty) {
+        await showSkuApprovalHoldDialog(context, draft.sku);
+        return;
+      }
     }
 
     final confirmed = await confirmDataChange(
@@ -615,6 +626,8 @@ class _ReceivableSkuRow extends StatelessWidget {
                     : null,
               ),
               const SizedBox(width: 11),
+              _SkuPhotoThumb(sku: sku, size: 42),
+              const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -635,7 +648,9 @@ class _ReceivableSkuRow extends StatelessWidget {
                   ],
                 ),
               ),
-              if (onRemove != null)
+              if (sku.approvalHoldReason.isNotEmpty)
+                const Icon(Icons.lock_rounded, color: AppColours.textMuted)
+              else if (onRemove != null)
                 IconButton(
                   onPressed: onRemove,
                   tooltip: text.t('Remove'),
