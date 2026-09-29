@@ -260,9 +260,7 @@ class _TasksScreenState extends State<TasksScreen> {
     TaskRecord record, {
     bool allowRating = false,
   }) async {
-    final openedTab = selectedTab;
-    final tab = taskTabStates[openedTab];
-    final changed = await Navigator.of(context).push<bool>(
+    final saved = await Navigator.of(context).push<TaskRecord>(
       MaterialPageRoute(
         builder: (_) => _TaskDetailPage(
           api: widget.api,
@@ -271,21 +269,17 @@ class _TasksScreenState extends State<TasksScreen> {
         ),
       ),
     );
-    if (!mounted) return;
-    if (changed == true) {
-      final shouldReload = tab.hasLoadedRecords;
-      widget.api.invalidateTaskRecords(widget.tenantId);
-      setState(() {
-        for (final taskTab in taskTabStates) {
-          clearLoadedRecords(taskTab);
-        }
-      });
-      if (shouldReload) {
-        await loadRecords(tabIndex: openedTab, forceRefresh: true);
+    if (!mounted || saved == null) return;
+    widget.api.invalidateTaskRecords(widget.tenantId);
+    setState(() {
+      for (final taskTab in taskTabStates) {
+        taskTab.records = taskTab.records
+            .map((item) => item.id == saved.id ? saved : item)
+            .toList(growable: false);
       }
-    }
+    });
     final callback = widget.onChanged;
-    if (changed == true && callback != null) await callback();
+    if (callback != null) await callback();
   }
 
   Future<void> openTemplate([TaskTemplate? template]) async {
@@ -1416,7 +1410,7 @@ class _TaskDetailPageState extends State<_TaskDetailPage> {
   }
 
   void close() {
-    Navigator.of(context).pop(changed);
+    Navigator.of(context).pop(changed ? record : null);
   }
 
   @override
