@@ -5,7 +5,8 @@ class _DailyStockCountPage extends StatefulWidget {
   final List<StockSku> skus;
   final List<StockSubmission> submissions;
   final VoidCallback onBack;
-  final Future<void> Function(StockSubmission submission) onSubmitStockCheck;
+  final Future<void> Function(List<StockSubmission> submissions)
+      onSubmitStockCounts;
   final void Function(List<String> skuIds) onResetCountTimers;
 
   const _DailyStockCountPage({
@@ -13,7 +14,7 @@ class _DailyStockCountPage extends StatefulWidget {
     required this.skus,
     required this.submissions,
     required this.onBack,
-    required this.onSubmitStockCheck,
+    required this.onSubmitStockCounts,
     required this.onResetCountTimers,
   });
 
@@ -327,31 +328,30 @@ class _DailyStockCountPageState extends State<_DailyStockCountPage> {
     );
     if (!confirmed || !mounted) return;
 
-    for (final sku in skusToSubmit) {
+    final capturedAt = DateTime.now();
+    final submissions = skusToSubmit.map((sku) {
       final currentBalance = double.parse(controllers[sku.id]!.text.trim());
       final note = notes[sku.id]!.text.trim();
-      final capturedAt = DateTime.now();
-      final submitted = await runStockRequest(
-        context,
-        () => widget.onSubmitStockCheck(
-          StockSubmission(
-            id: 'COUNT${capturedAt.millisecondsSinceEpoch}_${sku.id}',
-            stockTaskId: sku.id,
-            submittedBy: submittedBy,
-            submittedAt: 'Submitted just now',
-            capturedAt: capturedAt,
-            stockPhotoName: 'stock_check_${sku.id.toLowerCase()}_camera.jpg',
-            invoicePhotoName: 'Not required for stock check',
-            previousBalanceValue: sku.currentBalanceValue,
-            currentBalanceValue: currentBalance,
-            belowMinimumBalance: currentBalance < sku.minimumBalanceValue,
-            checkedItems: const {'stock_check': true},
-            remarks: {'note': note.isEmpty ? 'No remark provided.' : note},
-          ),
-        ),
+      return StockSubmission(
+        id: 'COUNT${capturedAt.millisecondsSinceEpoch}_${sku.id}',
+        stockTaskId: sku.id,
+        submittedBy: submittedBy,
+        submittedAt: 'Submitted just now',
+        capturedAt: capturedAt,
+        stockPhotoName: 'stock_check_${sku.id.toLowerCase()}_camera.jpg',
+        invoicePhotoName: 'Not required for stock check',
+        previousBalanceValue: sku.currentBalanceValue,
+        currentBalanceValue: currentBalance,
+        belowMinimumBalance: currentBalance < sku.minimumBalanceValue,
+        checkedItems: const {'stock_check': true},
+        remarks: {'note': note.isEmpty ? 'No remark provided.' : note},
       );
-      if (!submitted || !mounted) return;
-    }
+    }).toList(growable: false);
+    final submitted = await runStockRequest(
+      context,
+      () => widget.onSubmitStockCounts(submissions),
+    );
+    if (!submitted || !mounted) return;
 
     widget.onResetCountTimers(skusToSubmit.map((sku) => sku.id).toList());
     showSuccessSnackBar(context, text.t('Stock check submitted'));

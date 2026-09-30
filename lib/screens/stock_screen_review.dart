@@ -173,8 +173,6 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
       [StockWorkflowStatus.rejected, StockWorkflowStatus.submitted, StockWorkflowStatus.done];
 
   StockWorkflowStatus statusFilter = StockWorkflowStatus.submitted;
-  late DateTime rangeStart;
-  late DateTime rangeEnd;
   List<StockReceivableRecord> receivableRecords = const [];
   List<StockSubmission> countRecords = const [];
   bool loaded = false;
@@ -191,14 +189,6 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
       statusFilter == StockWorkflowStatus.submitted;
   int get recordsCount =>
       isReceivable ? receivableRecords.length : countRecords.length;
-
-  @override
-  void initState() {
-    super.initState();
-    final today = _dateOnly(DateTime.now());
-    rangeEnd = today;
-    rangeStart = today.subtract(const Duration(days: 29));
-  }
 
   DateTime _dateOnly(DateTime value) =>
       DateTime(value.year, value.month, value.day);
@@ -221,9 +211,6 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
     return '${value.day} ${months[value.month - 1]} ${value.year}';
   }
 
-  String get rangeLabel =>
-      '${_formatDate(rangeStart)} – ${_formatDate(rangeEnd)}';
-
   void _clearLoadedResults() {
     receivableRecords = const [];
     countRecords = const [];
@@ -233,35 +220,6 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
     lastPage = true;
     selecting = false;
     selectedIds.clear();
-  }
-
-  Future<void> selectDateRange() async {
-    final text = AppTextScope.of(context);
-    final selected = await showDateRangePicker(
-      context: context,
-      firstDate: DateTime(2020),
-      lastDate: _dateOnly(DateTime.now()),
-      initialDateRange: DateTimeRange(start: rangeStart, end: rangeEnd),
-      helpText: text.t('Select Date Range'),
-      saveText: text.t('Apply'),
-      switchToInputEntryModeIcon: const Icon(Icons.edit_rounded),
-    );
-    if (selected == null || !mounted) return;
-
-    final start = _dateOnly(selected.start);
-    final end = _dateOnly(selected.end);
-    if (end.difference(start).inDays + 1 > 30) {
-      await AppFeedback.warning();
-      if (!mounted) return;
-      showWarningSnackBar(context, text.t('Maximum 30 days.'));
-      return;
-    }
-
-    setState(() {
-      rangeStart = start;
-      rangeEnd = end;
-      _clearLoadedResults();
-    });
   }
 
   Future<void> loadRecords({bool reset = true}) async {
@@ -281,8 +239,6 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
       if (isReceivable) {
         final result = await widget.api.stockReceivables(
           workflowStatus: statusFilter,
-          from: rangeStart,
-          to: rangeEnd,
           page: page,
           size: _pageSize,
         );
@@ -300,8 +256,6 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
         final result = await widget.api.stockCounts(
           mine: false,
           workflowStatus: statusFilter,
-          from: rangeStart,
-          to: rangeEnd,
           page: page,
           size: _pageSize,
         );
@@ -961,16 +915,6 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
                         ),
                       ),
                     ),
-                    if (!isReceivable &&
-                        loaded &&
-                        canReviewSelectedStatus &&
-                        recordsCount > 0 &&
-                        !selecting)
-                      TextButton.icon(
-                        onPressed: startSelection,
-                        icon: const Icon(Icons.checklist_rounded),
-                        label: Text(text.t('Select')),
-                      ),
                     IconButton(
                       onPressed: () => Navigator.of(context).pop(),
                       icon: const Icon(Icons.close_rounded),
@@ -985,29 +929,6 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
               children: [
                 statusDropdown(),
-                const SizedBox(height: 10),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: selectDateRange,
-                    icon: const Icon(Icons.date_range_rounded, size: 20),
-                    label: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            rangeLabel,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: AppTextSize.s13,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ),
-                        const Icon(Icons.chevron_right_rounded, size: 20),
-                      ],
-                    ),
-                  ),
-                ),
                 const SizedBox(height: 12),
                 PrimaryButton(
                   text: text.t(
@@ -1021,20 +942,11 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
                   onPressed: loading ? null : () => loadRecords(reset: true),
                 ),
                 const SizedBox(height: 14),
-                if (loaded && !isReceivable && canReviewSelectedStatus &&
-                    recordsCount > 0 && !selecting) ...[
-                  OutlinedButton.icon(
-                    onPressed: startSelection,
-                    icon: const Icon(Icons.checklist_rounded),
-                    label: Text(text.t('Select records for batch review')),
-                  ),
-                  const SizedBox(height: 12),
-                ],
                 if (!loaded)
                   WhiteCard(
                     child: Text(
                       text.t(
-                        'Select Status and Date, then press Search.',
+                        'Select Status, then press Search.',
                       ),
                       style: const TextStyle(
                         fontSize: AppTextSize.s15,
@@ -1057,7 +969,7 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
                           icon: Icons.manage_search_rounded,
                         ),
                       ),
-                      const SizedBox(width: 10),
+                      const SizedBox(width: 8),
                       Expanded(
                         child: _MiniMetric(
                           label: 'Loaded',
@@ -1065,6 +977,25 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
                           icon: Icons.download_done_rounded,
                         ),
                       ),
+                      if (!isReceivable &&
+                          canReviewSelectedStatus &&
+                          recordsCount > 0 &&
+                          !selecting) ...[
+                        const SizedBox(width: 8),
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            minimumSize: const Size(0, 0),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 12,
+                            ),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                          onPressed: startSelection,
+                          icon: const Icon(Icons.checklist_rounded, size: 18),
+                          label: Text(text.t('Select')),
+                        ),
+                      ],
                     ],
                   ),
                   const SizedBox(height: 12),
@@ -1465,7 +1396,7 @@ class _SkuChangeApprovalSheetState extends State<_SkuChangeApprovalSheet> {
                   const Padding(
                     padding: EdgeInsets.only(bottom: 12),
                     child: Text(
-                      'Only Owner can approve or return SKU changes.',
+                      'Only Owner can approve or reject SKU changes.',
                       style: TextStyle(
                         color: AppColours.textMuted,
                         fontWeight: FontWeight.w600,

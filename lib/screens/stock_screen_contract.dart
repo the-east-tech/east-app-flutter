@@ -27,7 +27,8 @@ class StockScreen extends StatefulWidget {
   final bool canLoadMoreSkus;
   final bool canLoadMoreCounts;
   final bool canLoadMoreReceivables;
-  final Future<void> Function(StockSubmission submission) onSubmitStockCheck;
+  final Future<void> Function(List<StockSubmission> submissions)
+      onSubmitStockCounts;
   final void Function(StockTask task) onCreateStockTask;
   final Future<void> Function(String supplierId, double balance, String updatedBy)
       onUpdateSupplierBalance;
@@ -79,7 +80,7 @@ class StockScreen extends StatefulWidget {
     required this.canLoadMoreSkus,
     required this.canLoadMoreCounts,
     required this.canLoadMoreReceivables,
-    required this.onSubmitStockCheck,
+    required this.onSubmitStockCounts,
     required this.onCreateStockTask,
     required this.onUpdateSupplierBalance,
     required this.onCreateSupplier,

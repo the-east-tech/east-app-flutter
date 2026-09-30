@@ -2469,8 +2469,6 @@ class EastAppApi {
   Future<EastAppPage<StockSubmission>> stockCounts({
     bool mine = false,
     StockWorkflowStatus? workflowStatus,
-    DateTime? from,
-    DateTime? to,
     int page = 0,
     int size = 50,
   }) async {
@@ -2478,8 +2476,6 @@ class EastAppApi {
       'mine': '$mine',
       if (workflowStatus != null)
         'workflowStatus': workflowStatus.apiValue,
-      if (from != null) 'from': formatApiDate(from),
-      if (to != null) 'to': formatApiDate(to),
       'page': '$page',
       'size': '$size',
     }).query;
@@ -2492,16 +2488,12 @@ class EastAppApi {
 
   Future<EastAppPage<StockReceivableRecord>> stockReceivables({
     StockWorkflowStatus? workflowStatus,
-    DateTime? from,
-    DateTime? to,
     int page = 0,
     int size = 50,
   }) async {
     final query = Uri(queryParameters: {
       if (workflowStatus != null)
         'workflowStatus': workflowStatus.apiValue,
-      if (from != null) 'from': formatApiDate(from),
-      if (to != null) 'to': formatApiDate(to),
       'page': '$page',
       'size': '$size',
     }).query;
@@ -3233,15 +3225,22 @@ class EastAppApi {
     return StockSkuChangeRequest.fromJson(body);
   }
 
-  Future<StockSubmission> createStockCount(
-    StockSubmission submission,
+  Future<List<StockSubmission>> createStockCounts(
+    List<StockSubmission> submissions,
   ) async {
+    if (submissions.isEmpty) return const [];
     final body = await _requestJson(
       'POST',
-      '/api/v1/stock/counts',
-      body: stockCountToJson(submission),
-    ) as Map<String, dynamic>;
-    return stockSubmissionFromJson(body);
+      '/api/v1/stock/counts/batch',
+      body: {
+        'counts': submissions
+            .map(stockCountToJson)
+            .toList(growable: false),
+      },
+    ) as List<dynamic>;
+    return body
+        .map((item) => stockSubmissionFromJson(item as Map<String, dynamic>))
+        .toList(growable: false);
   }
 
   Future<StockSubmission> reviewStockCount(

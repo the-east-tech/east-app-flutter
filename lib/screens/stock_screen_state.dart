@@ -292,7 +292,7 @@ class _StockScreenState extends State<StockScreen> {
           skus: widget.stockSkus.where((sku) => sku.active).toList(),
           submissions: widget.submissions,
           onBack: goHome,
-          onSubmitStockCheck: widget.onSubmitStockCheck,
+          onSubmitStockCounts: widget.onSubmitStockCounts,
           onResetCountTimers: resetCountTimers,
         ),
       ),
