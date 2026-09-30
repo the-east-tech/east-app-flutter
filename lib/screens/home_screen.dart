@@ -233,7 +233,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final taskOverview = widget.reportDashboard?.tasks;
     final taskDone = taskOverview?.done ?? 0;
     final taskTotal = taskOverview?.total ?? 0;
-    final taskPending = taskOverview?.pending ?? 0;
+    final taskNone = taskOverview?.none ?? 0;
     final taskSubmitted = taskOverview?.submitted ?? 0;
     final taskProgress = taskTotal == 0
         ? 0.0
@@ -340,10 +340,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     child: _ProgressInfoCard(
                       title: isManagement
                           ? text.t('Pending Review')
-                          : text.t('Pending Tasks'),
+                          : text.t('None'),
                       value: isManagement
                           ? '$pendingReviewCount'
-                          : '$taskPending',
+                          : '$taskNone',
                     ),
                   ),
                   const SizedBox(width: 10),
