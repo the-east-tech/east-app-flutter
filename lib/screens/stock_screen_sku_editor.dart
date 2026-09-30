@@ -6,7 +6,7 @@ Future<void> showSkuApprovalHoldDialog(BuildContext context, StockSku sku) =>
       builder: (dialogContext) => AlertDialog(
         title: const Text('SKU awaiting approval'),
         content: Text('This SKU is frozen while its ${sku.approvalHoldReason} awaits review. '
-            'Ask a reviewer to approve or return the submitted record before changing this SKU.'),
+            'Ask a reviewer to approve or reject the submitted record before changing this SKU.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),

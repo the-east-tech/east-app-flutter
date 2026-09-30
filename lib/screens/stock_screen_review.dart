@@ -961,16 +961,6 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
                         ),
                       ),
                     ),
-                    if (!isReceivable &&
-                        loaded &&
-                        canReviewSelectedStatus &&
-                        recordsCount > 0 &&
-                        !selecting)
-                      TextButton.icon(
-                        onPressed: startSelection,
-                        icon: const Icon(Icons.checklist_rounded),
-                        label: Text(text.t('Select')),
-                      ),
                     IconButton(
                       onPressed: () => Navigator.of(context).pop(),
                       icon: const Icon(Icons.close_rounded),
@@ -1021,15 +1011,6 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
                   onPressed: loading ? null : () => loadRecords(reset: true),
                 ),
                 const SizedBox(height: 14),
-                if (loaded && !isReceivable && canReviewSelectedStatus &&
-                    recordsCount > 0 && !selecting) ...[
-                  OutlinedButton.icon(
-                    onPressed: startSelection,
-                    icon: const Icon(Icons.checklist_rounded),
-                    label: Text(text.t('Select records for batch review')),
-                  ),
-                  const SizedBox(height: 12),
-                ],
                 if (!loaded)
                   WhiteCard(
                     child: Text(
@@ -1057,7 +1038,7 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
                           icon: Icons.manage_search_rounded,
                         ),
                       ),
-                      const SizedBox(width: 10),
+                      const SizedBox(width: 8),
                       Expanded(
                         child: _MiniMetric(
                           label: 'Loaded',
@@ -1065,6 +1046,25 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
                           icon: Icons.download_done_rounded,
                         ),
                       ),
+                      if (!isReceivable &&
+                          canReviewSelectedStatus &&
+                          recordsCount > 0 &&
+                          !selecting) ...[
+                        const SizedBox(width: 8),
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            minimumSize: const Size(0, 0),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 12,
+                            ),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                          onPressed: startSelection,
+                          icon: const Icon(Icons.checklist_rounded, size: 18),
+                          label: Text(text.t('Select')),
+                        ),
+                      ],
                     ],
                   ),
                   const SizedBox(height: 12),
@@ -1465,7 +1465,7 @@ class _SkuChangeApprovalSheetState extends State<_SkuChangeApprovalSheet> {
                   const Padding(
                     padding: EdgeInsets.only(bottom: 12),
                     child: Text(
-                      'Only Owner can approve or return SKU changes.',
+                      'Only Owner can approve or reject SKU changes.',
                       style: TextStyle(
                         color: AppColours.textMuted,
                         fontWeight: FontWeight.w600,

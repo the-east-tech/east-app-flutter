@@ -3233,15 +3233,22 @@ class EastAppApi {
     return StockSkuChangeRequest.fromJson(body);
   }
 
-  Future<StockSubmission> createStockCount(
-    StockSubmission submission,
+  Future<List<StockSubmission>> createStockCounts(
+    List<StockSubmission> submissions,
   ) async {
+    if (submissions.isEmpty) return const [];
     final body = await _requestJson(
       'POST',
-      '/api/v1/stock/counts',
-      body: stockCountToJson(submission),
-    ) as Map<String, dynamic>;
-    return stockSubmissionFromJson(body);
+      '/api/v1/stock/counts/batch',
+      body: {
+        'counts': submissions
+            .map(stockCountToJson)
+            .toList(growable: false),
+      },
+    ) as List<dynamic>;
+    return body
+        .map((item) => stockSubmissionFromJson(item as Map<String, dynamic>))
+        .toList(growable: false);
   }
 
   Future<StockSubmission> reviewStockCount(

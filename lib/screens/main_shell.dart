@@ -1075,8 +1075,10 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     return Future<void>.value();
   }
 
-  Future<void> submitStockCheckRemote(StockSubmission submission) async {
-    final saved = await widget.api.createStockCount(submission);
+  Future<void> submitStockCountsRemote(
+    List<StockSubmission> submissions,
+  ) async {
+    final saved = await widget.api.createStockCounts(submissions);
     invalidateSetupCache(
       EastAppApi.stockSkusCachePrefix(widget.session.tenant.id),
     );
@@ -1084,9 +1086,12 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     if (!mounted) return;
     setState(() {
       stockSkusUpdatedAt = DateTime.now();
+      final submittedSkuIds = saved.map((item) => item.stockTaskId).toSet();
       stockSubmissions = [
-        saved,
-        ...stockSubmissions.where((item) => item.stockTaskId != saved.stockTaskId),
+        ...saved,
+        ...stockSubmissions.where(
+          (item) => !submittedSkuIds.contains(item.stockTaskId),
+        ),
       ];
     });
   }
@@ -1780,7 +1785,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
               canLoadMoreCounts: stockCountPage >= 0 && !stockCountsLast,
               canLoadMoreReceivables:
                   stockReceivablePage >= 0 && !stockReceivablesLast,
-              onSubmitStockCheck: submitStockCheckRemote,
+              onSubmitStockCounts: submitStockCountsRemote,
               onCreateStockTask: createStockTask,
               onUpdateSupplierBalance: updateSupplierBalanceRemote,
               onCreateSupplier: createSupplierRemote,
