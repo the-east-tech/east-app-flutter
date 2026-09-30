@@ -1546,7 +1546,7 @@ class EastAppApi {
   }
 
   Future<EastAppCsvFile> exportUsersCsv() =>
-      _exportCsv('/api/v1/users/export', 'eastapp-users.csv');
+      _exportCsv('/api/v1/users/export', 'users.csv');
 
   Future<EastAppCsvPreview> previewUserCsv({
     required String fileName,
@@ -1986,7 +1986,7 @@ class EastAppApi {
       }
       return BusinessCleanupBackupFile(
         runId: runId,
-        fileName: match?.group(1)?.trim() ?? 'eastapp-business-backup.zip',
+        fileName: match?.group(1)?.trim() ?? 'business-backup.zip',
         sha256: response.headers['x-eastapp-backup-sha256'] ?? '',
         bytes: Uint8List.fromList(response.bodyBytes),
       );
@@ -2201,7 +2201,7 @@ class EastAppApi {
     final disposition = response.headers['content-disposition'] ?? '';
     final match = RegExp(r'filename="?([^";]+)').firstMatch(disposition);
     return StockSkuCsvFile(
-      fileName: match?.group(1)?.trim() ?? 'eastapp-skus.csv',
+      fileName: match?.group(1)?.trim() ?? 'skus.csv',
       bytes: Uint8List.fromList(response.bodyBytes),
     );
   }
@@ -2244,13 +2244,13 @@ class EastAppApi {
     final disposition = response.headers['content-disposition'] ?? '';
     final match = RegExp(r'filename="?([^";]+)').firstMatch(disposition);
     return StockSkuCsvFile(
-      fileName: match?.group(1)?.trim() ?? 'eastapp-suppliers.csv',
+      fileName: match?.group(1)?.trim() ?? 'suppliers.csv',
       bytes: Uint8List.fromList(response.bodyBytes),
     );
   }
 
   Future<EastAppCsvFile> exportStockTagsCsv() =>
-      _exportCsv('/api/v1/stock/tags/export', 'eastapp-tags.csv');
+      _exportCsv('/api/v1/stock/tags/export', 'tags.csv');
 
   Future<EastAppCsvPreview> previewStockTagCsv({
     required String fileName,
@@ -2272,7 +2272,7 @@ class EastAppApi {
     }).query;
     return _exportCsv(
       '/api/v1/reports/sales/export?$query',
-      'eastapp-sales-reports.csv',
+      'sales-reports.csv',
     );
   }
 
