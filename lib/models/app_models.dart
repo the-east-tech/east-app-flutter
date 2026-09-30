@@ -24,6 +24,7 @@ enum StockCheckSchedule {
 }
 
 enum StockWorkflowStatus {
+  none('NONE', 'None'),
   rejected('REJECTED', 'Rejected'),
   submitted('SUBMITTED', 'Submitted'),
   done('DONE', 'Done');

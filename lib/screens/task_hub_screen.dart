@@ -126,12 +126,24 @@ class _TaskHubScreenState extends State<TaskHubScreen> {
     }
   }
 
-  Future<void> handleChanged() async {
+  Future<void> _ignoreCacheCleanupFailure(Future<void> operation) async {
+    try {
+      await operation;
+    } on Object {
+      // Cache cleanup is best-effort and must not delay a successful mutation.
+    }
+  }
+
+  Future<void> handleChanged() {
     widget.onReportChanged?.call();
-    await widget.api.invalidateFeatureCache(
-      'tenant:${widget.tenantId}:report:',
+    unawaited(
+      _ignoreCacheCleanupFailure(
+        widget.api.invalidateFeatureCache(
+          'tenant:${widget.tenantId}:report:',
+        ),
+      ),
     );
-    await loadDashboard(showLoading: false, forceRefresh: true);
+    return Future<void>.value();
   }
 
   Future<void> showUpcomingFeature(BuildContext dialogContext) async {
@@ -213,7 +225,7 @@ class _TaskHubScreenState extends State<TaskHubScreen> {
                         : 'Your Tag tasks done',
                 badges: [
                   _CardBadge(
-                    '${data?.tasks.pending ?? 0} pending',
+                    '${data?.tasks.none ?? 0} none',
                     Icons.schedule_rounded,
                   ),
                   _CardBadge(
@@ -1224,7 +1236,6 @@ class _SalesHistorySheetState extends State<_SalesHistorySheet> {
         role: widget.role,
         onChanged: () async {
           await widget.onChanged();
-          await load(forceRefresh: true);
         },
       ),
     );

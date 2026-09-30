@@ -260,9 +260,7 @@ class _TasksScreenState extends State<TasksScreen> {
     TaskRecord record, {
     bool allowRating = false,
   }) async {
-    final openedTab = selectedTab;
-    final tab = taskTabStates[openedTab];
-    final changed = await Navigator.of(context).push<bool>(
+    final saved = await Navigator.of(context).push<TaskRecord>(
       MaterialPageRoute(
         builder: (_) => _TaskDetailPage(
           api: widget.api,
@@ -271,21 +269,17 @@ class _TasksScreenState extends State<TasksScreen> {
         ),
       ),
     );
-    if (!mounted) return;
-    if (changed == true) {
-      final shouldReload = tab.hasLoadedRecords;
-      widget.api.invalidateTaskRecords(widget.tenantId);
-      setState(() {
-        for (final taskTab in taskTabStates) {
-          clearLoadedRecords(taskTab);
-        }
-      });
-      if (shouldReload) {
-        await loadRecords(tabIndex: openedTab, forceRefresh: true);
+    if (!mounted || saved == null) return;
+    widget.api.invalidateTaskRecords(widget.tenantId);
+    setState(() {
+      for (final taskTab in taskTabStates) {
+        taskTab.records = taskTab.records
+            .map((item) => item.id == saved.id ? saved : item)
+            .toList(growable: false);
       }
-    }
+    });
     final callback = widget.onChanged;
-    if (changed == true && callback != null) await callback();
+    if (callback != null) await callback();
   }
 
   Future<void> openTemplate([TaskTemplate? template]) async {
@@ -797,7 +791,7 @@ class _TaskFilterCardState extends State<_TaskFilterCard> {
                   child: Text(text.t('Submitted & Done')),
                 ),
                 ...TaskStatus.values
-                    .where((status) => status != TaskStatus.pending)
+                    .where((status) => status != TaskStatus.none)
                     .map(
                       (status) => DropdownMenuItem<TaskStatus?>(
                         value: status,
@@ -878,8 +872,8 @@ class _TaskOverviewCard extends StatelessWidget {
             children: [
               Expanded(
                 child: _OverviewValue(
-                  label: 'Pending',
-                  value: '${overview.pending}',
+                  label: 'None',
+                  value: '${overview.none}',
                   colour: AppColours.orange,
                 ),
               ),
@@ -1112,7 +1106,7 @@ class _TaskDetailPageState extends State<_TaskDetailPage> {
   List<KnowledgeItem>? linkedSopVersions;
 
   bool get acceptingInput =>
-      record.status == TaskStatus.pending && record.canContribute;
+      record.status == TaskStatus.none && record.canContribute;
 
   bool get scheduledToday =>
       _dateOnly(record.taskDate) == _dateOnly(DateTime.now());
@@ -1150,14 +1144,14 @@ class _TaskDetailPageState extends State<_TaskDetailPage> {
           result.photoCount != record.photoCount ||
           result.submittedAt != record.submittedAt ||
           result.ratedAt != record.ratedAt;
-      final pathsToDelete = result.status == TaskStatus.pending
+      final pathsToDelete = result.status == TaskStatus.none
           ? const <String>[]
           : List<String>.from(selectedPhotoPaths);
       setState(() {
         record = result;
         changed = changed || serverRecordChanged;
         loading = false;
-        if (result.status != TaskStatus.pending) {
+        if (result.status != TaskStatus.none) {
           selectedChecklistItemIds.clear();
           selectedPhotoPaths.clear();
         }
@@ -1416,7 +1410,7 @@ class _TaskDetailPageState extends State<_TaskDetailPage> {
   }
 
   void close() {
-    Navigator.of(context).pop(changed);
+    Navigator.of(context).pop(changed ? record : null);
   }
 
   @override
@@ -1528,7 +1522,7 @@ class _TaskDetailPageState extends State<_TaskDetailPage> {
                       CheckboxListTile(
                         contentPadding: EdgeInsets.zero,
                         controlAffinity: ListTileControlAffinity.leading,
-                        value: record.status == TaskStatus.pending
+                        value: record.status == TaskStatus.none
                             ? selectedChecklistItemIds.contains(item.id)
                             : item.completed,
                         onChanged: acceptingInput
@@ -1538,7 +1532,7 @@ class _TaskDetailPageState extends State<_TaskDetailPage> {
                           item.description,
                           style: const TextStyle(fontWeight: FontWeight.w700),
                         ),
-                        subtitle: record.status == TaskStatus.pending ||
+                        subtitle: record.status == TaskStatus.none ||
                                 item.completedAt == null
                             ? null
                             : Text(
@@ -1558,8 +1552,8 @@ class _TaskDetailPageState extends State<_TaskDetailPage> {
                       children: [
                         Expanded(
                           child: Text(
-                            '${text.t(record.status == TaskStatus.pending ? 'Selected Photos' : 'Submitted Photos')} '
-                            '${record.status == TaskStatus.pending ? selectedPhotoPaths.length : record.photoCount}'
+                            '${text.t(record.status == TaskStatus.none ? 'Selected Photos' : 'Submitted Photos')} '
+                            '${record.status == TaskStatus.none ? selectedPhotoPaths.length : record.photoCount}'
                             '/${record.requiredPhotoCount}',
                             style: const TextStyle(
                               fontSize: AppTextSize.s18,
@@ -1578,7 +1572,7 @@ class _TaskDetailPageState extends State<_TaskDetailPage> {
                     const SizedBox(height: 6),
                     Text(
                       text.t(
-                        record.status == TaskStatus.pending
+                        record.status == TaskStatus.none
                             ? 'Photos remain only on this screen and upload only when u tap Submit Task. Tap a selected photo to view, remove or retake it.'
                             : 'Submitted photos are permanently locked.',
                       ),
@@ -1588,7 +1582,7 @@ class _TaskDetailPageState extends State<_TaskDetailPage> {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    if (record.status == TaskStatus.pending &&
+                    if (record.status == TaskStatus.none &&
                         selectedPhotoPaths.isNotEmpty) ...[
                       const SizedBox(height: 12),
                       GridView.builder(
@@ -1638,7 +1632,7 @@ class _TaskDetailPageState extends State<_TaskDetailPage> {
                   ],
                 ),
               ),
-              if (record.status != TaskStatus.pending) ...[
+              if (record.status != TaskStatus.none) ...[
                 const SizedBox(height: 12),
                 _SubmissionCard(record: record),
               ],
@@ -1653,7 +1647,7 @@ class _TaskDetailPageState extends State<_TaskDetailPage> {
                   icon: Icons.send_rounded,
                   onPressed: submit,
                 ),
-              ] else if (record.status == TaskStatus.pending) ...[
+              ] else if (record.status == TaskStatus.none) ...[
                 const SizedBox(height: 12),
                 Text(
                   text.t(
@@ -2986,12 +2980,12 @@ class _TaskStatusPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colour = switch (status) {
-      TaskStatus.pending => AppColours.orange,
+      TaskStatus.none => AppColours.orange,
       TaskStatus.submitted => AppColours.blue,
       TaskStatus.done => AppColours.green,
     };
     final background = switch (status) {
-      TaskStatus.pending => AppColours.orangeSoft,
+      TaskStatus.none => AppColours.orangeSoft,
       TaskStatus.submitted => const Color(0xFFEAF3FF),
       TaskStatus.done => AppColours.greenSoft,
     };
@@ -3090,7 +3084,7 @@ DateTime _dateOnly(DateTime value) => DateTime(value.year, value.month, value.da
 
 String _statusLabel(TaskStatus status) {
   return switch (status) {
-    TaskStatus.pending => 'Pending',
+    TaskStatus.none => 'None',
     TaskStatus.submitted => 'Submitted',
     TaskStatus.done => 'Done',
   };

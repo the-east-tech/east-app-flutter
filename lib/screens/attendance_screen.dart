@@ -774,15 +774,24 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
   Future<void> invalidateUserRelatedCaches() async {
     final tenantId = widget.currentTenant.id;
-    await Future.wait([
-      widget.api.invalidateFeatureCache(EastAppApi.usersCachePrefix(tenantId)),
-      widget.api.invalidateFeatureCache(EastAppApi.rolesCachePrefix(tenantId)),
-      widget.api.invalidateFeatureCache(EastAppApi.stockTagsCachePrefix(tenantId)),
-      widget.api.invalidateFeatureCache('tenant:$tenantId:report:'),
-    ]);
-    widget.api.invalidateTaskRecords(tenantId);
-    widget.api.invalidateTaskTemplates(tenantId);
+    final api = widget.api;
+    api.invalidateTaskRecords(tenantId);
+    api.invalidateTaskTemplates(tenantId);
     widget.onReportDataInvalidated();
+    await Future.wait([
+      api.invalidateFeatureCache(EastAppApi.usersCachePrefix(tenantId)),
+      api.invalidateFeatureCache(EastAppApi.rolesCachePrefix(tenantId)),
+      api.invalidateFeatureCache(EastAppApi.stockTagsCachePrefix(tenantId)),
+      api.invalidateFeatureCache('tenant:$tenantId:report:'),
+    ]);
+  }
+
+  Future<void> _ignoreCacheCleanupFailure(Future<void> operation) async {
+    try {
+      await operation;
+    } on Object {
+      // Cache cleanup is best-effort and must not delay a successful edit.
+    }
   }
 
   Future<void> exportUsers() async {
@@ -929,11 +938,21 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
               password: draft.password!,
             );
           }
-          await invalidateUserRelatedCaches();
-          await Future.wait([
-            if (usersLoaded) loadUsers(reset: true, forceRefresh: true),
-            loadRoles(force: true),
-          ]);
+          unawaited(
+            _ignoreCacheCleanupFailure(invalidateUserRelatedCaches()),
+          );
+          if (mounted && usersLoaded) {
+            setState(() {
+              users = users
+                  .map(
+                    (item) => item.id == updatedUser.id
+                        ? _PeopleUser.fromApi(updatedUser)
+                        : item,
+                  )
+                  .toList(growable: false);
+              usersUpdatedAt = DateTime.now();
+            });
+          }
           return null;
         },
         onDeleteUser: canPermanentlyDeleteUser(user)

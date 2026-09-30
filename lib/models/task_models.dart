@@ -1,5 +1,5 @@
 enum TaskStatus {
-  pending('PENDING'),
+  none('NONE'),
   submitted('SUBMITTED'),
   done('DONE');
 
@@ -10,7 +10,7 @@ enum TaskStatus {
   static TaskStatus fromApi(Object? value) {
     return TaskStatus.values.firstWhere(
       (status) => status.apiValue == value,
-      orElse: () => TaskStatus.pending,
+      orElse: () => TaskStatus.none,
     );
   }
 }
@@ -36,20 +36,20 @@ enum TaskScheduleType {
 
 class TaskOverview {
   final int total;
-  final int pending;
+  final int none;
   final int submitted;
   final int done;
 
   const TaskOverview({
     required this.total,
-    required this.pending,
+    required this.none,
     required this.submitted,
     required this.done,
   });
 
   static const empty = TaskOverview(
     total: 0,
-    pending: 0,
+    none: 0,
     submitted: 0,
     done: 0,
   );
@@ -59,7 +59,7 @@ class TaskOverview {
   factory TaskOverview.fromJson(Map<String, dynamic> json) {
     return TaskOverview(
       total: (json['total'] as num? ?? 0).toInt(),
-      pending: (json['pending'] as num? ?? 0).toInt(),
+      none: (json['none'] as num? ?? 0).toInt(),
       submitted: (json['submitted'] as num? ?? 0).toInt(),
       done: (json['done'] as num? ?? 0).toInt(),
     );

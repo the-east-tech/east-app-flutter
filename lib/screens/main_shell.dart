@@ -325,10 +325,24 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     setState(_markHomeDataStale);
   }
 
-  Future<void> invalidateReportData() async {
+  Future<void> _ignoreCacheCleanupFailure<T>(Future<T> operation) async {
+    try {
+      await operation;
+    } on Object {
+      // Cache cleanup is best-effort and must not delay a successful mutation.
+    }
+  }
+
+  void _runCacheCleanup<T>(Future<T> operation) {
+    unawaited(_ignoreCacheCleanupFailure(operation));
+  }
+
+  void invalidateReportData() {
     invalidateHomeData();
-    await widget.api.invalidateFeatureCache(
-      'tenant:${widget.session.tenant.id}:report:',
+    _runCacheCleanup(
+      widget.api.invalidateFeatureCache(
+        'tenant:${widget.session.tenant.id}:report:',
+      ),
     );
   }
 
@@ -821,7 +835,10 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
 
   void submitStockCheck(StockSubmission submission) {
     setState(() {
-      stockSubmissions = [submission, ...stockSubmissions];
+      stockSubmissions = [
+        submission,
+        ...stockSubmissions.where((item) => item.stockTaskId != submission.stockTaskId),
+      ];
     });
   }
 
@@ -907,27 +924,27 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     });
   }
 
-  Future<void> invalidateSetupCache(String prefix) async {
-    await widget.api.invalidateFeatureCache(prefix);
+  void invalidateSetupCache(String prefix) {
+    _runCacheCleanup(widget.api.invalidateFeatureCache(prefix));
   }
 
-  Future<void> invalidateStockTagCaches() async {
+  void invalidateStockTagCaches() {
     final tenantId = widget.session.tenant.id;
-    await invalidateSetupCache(EastAppApi.stockTagsCachePrefix(tenantId));
+    invalidateSetupCache(EastAppApi.stockTagsCachePrefix(tenantId));
     widget.api.invalidateTaskRecords(tenantId);
     widget.api.invalidateTaskTemplates(tenantId);
   }
 
-  Future<void> invalidateStockSupplierCaches() async {
+  void invalidateStockSupplierCaches() {
     final tenantId = widget.session.tenant.id;
-    try {
-      await Future.wait([
-        invalidateSetupCache(EastAppApi.stockSuppliersCachePrefix(tenantId)),
+    _runCacheCleanup(
+      Future.wait([
+        widget.api.invalidateFeatureCache(
+          EastAppApi.stockSuppliersCachePrefix(tenantId),
+        ),
         widget.api.invalidateStockPurchaseSupplierStates(tenantId),
-      ]);
-    } on Object {
-      // Cache cleanup must not turn a successful supplier mutation into an error.
-    }
+      ]),
+    );
   }
 
   Future<void> createStockTagRemote(StockTag tag) async {
@@ -938,8 +955,8 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
           .toList(growable: false),
       active: tag.active,
     );
-    await invalidateStockTagCaches();
-    await invalidateReportData();
+    invalidateStockTagCaches();
+    invalidateReportData();
     if (!mounted) return;
     setState(() {
       stockTags = [saved, ...stockTags];
@@ -949,8 +966,8 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
 
   Future<void> updateStockTagRemote(StockTag tag) async {
     final saved = await widget.api.updateStockTag(tag);
-    await invalidateStockTagCaches();
-    await invalidateReportData();
+    invalidateStockTagCaches();
+    invalidateReportData();
     if (!mounted) return;
     setState(() {
       stockTagsUpdatedAt = DateTime.now();
@@ -964,8 +981,8 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     for (final tagId in tagIds) {
       await widget.api.deleteStockTag(tagId);
     }
-    await invalidateStockTagCaches();
-    await invalidateReportData();
+    invalidateStockTagCaches();
+    invalidateReportData();
     if (!mounted) return true;
     setState(() {
       stockTagsUpdatedAt = DateTime.now();
@@ -976,7 +993,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
 
   Future<void> createSupplierRemote(SupplierProfile supplier) async {
     final saved = await widget.api.createStockSupplier(supplier);
-    await invalidateStockSupplierCaches();
+    invalidateStockSupplierCaches();
     if (!mounted) return;
     setState(() {
       suppliers = [saved, ...suppliers];
@@ -986,7 +1003,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
 
   Future<void> updateSupplierRemote(SupplierProfile supplier) async {
     final saved = await widget.api.updateStockSupplier(supplier);
-    await invalidateStockSupplierCaches();
+    invalidateStockSupplierCaches();
     if (!mounted) return;
     setState(() {
       stockSuppliersUpdatedAt = DateTime.now();
@@ -1000,7 +1017,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     for (final supplierId in supplierIds) {
       await widget.api.deleteStockSupplier(supplierId);
     }
-    await invalidateStockSupplierCaches();
+    invalidateStockSupplierCaches();
     if (!mounted) return true;
     setState(() {
       stockSuppliersUpdatedAt = DateTime.now();
@@ -1020,7 +1037,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
       supplierId: supplierId,
       balance: balance,
     );
-    await invalidateSetupCache(
+    invalidateSetupCache(
       EastAppApi.stockSuppliersCachePrefix(widget.session.tenant.id),
     );
     if (!mounted) return;
@@ -1035,124 +1052,154 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   Future<void> createSkuRemote(StockSku sku) async {
     await widget.api.createStockSku(sku);
     _markHomeDataStale();
-    await refreshHomeReviewSummary();
   }
 
   Future<void> updateSkuRemote(StockSku sku) async {
     await widget.api.updateStockSku(sku);
     _markHomeDataStale();
-    await refreshHomeReviewSummary();
   }
 
   Future<void> deleteSkuRemote(String skuId) async {
     await widget.api.deleteStockSku(skuId);
     _markHomeDataStale();
-    await refreshHomeReviewSummary();
   }
 
-  Future<void> reloadAfterSkuChangeReview() async {
-    await invalidateSetupCache(
+  Future<void> reloadAfterSkuChangeReview() {
+    invalidateSetupCache(
       EastAppApi.stockSkusCachePrefix(widget.session.tenant.id),
     );
-    await Future.wait([
-      loadStockSkus(reset: true, forceRefresh: true),
-      invalidateReportData(),
-    ]);
-    await refreshHomeReviewSummary();
+    invalidateReportData();
+    stockSkuPage = -1;
+    stockSkusLast = false;
     _markHomeDataStale();
+    return Future<void>.value();
   }
 
   Future<void> submitStockCheckRemote(StockSubmission submission) async {
     final saved = await widget.api.createStockCount(submission);
-    await invalidateSetupCache(
+    invalidateSetupCache(
       EastAppApi.stockSkusCachePrefix(widget.session.tenant.id),
     );
-    await invalidateReportData();
+    invalidateReportData();
     if (!mounted) return;
     setState(() {
       stockSkusUpdatedAt = DateTime.now();
-      stockSubmissions = [saved, ...stockSubmissions];
-      stockSkus = stockSkus.map((sku) {
-        if (sku.id != saved.stockTaskId) return sku;
-        return sku.copyWith(
-          currentBalanceValue: saved.currentBalanceValue,
-          lastUpdatedAt: saved.submittedAt,
-          lastUpdatedBy: saved.submittedBy,
-        );
-      }).toList();
+      stockSubmissions = [
+        saved,
+        ...stockSubmissions.where((item) => item.stockTaskId != saved.stockTaskId),
+      ];
     });
-    await refreshHomeReviewSummary();
   }
 
   Future<void> reviewStockCountRemote(StockSubmission submission) async {
     final saved = await widget.api.reviewStockCount(submission);
-    await invalidateReportData();
+    invalidateReportData();
+    if (saved.workflowStatus == StockWorkflowStatus.done) {
+      invalidateSetupCache(
+        EastAppApi.stockSkusCachePrefix(widget.session.tenant.id),
+      );
+    }
     if (!mounted) return;
     setState(() {
       stockSubmissions = stockSubmissions
           .map((item) => item.id == saved.id ? saved : item)
           .toList();
+      if (saved.workflowStatus == StockWorkflowStatus.done) {
+        stockSkusUpdatedAt = DateTime.now();
+        stockSkus = stockSkus.map((sku) => sku.id == saved.stockTaskId
+            ? sku.copyWith(
+                currentBalanceValue: saved.currentBalanceValue,
+                lastUpdatedAt: saved.reviewedAt,
+                lastUpdatedBy: saved.reviewedBy,
+              )
+            : sku).toList();
+      }
     });
-    await refreshHomeReviewSummary();
   }
 
   Future<void> bulkReviewStockCountsRemote(
     List<StockSubmission> submissions,
   ) async {
     final saved = await widget.api.bulkReviewStockCounts(submissions);
-    await invalidateReportData();
+    invalidateReportData();
     if (!mounted) return;
     final byId = {for (final item in saved) item.id: item};
+    final approved = {
+      for (final item in saved)
+        if (item.workflowStatus == StockWorkflowStatus.done) item.stockTaskId: item,
+    };
+    if (approved.isNotEmpty) {
+      invalidateSetupCache(
+        EastAppApi.stockSkusCachePrefix(widget.session.tenant.id),
+      );
+    }
+    if (!mounted) return;
     setState(() {
       stockSubmissions = stockSubmissions
           .map((item) => byId[item.id] ?? item)
           .toList();
+      if (approved.isNotEmpty) {
+        stockSkusUpdatedAt = DateTime.now();
+        stockSkus = stockSkus.map((sku) {
+          final item = approved[sku.id];
+          return item == null ? sku : sku.copyWith(
+            currentBalanceValue: item.currentBalanceValue,
+            lastUpdatedAt: item.reviewedAt,
+            lastUpdatedBy: item.reviewedBy,
+          );
+        }).toList();
+      }
     });
-    await refreshHomeReviewSummary();
   }
 
   Future<void> submitStockReceivableRemote(
     StockReceivableRecord record,
   ) async {
     final saved = await widget.api.createStockReceivable(record);
-    await invalidateSetupCache(
+    invalidateSetupCache(
       EastAppApi.stockSkusCachePrefix(widget.session.tenant.id),
     );
-    await invalidateReportData();
+    invalidateReportData();
     if (!mounted) return;
-    final quantities = <String, double>{};
-    for (final item in saved.items) {
-      quantities[item.skuId] =
-          (quantities[item.skuId] ?? 0) + item.receivedQuantity;
-    }
     setState(() {
-      stockSkusUpdatedAt = DateTime.now();
       stockReceivableRecords = [saved, ...stockReceivableRecords];
-      stockSkus = stockSkus.map((sku) {
-        final received = quantities[sku.id];
-        if (received == null) return sku;
-        return sku.copyWith(
-          currentBalanceValue: sku.currentBalanceValue + received,
-          lastUpdatedAt: saved.receivedAt,
-          lastUpdatedBy: saved.receivedBy,
-        );
-      }).toList();
     });
-    await refreshHomeReviewSummary();
   }
 
   Future<void> reviewStockReceivableRemote(
     StockReceivableRecord record,
   ) async {
     final saved = await widget.api.reviewStockReceivable(record);
-    await invalidateReportData();
+    invalidateReportData();
+    if (saved.workflowStatus == StockWorkflowStatus.done) {
+      invalidateSetupCache(
+        EastAppApi.stockSkusCachePrefix(widget.session.tenant.id),
+      );
+    }
     if (!mounted) return;
+    final quantities = <String, double>{};
+    if (saved.workflowStatus == StockWorkflowStatus.done) {
+      for (final item in saved.items) {
+        quantities[item.skuId] =
+            (quantities[item.skuId] ?? 0) + item.receivedQuantity;
+      }
+    }
     setState(() {
       stockReceivableRecords = stockReceivableRecords
           .map((item) => item.id == saved.id ? saved : item)
           .toList();
+      if (quantities.isNotEmpty) {
+        stockSkusUpdatedAt = DateTime.now();
+        stockSkus = stockSkus.map((sku) {
+          final received = quantities[sku.id];
+          return received == null ? sku : sku.copyWith(
+            currentBalanceValue: sku.currentBalanceValue + received,
+            lastUpdatedAt: saved.reviewedAt,
+            lastUpdatedBy: saved.reviewedBy,
+          );
+        }).toList();
+      }
     });
-    await refreshHomeReviewSummary();
   }
 
   void clockIn(AttendanceRecord record) {
@@ -1706,7 +1753,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
                 ]);
                 widget.api.invalidateTaskRecords(widget.session.tenant.id);
                 widget.api.invalidateTaskTemplates(widget.session.tenant.id);
-                await invalidateReportData();
+                invalidateReportData();
               },
               stockTasks: stockTasks,
               submissions: stockSubmissions,
