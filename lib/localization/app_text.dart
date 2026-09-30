@@ -1290,8 +1290,8 @@ const Map<String, String> _myanmar = {
   'This will update all selected records.':
       'ရွေးထားသော မှတ်တမ်းအားလုံးကို ပြင်ဆင်မည်။',
   'Search Again': 'ထပ်မံ ရှာရန်',
-  'No records are loaded by default. Select Status and Date, then press Search.':
-      'ပုံမှန်အားဖြင့် မှတ်တမ်းမရယူထားပါ။ အခြေအနေနှင့် ရက်စွဲကို ရွေးပြီး ရှာရန်ကို နှိပ်ပါ။',
+  'Select Status, then press Search.':
+      'အခြေအနေကို ရွေးပြီး ရှာရန်ကို နှိပ်ပါ။',
   'No daily count records found.': 'နေ့စဉ်ရေတွက်မှု မှတ်တမ်း မတွေ့ပါ။',
   'Details': 'အသေးစိတ်',
   'changed to': 'ပြောင်းလဲထားသည့်တန်ဖိုး',
@@ -2598,8 +2598,7 @@ const Map<String, String> _chinese = {
       '这将更新此每日库存盘点的审核状态。',
   'This will update all selected records.': '这将更新所有选中的记录。',
   'Search Again': '再次搜索',
-  'No records are loaded by default. Select Status and Date, then press Search.':
-      '默认不加载记录。请选择状态和日期，然后点击搜索。',
+  'Select Status, then press Search.': '请选择状态，然后点击搜索。',
   'No daily count records found.': '未找到每日盘点记录。',
   'Details': '详情',
   'changed to': '更改为',

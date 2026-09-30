@@ -628,7 +628,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
           ]);
           break;
         case StockPage.review:
-          // On-demand: Review loads only after Status + Date + Search.
+          // On-demand: Review loads only after Status + Search.
           break;
         case StockPage.skuSetup:
           await Future.wait([
@@ -1167,7 +1167,12 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     invalidateReportData();
     if (!mounted) return;
     setState(() {
-      stockReceivableRecords = [saved, ...stockReceivableRecords];
+      stockReceivableRecords = [
+        saved,
+        ...stockReceivableRecords.where(
+          (item) => item.supplierId != saved.supplierId,
+        ),
+      ];
     });
   }
 
