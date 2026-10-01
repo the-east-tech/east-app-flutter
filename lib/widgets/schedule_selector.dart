@@ -10,9 +10,8 @@ class ScheduleSelector extends StatelessWidget {
   final String title;
   final AppScheduleType value;
   final int? day;
-  final int? secondWeeklyDay;
-  final bool allowSecondWeeklyDay;
-  final ValueChanged<int?>? onSecondWeeklyDayChanged;
+  final List<int> weeklyDays;
+  final ValueChanged<List<int>>? onWeeklyDaysChanged;
   final DateTime? date;
   final bool compact;
   final ValueChanged<AppScheduleType> onTypeChanged;
@@ -24,9 +23,8 @@ class ScheduleSelector extends StatelessWidget {
     required this.title,
     required this.value,
     required this.day,
-    this.secondWeeklyDay,
-    this.allowSecondWeeklyDay = false,
-    this.onSecondWeeklyDayChanged,
+    this.weeklyDays = const [],
+    this.onWeeklyDaysChanged,
     required this.date,
     this.compact = false,
     required this.onTypeChanged,
@@ -38,14 +36,22 @@ class ScheduleSelector extends StatelessWidget {
   Widget build(BuildContext context) {
     final text = AppTextScope.of(context);
     const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    final configuredWeeklyDays =
+        weeklyDays.where((day) => day >= 1 && day <= 7).toSet();
+    final selectedWeeklyDays = onWeeklyDaysChanged == null
+        ? {(day ?? 1).clamp(1, 7).toInt()}
+        : (configuredWeeklyDays.isEmpty ? <int>{1} : configuredWeeklyDays);
+    final selectedWeekdayLabels = selectedWeeklyDays.toList()..sort();
+    final weeklyDescription = selectedWeekdayLabels
+        .map((weekday) => text.t(weekdays[weekday - 1]))
+        .join(' + ');
     final description = switch (value) {
       AppScheduleType.adHoc => date == null
           ? text.t('Select one date.')
           : '${text.t('One-time on')} ${_formatDate(date!)}.',
       AppScheduleType.daily => text.t('Repeats every day.'),
-      AppScheduleType.weekly => secondWeeklyDay == null
-          ? '${text.t('Repeats every')} ${text.t(weekdays[(day ?? 1).clamp(1, 7).toInt() - 1])}.'
-          : '${text.t('Repeats every')} ${text.t(weekdays[(day ?? 1).clamp(1, 7).toInt() - 1])} + ${text.t(weekdays[secondWeeklyDay!.clamp(1, 7).toInt() - 1])}.',
+      AppScheduleType.weekly =>
+        '${text.t('Repeats every')} $weeklyDescription.',
       AppScheduleType.monthly => day == null
           ? text.t('Repeats on the last day of every month.')
           : '${text.t('Repeats monthly on Day')} $day.',
@@ -99,24 +105,19 @@ class ScheduleSelector extends StatelessWidget {
                 final weekday = index + 1;
                 return ChoiceChip(
                   label: Text(text.t(weekdays[index])),
-                  selected: (day ?? 1) == weekday ||
-                      (allowSecondWeeklyDay && secondWeeklyDay == weekday),
+                  selected: selectedWeeklyDays.contains(weekday),
                   onSelected: (_) {
-                    if (!allowSecondWeeklyDay) {
+                    if (onWeeklyDaysChanged == null) {
                       onDayChanged(weekday);
-                    } else if (secondWeeklyDay == weekday) {
-                      onSecondWeeklyDayChanged?.call(null);
-                    } else if (day == weekday) {
-                      if (secondWeeklyDay != null) {
-                        onDayChanged(secondWeeklyDay);
-                        onSecondWeeklyDayChanged?.call(null);
-                      }
-                    } else if (secondWeeklyDay == null) {
-                      onSecondWeeklyDayChanged?.call(weekday);
                     } else {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text(text.t('Select up to 2 days.'))),
-                      );
+                      final next = selectedWeeklyDays.toSet();
+                      if (next.contains(weekday)) {
+                        if (next.length == 1) return;
+                        next.remove(weekday);
+                      } else {
+                        next.add(weekday);
+                      }
+                      onWeeklyDaysChanged!(next.toList()..sort());
                     }
                   },
                 );

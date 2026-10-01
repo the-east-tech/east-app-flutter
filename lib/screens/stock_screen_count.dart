@@ -138,12 +138,13 @@ class _DailyStockCountPageState extends State<_DailyStockCountPage> {
       case StockCheckSchedule.daily:
         return today;
       case StockCheckSchedule.weekly:
-        final scheduledDay = (sku.stockCheckDay ?? 1).clamp(1, 7).toInt();
-        final first = (today.weekday - scheduledDay + 7) % 7;
-        final second = sku.stockCheckDay2 == null
-            ? 7
-            : (today.weekday - sku.stockCheckDay2! + 7) % 7;
-        return today.subtract(Duration(days: first < second ? first : second));
+        final scheduledDays = sku.stockCheckDays.isEmpty
+            ? [(sku.stockCheckDay ?? 1).clamp(1, 7).toInt()]
+            : sku.stockCheckDays;
+        final daysSinceSchedule = scheduledDays
+            .map((day) => (today.weekday - day + 7) % 7)
+            .reduce((a, b) => a < b ? a : b);
+        return today.subtract(Duration(days: daysSinceSchedule));
       case StockCheckSchedule.monthly:
         final scheduledDay = sku.stockCheckDay;
         var candidate = monthlyStockCheckDate(
@@ -170,12 +171,12 @@ class _DailyStockCountPageState extends State<_DailyStockCountPage> {
       case StockCheckSchedule.daily:
         return start.add(const Duration(days: 1));
       case StockCheckSchedule.weekly:
-        if (sku.stockCheckDay2 == null) {
-          return start.add(const Duration(days: 7));
-        }
-        final primary = ((sku.stockCheckDay ?? 1) - start.weekday + 7) % 7;
-        final secondary = (sku.stockCheckDay2! - start.weekday + 7) % 7;
-        final next = [primary == 0 ? 7 : primary, secondary == 0 ? 7 : secondary]
+        final scheduledDays = sku.stockCheckDays.isEmpty
+            ? [(sku.stockCheckDay ?? 1).clamp(1, 7).toInt()]
+            : sku.stockCheckDays;
+        final next = scheduledDays
+            .map((day) => (day - start.weekday + 7) % 7)
+            .map((days) => days == 0 ? 7 : days)
             .reduce((a, b) => a < b ? a : b);
         return start.add(Duration(days: next));
       case StockCheckSchedule.monthly:

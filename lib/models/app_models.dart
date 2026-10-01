@@ -285,7 +285,7 @@ class StockSku {
   final List<String> receivableChecklist;
   final StockCheckSchedule stockCheckSchedule;
   final int? stockCheckDay;
-  final int? stockCheckDay2;
+  final List<int> stockCheckDays;
   final DateTime? stockCheckDate;
   final String lastUpdatedAt;
   final String lastUpdatedBy;
@@ -314,16 +314,23 @@ class StockSku {
     this.receivableChecklist = const [],
     this.stockCheckSchedule = StockCheckSchedule.daily,
     this.stockCheckDay,
-    this.stockCheckDay2,
+    List<int> stockCheckDays = const [],
     this.stockCheckDate,
     required this.lastUpdatedAt,
     required this.lastUpdatedBy,
     this.active = true,
     this.coolingPeriod = true,
     this.approvalHoldReason = '',
-  }) : assignedStaffNames = _normaliseAssignedStaffNames(
+  }) : stockCheckDays = _normaliseStockCheckDays(stockCheckDays),
+        assignedStaffNames = _normaliseAssignedStaffNames(
           assignedStaffNames.isNotEmpty ? assignedStaffNames : [assignedStaffName],
         );
+
+  static List<int> _normaliseStockCheckDays(Iterable<int> values) {
+    final result = values.where((day) => day >= 1 && day <= 7).toSet().toList()
+      ..sort();
+    return List.unmodifiable(result);
+  }
 
   static List<String> _normaliseAssignedStaffNames(Iterable<String> values) {
     final result = <String>[];
@@ -370,9 +377,9 @@ class StockSku {
     List<String>? receivableChecklist,
     StockCheckSchedule? stockCheckSchedule,
     int? stockCheckDay,
-    int? stockCheckDay2,
+    List<int>? stockCheckDays,
     bool clearStockCheckDay = false,
-    bool clearStockCheckDay2 = false,
+    bool clearStockCheckDays = false,
     DateTime? stockCheckDate,
     String? lastUpdatedAt,
     String? lastUpdatedBy,
@@ -409,10 +416,10 @@ class StockSku {
               nextSchedule == StockCheckSchedule.adHoc || clearStockCheckDay
           ? null
           : stockCheckDay ?? this.stockCheckDay,
-      stockCheckDay2: nextSchedule == StockCheckSchedule.weekly &&
-              !clearStockCheckDay2
-          ? stockCheckDay2 ?? this.stockCheckDay2
-          : null,
+      stockCheckDays: nextSchedule == StockCheckSchedule.weekly &&
+              !clearStockCheckDays
+          ? stockCheckDays ?? this.stockCheckDays
+          : const [],
       stockCheckDate: nextSchedule == StockCheckSchedule.adHoc
           ? stockCheckDate ?? this.stockCheckDate
           : null,
