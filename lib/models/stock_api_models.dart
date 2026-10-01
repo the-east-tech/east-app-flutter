@@ -120,6 +120,19 @@ SupplierProfile stockSupplierFromJson(Map<String, dynamic> json) {
 }
 
 StockSku stockSkuFromJson(Map<String, dynamic> json) {
+  final configuredStockCheckDays =
+      (json['stockCheckDays'] as List<dynamic>? ?? const [])
+          .whereType<num>()
+          .map((item) => item.toInt())
+          .toList(growable: false);
+  final legacyStockCheckDay = (json['stockCheckDay'] as num?)?.toInt();
+  final legacyStockCheckDay2 = (json['stockCheckDay2'] as num?)?.toInt();
+  final stockCheckDays = configuredStockCheckDays.isNotEmpty
+      ? configuredStockCheckDays
+      : [
+          if (legacyStockCheckDay != null) legacyStockCheckDay,
+          if (legacyStockCheckDay2 != null) legacyStockCheckDay2,
+        ];
   return StockSku(
     id: json['id'] as String,
     name: json['name'] as String,
@@ -148,8 +161,8 @@ StockSku stockSkuFromJson(Map<String, dynamic> json) {
             .toList(growable: false),
     stockCheckSchedule:
         StockCheckSchedule.fromApi(json['stockCheckSchedule'] as String?),
-    stockCheckDay: (json['stockCheckDay'] as num?)?.toInt(),
-    stockCheckDay2: (json['stockCheckDay2'] as num?)?.toInt(),
+    stockCheckDay: legacyStockCheckDay,
+    stockCheckDays: stockCheckDays,
     stockCheckDate: json['stockCheckDate'] == null
         ? null
         : DateTime.parse(json['stockCheckDate'] as String),
@@ -312,7 +325,10 @@ Map<String, Object?> stockSkuToJson(StockSku sku) {
     'receivableChecklist': sku.receivableChecklist,
     'stockCheckSchedule': sku.stockCheckSchedule.apiValue,
     'stockCheckDay': sku.stockCheckDay,
-    'stockCheckDay2': sku.stockCheckDay2,
+    'stockCheckDay2': sku.stockCheckDays.length > 1
+        ? sku.stockCheckDays[1]
+        : null,
+    'stockCheckDays': sku.stockCheckDays,
     'stockCheckDate': sku.stockCheckDate == null
         ? null
         : formatApiDate(sku.stockCheckDate!),

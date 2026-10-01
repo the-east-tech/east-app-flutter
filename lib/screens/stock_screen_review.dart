@@ -1126,6 +1126,7 @@ class _SkuChangeApprovalSheetState extends State<_SkuChangeApprovalSheet> {
     'receivableChecklist',
     'stockCheckSchedule',
     'stockCheckDay',
+    'stockCheckDays',
     'stockCheckDate',
     'active',
     'coolingPeriod',
@@ -1147,6 +1148,7 @@ class _SkuChangeApprovalSheetState extends State<_SkuChangeApprovalSheet> {
         'receivableChecklist' => 'Receivable Checklist',
         'stockCheckSchedule' => 'Stock Check Schedule',
         'stockCheckDay' => 'Stock Check Day',
+        'stockCheckDays' => 'Weekly Stock Check Days',
         'stockCheckDate' => 'Stock Check Date',
         'active' => 'Active',
         'coolingPeriod' => 'Cooling Period',
@@ -1190,6 +1192,15 @@ class _SkuChangeApprovalSheetState extends State<_SkuChangeApprovalSheet> {
     if (value == null) return '-';
     if (value is List) {
       if (value.isEmpty) return 'None';
+      if (key == 'stockCheckDays') {
+        const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+        return value
+            .whereType<num>()
+            .map((day) => day.toInt())
+            .where((day) => day >= 1 && day <= 7)
+            .map((day) => weekdays[day - 1])
+            .join(', ');
+      }
       if (key == 'receivableChecklist') {
         return List.generate(
           value.length,
@@ -1211,11 +1222,16 @@ class _SkuChangeApprovalSheetState extends State<_SkuChangeApprovalSheet> {
   List<_ReviewInfoRow> proposalRows(StockSkuChangeRequest record) {
     final data = record.proposedData;
     if (data == null) return const [];
+    final weekly = data['stockCheckSchedule'] == 'WEEKLY';
+    final hasWeeklyDays = data['stockCheckDays'] is List &&
+        (data['stockCheckDays'] as List).isNotEmpty;
     return proposalKeys
         .where(
           (key) => data.containsKey(key) &&
               !(record.changeType == 'UPDATE' &&
-                  key == 'currentBalanceValue'),
+                  key == 'currentBalanceValue') &&
+              !(key == 'stockCheckDay' && weekly && hasWeeklyDays) &&
+              !(key == 'stockCheckDays' && !weekly),
         )
         .map(
           (key) => _ReviewInfoRow(

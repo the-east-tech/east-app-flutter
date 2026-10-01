@@ -99,7 +99,7 @@ class _SkuEditorFormState extends State<_SkuEditorForm> {
   late String unit;
   late StockCheckSchedule stockCheckSchedule;
   late int stockCheckDay;
-  int? stockCheckDay2;
+  late Set<int> stockCheckDays;
   DateTime? stockCheckDate;
   late int recoveryPercent;
   late Set<String> supplierIds;
@@ -149,7 +149,13 @@ class _SkuEditorFormState extends State<_SkuEditorForm> {
             (configuredStockCheckDay == null || configuredStockCheckDay > 28)
         ? 0
         : configuredStockCheckDay ?? 1;
-    stockCheckDay2 = sku?.stockCheckDay2;
+    stockCheckDays = sku?.stockCheckDays.isNotEmpty == true
+        ? sku!.stockCheckDays.toSet()
+        : {
+            stockCheckSchedule == StockCheckSchedule.weekly
+                ? (configuredStockCheckDay ?? 1).clamp(1, 7).toInt()
+                : 1,
+          };
     stockCheckDate = sku?.stockCheckDate;
     final recovery = sku?.recoveryPercent ?? 100;
     recoveryPercent = ((recovery / 5).round() * 5).clamp(5, 100).toInt();
@@ -369,15 +375,17 @@ class _SkuEditorFormState extends State<_SkuEditorForm> {
           .where((value) => value.isNotEmpty)
           .take(5)
           .toList();
-      final effectiveStockCheckDay2 =
-          stockCheckSchedule == StockCheckSchedule.weekly ? stockCheckDay2 : null;
+      final effectiveStockCheckDays =
+          stockCheckSchedule == StockCheckSchedule.weekly
+              ? (stockCheckDays.toList()..sort())
+              : const <int>[];
       final effectiveStockCheckDay =
-          stockCheckSchedule == StockCheckSchedule.daily ||
-                  stockCheckSchedule == StockCheckSchedule.adHoc ||
-                  (stockCheckSchedule == StockCheckSchedule.monthly &&
-                      stockCheckDay == 0)
-              ? null
-              : stockCheckDay;
+          stockCheckSchedule == StockCheckSchedule.weekly
+              ? effectiveStockCheckDays.first
+              : stockCheckSchedule == StockCheckSchedule.monthly &&
+                      stockCheckDay != 0
+                  ? stockCheckDay
+                  : null;
       final existing = widget.initialSku;
       final sku = existing == null
           ? StockSku(
@@ -400,7 +408,7 @@ class _SkuEditorFormState extends State<_SkuEditorForm> {
               assignedStaffName: 'Unassigned',
               stockCheckSchedule: stockCheckSchedule,
               stockCheckDay: effectiveStockCheckDay,
-              stockCheckDay2: effectiveStockCheckDay2,
+              stockCheckDays: effectiveStockCheckDays,
               stockCheckDate: stockCheckDate,
               lastUpdatedAt: 'Not counted yet',
               lastUpdatedBy: headId,
@@ -425,9 +433,9 @@ class _SkuEditorFormState extends State<_SkuEditorForm> {
                 photoPath: photoPath,
                 stockCheckSchedule: stockCheckSchedule,
                 stockCheckDay: effectiveStockCheckDay,
-                stockCheckDay2: effectiveStockCheckDay2,
+                stockCheckDays: effectiveStockCheckDays,
                 clearStockCheckDay: effectiveStockCheckDay == null,
-                clearStockCheckDay2: effectiveStockCheckDay2 == null,
+                clearStockCheckDays: effectiveStockCheckDays.isEmpty,
                 stockCheckDate: stockCheckDate,
                 active: active,
               );
@@ -483,7 +491,7 @@ class _SkuEditorFormState extends State<_SkuEditorForm> {
     final photoRequiredError = showErrors && !editing && pendingPhotoPath == null;
     const units = [
       'kg', 'pcs', 'box', 'bottle', 'carton', 'ctn', 'pack', 'bag', 'btl',
-      'biji', 'unit',
+      'tin', 'can', 'biji', 'unit',
     ];
     return Column(
       children: [
@@ -669,25 +677,20 @@ class _SkuEditorFormState extends State<_SkuEditorForm> {
                 value: _stockAppScheduleType(stockCheckSchedule),
                 day: stockCheckSchedule == StockCheckSchedule.monthly
                     ? (stockCheckDay == 0 ? null : stockCheckDay)
-                    : stockCheckDay,
-                secondWeeklyDay: stockCheckDay2,
-                allowSecondWeeklyDay: true,
-                onSecondWeeklyDayChanged: (day) =>
-                    setState(() => stockCheckDay2 = day),
+                    : stockCheckDays.first,
+                weeklyDays: stockCheckDays.toList(),
+                onWeeklyDaysChanged: (days) =>
+                    setState(() => stockCheckDays = days.toSet()),
                 date: stockCheckDate,
                 onTypeChanged: (value) => setState(() {
                   stockCheckSchedule = _stockCheckSchedule(value);
-                  if (stockCheckSchedule != StockCheckSchedule.weekly) {
-                    stockCheckDay2 = null;
-                  }
                   if (stockCheckSchedule == StockCheckSchedule.weekly &&
-                      stockCheckDay == 0) {
-                    stockCheckDay = 1;
+                      stockCheckDays.isEmpty) {
+                    stockCheckDays = {1};
                   }
                 }),
                 onDayChanged: (day) => setState(() {
                   stockCheckDay = day ?? 0;
-                  if (stockCheckDay2 == stockCheckDay) stockCheckDay2 = null;
                 }),
                 onDateChanged: (date) => setState(() => stockCheckDate = date),
               ),
