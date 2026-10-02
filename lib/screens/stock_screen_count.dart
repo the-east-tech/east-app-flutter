@@ -580,22 +580,37 @@ class _SkuPhotoThumb extends StatelessWidget {
       );
     } else if (storedThumbnail) {
       final mediaScope = _StockMediaScope.of(context);
-      photo = FutureBuilder<Uint8List>(
-        future: mediaScope.loadThumbnail(storageKey),
-        builder: (context, snapshot) {
-          final bytes = snapshot.data;
-          if (bytes == null || bytes.isEmpty) return fallback;
-          return Image.memory(
-            bytes,
-            width: size,
-            height: size,
-            fit: fit,
-            cacheWidth: cacheWidth,
-            gaplessPlayback: true,
-            errorBuilder: (_, _, _) => fallback,
-          );
-        },
-      );
+      final cachedBytes = mediaScope.cachedThumbnail(storageKey);
+      if (cachedBytes != null && cachedBytes.isNotEmpty) {
+        photo = Image.memory(
+          cachedBytes,
+          width: size,
+          height: size,
+          fit: fit,
+          cacheWidth: cacheWidth,
+          gaplessPlayback: true,
+          errorBuilder: (_, _, _) => fallback,
+        );
+      } else if (mediaScope.canLoadThumbnail(storageKey)) {
+        photo = FutureBuilder<Uint8List>(
+          future: mediaScope.loadThumbnail(storageKey),
+          builder: (context, snapshot) {
+            final bytes = snapshot.data;
+            if (bytes == null || bytes.isEmpty) return fallback;
+            return Image.memory(
+              bytes,
+              width: size,
+              height: size,
+              fit: fit,
+              cacheWidth: cacheWidth,
+              gaplessPlayback: true,
+              errorBuilder: (_, _, _) => fallback,
+            );
+          },
+        );
+      } else {
+        photo = fallback;
+      }
     } else {
       photo = fallback;
     }
@@ -669,6 +684,8 @@ Future<void> showSkuPhotoViewer(
         if (mediaScope != null) {
           page = _StockMediaScope(
             api: mediaScope.api,
+            cachedThumbnail: mediaScope.cachedThumbnail,
+            canLoadThumbnail: mediaScope.canLoadThumbnail,
             loadThumbnail: mediaScope.loadThumbnail,
             loadReceivablePhoto: mediaScope.loadReceivablePhoto,
             child: page,

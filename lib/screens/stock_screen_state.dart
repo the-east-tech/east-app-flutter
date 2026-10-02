@@ -1,6 +1,9 @@
 part of 'stock_screen.dart';
 
 class _StockScreenState extends State<StockScreen> {
+  static const int _thumbnailCacheMaximumEntries = 96;
+  static const int _thumbnailCacheMaximumBytes = 48 * 1024 * 1024;
+  static const Duration _thumbnailRetryCooldown = Duration(seconds: 30);
   static const _directLoadPages = <StockPage>{
     StockPage.dailyCount,
     StockPage.receivable,
@@ -8,6 +11,13 @@ class _StockScreenState extends State<StockScreen> {
     StockPage.supplierSetup,
   };
 
+  final LinkedHashMap<String, Uint8List> _thumbnailCache =
+      LinkedHashMap<String, Uint8List>();
+  final Map<String, Future<Uint8List>> _thumbnailRequests =
+      <String, Future<Uint8List>>{};
+  final Map<String, DateTime> _thumbnailRetryAfter = <String, DateTime>{};
+  int _thumbnailCacheSize = 0;
+  int _thumbnailCacheGeneration = 0;
   final Map<String, Future<Uint8List>> _receivablePhotoCache = {};
   final Map<StockPage, DateTime> _loadedAt = <StockPage, DateTime>{};
   StockPage page = StockPage.home;
@@ -20,12 +30,88 @@ class _StockScreenState extends State<StockScreen> {
     // SKU reset is based on each SKU's daily reset time, not a countdown timer.
   }
 
+  String _thumbnailCacheKey(String storageKey) {
+    return '${widget.currentTenantId}\u0000${storageKey.trim()}';
+  }
+
+  Uint8List? cachedThumbnail(String storageKey) {
+    final cacheKey = _thumbnailCacheKey(storageKey);
+    final bytes = _thumbnailCache.remove(cacheKey);
+    if (bytes != null) _thumbnailCache[cacheKey] = bytes;
+    return bytes;
+  }
+
+  bool canLoadThumbnail(String storageKey) {
+    final cacheKey = _thumbnailCacheKey(storageKey);
+    final retryAfter = _thumbnailRetryAfter[cacheKey];
+    if (retryAfter == null) return true;
+    if (DateTime.now().isBefore(retryAfter)) return false;
+    _thumbnailRetryAfter.remove(cacheKey);
+    return true;
+  }
+
+  void _rememberThumbnail(String cacheKey, Uint8List bytes) {
+    if (bytes.isEmpty || bytes.lengthInBytes > _thumbnailCacheMaximumBytes) {
+      return;
+    }
+    final replaced = _thumbnailCache.remove(cacheKey);
+    if (replaced != null) _thumbnailCacheSize -= replaced.lengthInBytes;
+    _thumbnailCache[cacheKey] = bytes;
+    _thumbnailCacheSize += bytes.lengthInBytes;
+    while (_thumbnailCache.length > _thumbnailCacheMaximumEntries ||
+        _thumbnailCacheSize > _thumbnailCacheMaximumBytes) {
+      final oldestKey = _thumbnailCache.keys.first;
+      final removed = _thumbnailCache.remove(oldestKey);
+      if (removed != null) _thumbnailCacheSize -= removed.lengthInBytes;
+    }
+  }
+
+  void _clearThumbnailCache() {
+    _thumbnailCacheGeneration += 1;
+    _thumbnailCache.clear();
+    _thumbnailRequests.clear();
+    _thumbnailRetryAfter.clear();
+    _thumbnailCacheSize = 0;
+  }
+
   Future<Uint8List> loadThumbnail(String storageKey) {
-    // The API owns the bounded memory cache and persistent thumbnail cache.
-    return widget.api.stockSkuThumbnailBytes(
-      tenantId: widget.currentTenantId,
-      storageKey: storageKey,
-    );
+    final cacheKey = _thumbnailCacheKey(storageKey);
+    final cached = cachedThumbnail(storageKey);
+    if (cached != null) return Future<Uint8List>.value(cached);
+
+    final existing = _thumbnailRequests[cacheKey];
+    if (existing != null) return existing;
+    if (!canLoadThumbnail(storageKey)) {
+      return Future<Uint8List>.error(const _ThumbnailRetryDeferred());
+    }
+
+    final generation = _thumbnailCacheGeneration;
+    late final Future<Uint8List> request;
+    request = (() async {
+      try {
+        final bytes = await widget.api.stockSkuThumbnailBytes(
+          tenantId: widget.currentTenantId,
+          storageKey: storageKey,
+        );
+        if (generation == _thumbnailCacheGeneration) {
+          _rememberThumbnail(cacheKey, bytes);
+          _thumbnailRetryAfter.remove(cacheKey);
+        }
+        return bytes;
+      } on Object catch (error, stackTrace) {
+        if (generation == _thumbnailCacheGeneration) {
+          _thumbnailRetryAfter[cacheKey] =
+              DateTime.now().add(_thumbnailRetryCooldown);
+        }
+        Error.throwWithStackTrace(error, stackTrace);
+      }
+    })().whenComplete(() {
+      if (identical(_thumbnailRequests[cacheKey], request)) {
+        _thumbnailRequests.remove(cacheKey);
+      }
+    });
+    _thumbnailRequests[cacheKey] = request;
+    return request;
   }
 
   Future<Uint8List> loadReceivablePhoto(String storageKey) {
@@ -61,6 +147,7 @@ class _StockScreenState extends State<StockScreen> {
   void didUpdateWidget(covariant StockScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.currentTenantId != oldWidget.currentTenantId) {
+      _clearThumbnailCache();
       _loadedAt.clear();
       dataLoadingPage = null;
     }
@@ -400,6 +487,8 @@ class _StockScreenState extends State<StockScreen> {
     if (pageLoading) return const Center(child: CircularProgressIndicator());
     return _StockMediaScope(
       api: widget.api,
+      cachedThumbnail: cachedThumbnail,
+      canLoadThumbnail: canLoadThumbnail,
       loadThumbnail: loadThumbnail,
       loadReceivablePhoto: loadReceivablePhoto,
       child: PopScope(
@@ -445,4 +534,8 @@ class _StockScreenState extends State<StockScreen> {
       ),
     );
   }
+}
+
+final class _ThumbnailRetryDeferred implements Exception {
+  const _ThumbnailRetryDeferred();
 }
