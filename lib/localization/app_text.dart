@@ -513,6 +513,10 @@ class AppText {
 }
 
 const Map<String, String> _myanmar = {
+  'Still processing': 'ဆက်လက်လုပ်ဆောင်နေသည်',
+  'The request is taking longer than expected. Tap Wait to allow the same request more time to finish.':
+      'တောင်းဆိုမှုသည် မျှော်လင့်ထားသည်ထက် ကြာနေသည်။ တူညီသောတောင်းဆိုမှုကို အပြီးသတ်ရန် အချိန်ပိုပေးဖို့ စောင့်မည်ကို နှိပ်ပါ။',
+  'Wait': 'စောင့်မည်',
   'Export SKUs': 'SKU များ ထုတ်ယူရန်',
   'Import SKUs': 'SKU များ ထည့်သွင်းရန်',
   'More SKU actions': 'နောက်ထပ် SKU လုပ်ဆောင်ချက်များ',
@@ -1839,6 +1843,10 @@ const Map<String, String> _myanmar = {
 };
 
 const Map<String, String> _chinese = {
+  'Still processing': '仍在处理中',
+  'The request is taking longer than expected. Tap Wait to allow the same request more time to finish.':
+      '此请求所需时间比预期更长。点击“等待”，让同一请求继续完成。',
+  'Wait': '等待',
   'Export SKUs': '导出SKU',
   'Import SKUs': '导入SKU',
   'More SKU actions': '更多SKU操作',

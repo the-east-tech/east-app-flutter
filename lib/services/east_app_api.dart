@@ -91,12 +91,17 @@ class EastAppApiException implements Exception {
   String toString() => message;
 }
 
+typedef RequestTimeoutHandler = Future<bool> Function(
+  EastAppApiException error,
+);
+
 class EastAppApi {
   final http.Client _client;
   final String baseUrl;
   String? _token;
   Future<void> Function()? onSessionInvalidated;
   void Function(EastAppApiException error)? onApiError;
+  RequestTimeoutHandler? onRequestTimeout;
   void Function(bool isProcessing)? onProcessingChanged;
 
   int _processingRequestCount = 0;
@@ -241,6 +246,7 @@ class EastAppApi {
       notifyUserOnError: false,
       observeContent: false,
       blockUi: false,
+      allowTimeoutWait: false,
     );
   }
 
@@ -1242,20 +1248,14 @@ class EastAppApi {
 
       late http.Response response;
       try {
-        final streamed = await _client
-            .send(request)
-            .timeout(const Duration(minutes: 3));
-        response = await http.Response.fromStream(streamed);
-      } on TimeoutException {
-        final error = EastAppApiException(
-          statusCode: null,
-          code: 'REQUEST_TIMEOUT',
-          message: 'The Task submission did not finish within 3 minutes.',
+        response = await _awaitWithTimeoutGrace(
+          _client.send(request).then(http.Response.fromStream),
+          timeout: const Duration(minutes: 3),
           method: method,
           path: path,
+          timeoutMessage: 'The Task submission did not finish within 3 minutes.',
+          stopwatch: stopwatch,
         );
-        _reportApiError(error);
-        throw error;
       } on http.ClientException {
         final error = EastAppApiException(
           statusCode: null,
@@ -1921,28 +1921,23 @@ class EastAppApi {
 
       late http.Response response;
       try {
-        response = await _client
-            .post(
-              Uri.parse('$baseUrl$path'),
-              headers: {
-                'Accept': 'application/zip',
-                'Content-Type': 'application/json',
-                'Authorization': 'Bearer $token',
-              },
-              body: jsonEncode(selection.toJson()),
-            )
-            .timeout(const Duration(minutes: 5));
-      } on TimeoutException {
-        final error = EastAppApiException(
-          statusCode: null,
-          code: 'REQUEST_TIMEOUT',
-          message: 'The backup was not ready within 5 minutes.',
+        response = await _awaitWithTimeoutGrace(
+          _client.post(
+            Uri.parse('$baseUrl$path'),
+            headers: {
+              'Accept': 'application/zip',
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            body: jsonEncode(selection.toJson()),
+          ),
+          timeout: const Duration(minutes: 5),
           method: method,
           path: path,
-          durationMs: stopwatch.elapsedMilliseconds,
+          timeoutMessage: 'The backup was not ready within 5 minutes.',
+          stopwatch: stopwatch,
+          requestParameters: selection.toJson(),
         );
-        _reportApiError(error);
-        throw error;
       } on http.ClientException {
         final error = EastAppApiException(
           statusCode: null,
@@ -2381,14 +2376,15 @@ class EastAppApi {
 
       late final http.Response response;
       try {
+        late final Future<http.Response> responseFuture;
         if (method == 'GET') {
-          response = await _client.get(
+          responseFuture = _client.get(
             Uri.parse('$baseUrl$path'),
             headers: {
               'Accept': 'text/csv',
               'Authorization': 'Bearer $token',
             },
-          ).timeout(_requestTimeout);
+          );
         } else {
           final csvBytes = bytes;
           if (fileName == null || csvBytes == null) {
@@ -2407,19 +2403,20 @@ class EastAppApi {
                 filename: fileName,
               ),
             );
-          final streamed = await _client.send(request).timeout(_requestTimeout);
-          response = await http.Response.fromStream(streamed);
+          responseFuture = _client.send(request).then(http.Response.fromStream);
         }
-      } on TimeoutException {
-        final error = EastAppApiException(
-          statusCode: null,
-          code: 'REQUEST_TIMEOUT',
-          message: 'The application server did not respond within 15 seconds.',
+        response = await _awaitWithTimeoutGrace(
+          responseFuture,
+          timeout: _requestTimeout,
           method: method,
           path: path,
+          timeoutMessage:
+              'The application server did not respond within 15 seconds.',
+          stopwatch: stopwatch,
+          requestParameters: fileName == null
+              ? null
+              : {'fileName': fileName, 'sizeBytes': bytes?.length ?? 0},
         );
-        _reportApiError(error);
-        throw error;
       } on http.ClientException {
         final error = EastAppApiException(
           statusCode: null,
@@ -2645,18 +2642,15 @@ class EastAppApi {
 
       late http.Response response;
       try {
-        final streamed = await _client.send(request).timeout(_requestTimeout);
-        response = await http.Response.fromStream(streamed);
-      } on TimeoutException {
-        final error = const EastAppApiException(
-          statusCode: null,
-          code: 'REQUEST_TIMEOUT',
-          message: 'The application server did not respond within 15 seconds.',
+        response = await _awaitWithTimeoutGrace(
+          _client.send(request).then(http.Response.fromStream),
+          timeout: _requestTimeout,
           method: method,
           path: path,
+          timeoutMessage:
+              'The application server did not respond within 15 seconds.',
+          stopwatch: stopwatch,
         );
-        _reportApiError(error);
-        throw error;
       } on http.ClientException {
         final error = EastAppApiException(
           statusCode: null,
@@ -2736,23 +2730,21 @@ class EastAppApi {
     }
     late http.Response response;
     try {
-      response = await _client.get(
-        Uri.parse('$baseUrl$path'),
-        headers: {
-          'Accept': 'image/jpeg,image/png',
-          'Authorization': 'Bearer $token',
-        },
-      ).timeout(_requestTimeout);
-    } on TimeoutException {
-      final error = EastAppApiException(
-        statusCode: null,
-        code: 'REQUEST_TIMEOUT',
-        message: 'The application server did not respond within 15 seconds.',
+      response = await _awaitWithTimeoutGrace(
+        _client.get(
+          Uri.parse('$baseUrl$path'),
+          headers: {
+            'Accept': 'image/jpeg,image/png',
+            'Authorization': 'Bearer $token',
+          },
+        ),
+        timeout: _requestTimeout,
         method: method,
         path: path,
+        timeoutMessage:
+            'The application server did not respond within 15 seconds.',
+        stopwatch: stopwatch,
       );
-      _reportApiError(error);
-      throw error;
     } on http.ClientException {
       final error = EastAppApiException(
         statusCode: null,
@@ -2824,18 +2816,15 @@ class EastAppApi {
 
     late http.Response response;
     try {
-      final streamed = await _client.send(request).timeout(_requestTimeout);
-      response = await http.Response.fromStream(streamed);
-    } on TimeoutException {
-      final error = const EastAppApiException(
-        statusCode: null,
-        code: 'REQUEST_TIMEOUT',
-        message: 'The application server did not respond within 15 seconds.',
+      response = await _awaitWithTimeoutGrace(
+        _client.send(request).then(http.Response.fromStream),
+        timeout: _requestTimeout,
         method: method,
         path: path,
+        timeoutMessage:
+            'The application server did not respond within 15 seconds.',
+        stopwatch: stopwatch,
       );
-      _reportApiError(error);
-      throw error;
     } on http.ClientException {
       final error = EastAppApiException(
         statusCode: null,
@@ -2932,18 +2921,15 @@ class EastAppApi {
 
     late http.Response response;
     try {
-      final streamed = await _client.send(request).timeout(_requestTimeout);
-      response = await http.Response.fromStream(streamed);
-    } on TimeoutException {
-      final error = const EastAppApiException(
-        statusCode: null,
-        code: 'REQUEST_TIMEOUT',
-        message: 'The application server did not respond within 15 seconds.',
+      response = await _awaitWithTimeoutGrace(
+        _client.send(request).then(http.Response.fromStream),
+        timeout: _requestTimeout,
         method: method,
         path: path,
+        timeoutMessage:
+            'The application server did not respond within 15 seconds.',
+        stopwatch: stopwatch,
       );
-      _reportApiError(error);
-      throw error;
     } on http.ClientException {
       final error = EastAppApiException(
         statusCode: null,
@@ -3041,23 +3027,21 @@ class EastAppApi {
 
     late http.Response response;
     try {
-      response = await _client.get(
-        Uri.parse('$baseUrl$path'),
-        headers: {
-          'Accept': 'image/jpeg,image/png',
-          'Authorization': 'Bearer $token',
-        },
-      ).timeout(_requestTimeout);
-    } on TimeoutException {
-      final error = EastAppApiException(
-        statusCode: null,
-        code: 'REQUEST_TIMEOUT',
-        message: 'The application server did not respond within 15 seconds.',
+      response = await _awaitWithTimeoutGrace(
+        _client.get(
+          Uri.parse('$baseUrl$path'),
+          headers: {
+            'Accept': 'image/jpeg,image/png',
+            'Authorization': 'Bearer $token',
+          },
+        ),
+        timeout: _requestTimeout,
         method: method,
         path: path,
+        timeoutMessage:
+            'The application server did not respond within 15 seconds.',
+        stopwatch: stopwatch,
       );
-      _reportApiError(error);
-      throw error;
     } on http.ClientException {
       final error = EastAppApiException(
         statusCode: null,
@@ -3117,23 +3101,21 @@ class EastAppApi {
 
     late http.Response response;
     try {
-      response = await _client.get(
-        Uri.parse('$baseUrl$path'),
-        headers: {
-          'Accept': 'image/jpeg,image/png',
-          'Authorization': 'Bearer $token',
-        },
-      ).timeout(_requestTimeout);
-    } on TimeoutException {
-      final error = EastAppApiException(
-        statusCode: null,
-        code: 'REQUEST_TIMEOUT',
-        message: 'The application server did not respond within 15 seconds.',
+      response = await _awaitWithTimeoutGrace(
+        _client.get(
+          Uri.parse('$baseUrl$path'),
+          headers: {
+            'Accept': 'image/jpeg,image/png',
+            'Authorization': 'Bearer $token',
+          },
+        ),
+        timeout: _requestTimeout,
         method: method,
         path: path,
+        timeoutMessage:
+            'The application server did not respond within 15 seconds.',
+        stopwatch: stopwatch,
       );
-      _reportApiError(error);
-      throw error;
     } on http.ClientException {
       final error = EastAppApiException(
         statusCode: null,
@@ -3422,6 +3404,7 @@ class EastAppApi {
     bool notifyUserOnError = true,
     bool observeContent = true,
     bool blockUi = true,
+    bool allowTimeoutWait = true,
     Duration? timeout,
   }) async {
     final isTranslationRequest = path.startsWith('/api/v1/translations');
@@ -3440,6 +3423,7 @@ class EastAppApi {
         notifyOnUnauthorised: notifyOnUnauthorised,
         reportError: reportError,
         notifyUserOnError: notifyUserOnError,
+        allowTimeoutWait: allowTimeoutWait,
         timeout: timeout,
       );
       if (authenticated && observeContent && value != null) {
@@ -3460,6 +3444,7 @@ class EastAppApi {
     bool notifyOnUnauthorised = true,
     bool reportError = true,
     bool notifyUserOnError = true,
+    bool allowTimeoutWait = true,
     Duration? timeout,
   }) async {
     final stopwatch = Stopwatch()..start();
@@ -3532,27 +3517,21 @@ class EastAppApi {
 
     late http.Response response;
     try {
-      response = await request.timeout(timeout ?? _requestTimeout);
-    } on TimeoutException {
-      final error = EastAppApiException(
-        statusCode: null,
-        code: 'REQUEST_TIMEOUT',
-        message:
-            'The application server did not respond within ${(timeout ?? _requestTimeout).inSeconds} seconds.',
+      final requestTimeout = timeout ?? _requestTimeout;
+      response = await _awaitWithTimeoutGrace(
+        request,
+        timeout: requestTimeout,
         method: method,
         path: path,
-        durationMs: stopwatch.elapsedMilliseconds,
+        timeoutMessage:
+            'The application server did not respond within ${requestTimeout.inSeconds} seconds.',
+        stopwatch: stopwatch,
+        requestParameters: body,
+        reportError: reportError,
+        notifyUserOnError: notifyUserOnError,
+        allowTimeoutWait: allowTimeoutWait,
+        errorNotificationGeneration: errorNotificationGeneration,
       );
-      if (reportError) {
-        _reportApiError(
-          error,
-          requestParameters: body,
-          notifyUser:
-              notifyUserOnError &&
-              errorNotificationGeneration == _errorNotificationGeneration,
-        );
-      }
-      throw error;
     } on http.ClientException {
       final error = EastAppApiException(
         statusCode: null,
@@ -3862,6 +3841,84 @@ class EastAppApi {
     if (notifyUser) onApiError?.call(error);
   }
 
+  Future<T> _awaitWithTimeoutGrace<T>(
+    Future<T> request, {
+    required Duration timeout,
+    required String method,
+    required String path,
+    required String timeoutMessage,
+    required Stopwatch stopwatch,
+    Object? requestParameters,
+    bool reportError = true,
+    bool notifyUserOnError = true,
+    bool allowTimeoutWait = true,
+    int? errorNotificationGeneration,
+  }) async {
+    try {
+      return await request.timeout(timeout);
+    } on TimeoutException {
+      final firstTimeout = EastAppApiException(
+        statusCode: null,
+        code: 'REQUEST_TIMEOUT',
+        message: timeoutMessage,
+        method: method,
+        path: path,
+        durationMs: stopwatch.elapsedMilliseconds,
+      );
+      final notificationIsCurrent = errorNotificationGeneration == null ||
+          errorNotificationGeneration == _errorNotificationGeneration;
+
+      if (reportError) {
+        _reportApiError(
+          firstTimeout,
+          requestParameters: requestParameters,
+          notifyUser: false,
+        );
+      }
+
+      final timeoutHandler = onRequestTimeout;
+      final canOfferWait = reportError &&
+          notifyUserOnError &&
+          allowTimeoutWait &&
+          notificationIsCurrent &&
+          timeoutHandler != null;
+      if (canOfferWait && timeoutHandler != null) {
+        final shouldWait = await timeoutHandler(firstTimeout);
+        if (shouldWait) {
+          try {
+            return await request.timeout(timeout);
+          } on TimeoutException {
+            final secondTimeout = EastAppApiException(
+              statusCode: null,
+              code: 'REQUEST_TIMEOUT',
+              message: timeoutMessage,
+              method: method,
+              path: path,
+              durationMs: stopwatch.elapsedMilliseconds,
+            );
+            if (reportError) {
+              final secondNotificationIsCurrent =
+                  errorNotificationGeneration == null ||
+                      errorNotificationGeneration ==
+                          _errorNotificationGeneration;
+              _reportApiError(
+                secondTimeout,
+                requestParameters: requestParameters,
+                notifyUser: secondNotificationIsCurrent,
+              );
+            }
+            throw secondTimeout;
+          }
+        }
+      }
+
+      if (reportError && notifyUserOnError && notificationIsCurrent) {
+        onApiError?.call(firstTimeout);
+      }
+      throw firstTimeout;
+    }
+  }
+
   void _beginProcessingRequest() {
     _processingRequestCount += 1;
     if (_processingRequestCount == 1) {
@@ -3878,6 +3935,7 @@ class EastAppApi {
   }
 
   void close() {
+    onRequestTimeout = null;
     onProcessingChanged = null;
     _client.close();
   }
