@@ -8,7 +8,6 @@ class _StockScreenState extends State<StockScreen> {
     StockPage.supplierSetup,
   };
 
-  final Map<String, Future<Uint8List>> _thumbnailCache = {};
   final Map<String, Future<Uint8List>> _receivablePhotoCache = {};
   final Map<StockPage, DateTime> _loadedAt = <StockPage, DateTime>{};
   StockPage page = StockPage.home;
@@ -22,13 +21,10 @@ class _StockScreenState extends State<StockScreen> {
   }
 
   Future<Uint8List> loadThumbnail(String storageKey) {
-    final cacheKey = '${widget.currentTenantId}\u0000$storageKey';
-    return _thumbnailCache.putIfAbsent(
-      cacheKey,
-      () => widget.api.stockSkuThumbnailBytes(
-        tenantId: widget.currentTenantId,
-        storageKey: storageKey,
-      ),
+    // The API owns the bounded memory cache and persistent thumbnail cache.
+    return widget.api.stockSkuThumbnailBytes(
+      tenantId: widget.currentTenantId,
+      storageKey: storageKey,
     );
   }
 

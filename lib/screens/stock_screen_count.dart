@@ -563,6 +563,9 @@ class _SkuPhotoThumb extends StatelessWidget {
     final storageKey = sku.photoPath.trim();
     final storedThumbnail =
         storageKey.endsWith('.jpg') || storageKey.endsWith('.png');
+    final cacheWidth = fit == BoxFit.contain
+        ? null
+        : (size * MediaQuery.devicePixelRatioOf(context)).ceil();
     final Widget photo;
     final localBytes = overrideBytes;
     if (localBytes != null && localBytes.isNotEmpty) {
@@ -571,6 +574,7 @@ class _SkuPhotoThumb extends StatelessWidget {
         width: size,
         height: size,
         fit: fit,
+        cacheWidth: cacheWidth,
         gaplessPlayback: true,
         errorBuilder: (_, _, _) => fallback,
       );
@@ -586,6 +590,7 @@ class _SkuPhotoThumb extends StatelessWidget {
             width: size,
             height: size,
             fit: fit,
+            cacheWidth: cacheWidth,
             gaplessPlayback: true,
             errorBuilder: (_, _, _) => fallback,
           );

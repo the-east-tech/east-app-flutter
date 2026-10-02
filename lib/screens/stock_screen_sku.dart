@@ -319,19 +319,28 @@ class _SkuSetupPageState extends State<_SkuSetupPage> {
         const SizedBox(height: 14),
         if (skus.isEmpty)
           WhiteCard(child: Text(text.t('No SKU matches the selected filters.'), style: const TextStyle(fontSize: AppTextSize.s16, fontWeight: FontWeight.w700)))
-        else
-          WhiteCard(
-            padding: EdgeInsets.zero,
-            child: Column(children: [
-              ...skus.map((sku) => _SkuCompactRow(
-                sku: sku,
-                onTap: () => sku.approvalHoldReason.isNotEmpty
-                    ? showSkuApprovalHoldDialog(context, sku)
-                    : showSkuDetailDialog(context, sku: sku, tags: widget.tags, suppliers: widget.suppliers, onUpdateSku: widget.onUpdateSku, onDeleteSku: widget.onDeleteSku),
-              )),
-            ]),
-          ),
       ],
+      sliver: skus.isEmpty
+          ? const SliverToBoxAdapter(child: SizedBox.shrink())
+          : DecoratedSliver(
+              decoration: BoxDecoration(
+                color: AppColours.card,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: AppColours.border),
+              ),
+              sliver: SliverList.builder(
+                itemCount: skus.length,
+                itemBuilder: (context, index) {
+                  final sku = skus[index];
+                  return _SkuCompactRow(
+                    sku: sku,
+                    onTap: () => sku.approvalHoldReason.isNotEmpty
+                        ? showSkuApprovalHoldDialog(context, sku)
+                        : showSkuDetailDialog(context, sku: sku, tags: widget.tags, suppliers: widget.suppliers, onUpdateSku: widget.onUpdateSku, onDeleteSku: widget.onDeleteSku),
+                  );
+                },
+              ),
+            ),
     );
   }
 }

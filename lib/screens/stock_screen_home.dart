@@ -175,6 +175,7 @@ class _PageScaffold extends StatelessWidget {
   final VoidCallback onBack;
   final List<Widget> children;
   final Widget? trailing;
+  final Widget? sliver;
 
   const _PageScaffold({
     required this.title,
@@ -182,39 +183,57 @@ class _PageScaffold extends StatelessWidget {
     required this.onBack,
     required this.children,
     this.trailing,
+    this.sliver,
   });
 
   @override
   Widget build(BuildContext context) {
     final contextualApproval = _StockApprovalScope.maybeSectionOf(context);
+    final headerChildren = <Widget>[
+      Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: IconButton(
+              onPressed: onBack,
+              icon: const Icon(Icons.arrow_back_rounded),
+            ),
+          ),
+          Expanded(child: PageTitle(title: title, subtitle: subtitle)),
+          if (trailing != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: trailing!,
+            ),
+        ],
+      ),
+      if (contextualApproval != null) ...[
+        contextualApproval,
+        const SizedBox(height: 12),
+      ],
+      ...children,
+    ];
+    final lazyContent = sliver;
+    if (lazyContent != null) {
+      return CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            sliver: SliverList.list(children: headerChildren),
+          ),
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(14, 0, 14, 24),
+            sliver: lazyContent,
+          ),
+        ],
+      );
+    }
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(14, 0, 14, 24),
-      children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.only(top: 12),
-              child: IconButton(
-                onPressed: onBack,
-                icon: const Icon(Icons.arrow_back_rounded),
-              ),
-            ),
-            Expanded(child: PageTitle(title: title, subtitle: subtitle)),
-            if (trailing != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 12),
-                child: trailing!,
-              ),
-          ],
-        ),
-        if (contextualApproval != null) ...[
-          contextualApproval,
-          const SizedBox(height: 12),
-        ],
-        ...children,
-      ],
+      children: headerChildren,
     );
   }
 }
