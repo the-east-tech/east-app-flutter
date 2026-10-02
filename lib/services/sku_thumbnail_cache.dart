@@ -11,7 +11,7 @@ class SkuThumbnailCache {
   static final SkuThumbnailCache instance = SkuThumbnailCache._();
 
   static const int _maximumBytes = 50 * 1024 * 1024;
-  static const String _directoryName = 'eastapp_sku_thumbnail_cache_v1';
+  static const String _directoryName = 'eastapp_sku_thumbnail_cache_v2';
   static const String _fileExtension = '.thumbnail';
 
   Directory? _directory;
