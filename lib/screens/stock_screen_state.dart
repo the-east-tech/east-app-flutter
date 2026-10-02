@@ -1,8 +1,8 @@
 part of 'stock_screen.dart';
 
 class _StockScreenState extends State<StockScreen> {
-  static const int _thumbnailCacheMaximumEntries = 96;
-  static const int _thumbnailCacheMaximumBytes = 48 * 1024 * 1024;
+  static const int _thumbnailCacheMaximumEntries = 256;
+  static const int _thumbnailCacheMaximumBytes = 64 * 1024 * 1024;
   static const Duration _thumbnailRetryCooldown = Duration(seconds: 30);
   static const _directLoadPages = <StockPage>{
     StockPage.dailyCount,
