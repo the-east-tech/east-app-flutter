@@ -15,6 +15,58 @@ typedef ErrorReporter = Future<ErrorReportDelivery> Function(
   EastAppApiException error,
 );
 
+Future<bool> showRequestTimeoutDialog(BuildContext context) async {
+  await AppFeedback.warning();
+  if (!context.mounted) return false;
+
+  return await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) {
+          final text = AppTextScope.of(dialogContext);
+          return PopScope(
+            canPop: false,
+            child: AlertDialog(
+              title: Row(
+                children: [
+                  const Icon(
+                    Icons.hourglass_top_rounded,
+                    color: AppColours.orange,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      text.t('Still processing'),
+                      style: const TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                  ),
+                ],
+              ),
+              content: Text(
+                text.t(
+                  'The request is taking longer than expected. Tap Wait to allow the same request more time to finish.',
+                ),
+                style: const TextStyle(
+                  fontSize: AppTextSize.s14,
+                  height: 1.45,
+                  color: AppColours.textMain,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              actions: [
+                FilledButton.icon(
+                  onPressed: () => Navigator.of(dialogContext).pop(true),
+                  icon: const Icon(Icons.hourglass_bottom_rounded),
+                  label: Text(text.t('Wait')),
+                ),
+              ],
+            ),
+          );
+        },
+      ) ??
+      false;
+}
+
 Future<void> showApiErrorDialog(
   BuildContext context,
   EastAppApiException error,

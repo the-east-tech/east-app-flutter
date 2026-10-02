@@ -48,6 +48,8 @@ class _TheEastAppState extends State<TheEastApp>
   String? startupError;
   EastAppApiException? startupApiError;
   bool apiErrorDialogOpen = false;
+  bool requestTimeoutDialogOpen = false;
+  Future<bool>? activeRequestTimeoutDecision;
   bool processingRequest = false;
   DateTime? processingStartedAt;
   Timer? processingDismissTimer;
@@ -61,6 +63,7 @@ class _TheEastAppState extends State<TheEastApp>
     WidgetsBinding.instance.addObserver(this);
     api.onSessionInvalidated = handleSessionInvalidated;
     api.onApiError = handleApiError;
+    api.onRequestTimeout = handleRequestTimeout;
     api.onProcessingChanged = handleProcessingChanged;
 
     final configurationError = ApiConfiguration.startupError;
@@ -78,6 +81,7 @@ class _TheEastAppState extends State<TheEastApp>
   void handleApiError(EastAppApiException error) {
     if (error.invalidatesSession ||
         apiErrorDialogOpen ||
+        requestTimeoutDialogOpen ||
         WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
       return;
     }
@@ -98,6 +102,46 @@ class _TheEastAppState extends State<TheEastApp>
         apiErrorDialogOpen = false;
       }
     });
+  }
+
+  Future<bool> handleRequestTimeout(EastAppApiException error) {
+    final activeDecision = activeRequestTimeoutDecision;
+    if (activeDecision != null) return activeDecision;
+
+    final decision = _showRequestTimeoutDialog(error);
+    activeRequestTimeoutDecision = decision;
+    unawaited(
+      decision.then<void>(
+        (_) => _clearRequestTimeoutDecision(decision),
+        onError: (Object _, StackTrace __) =>
+            _clearRequestTimeoutDecision(decision),
+      ),
+    );
+    return decision;
+  }
+
+  void _clearRequestTimeoutDecision(Future<bool> decision) {
+    if (identical(activeRequestTimeoutDecision, decision)) {
+      activeRequestTimeoutDecision = null;
+    }
+  }
+
+  Future<bool> _showRequestTimeoutDialog(EastAppApiException error) async {
+    final context = navigatorKey.currentContext;
+    if (!mounted ||
+        context == null ||
+        WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
+      return false;
+    }
+
+    setState(() => requestTimeoutDialogOpen = true);
+    try {
+      final shouldWait = await showRequestTimeoutDialog(context);
+      if (shouldWait) unawaited(reportError(error));
+      return shouldWait;
+    } finally {
+      if (mounted) setState(() => requestTimeoutDialogOpen = false);
+    }
   }
 
   @override
@@ -360,7 +404,9 @@ class _TheEastAppState extends State<TheEastApp>
 
   Future<ErrorReportDelivery> reportError(EastAppApiException error) async {
     var report = buildPendingErrorReport(error);
-    if (!error.isServerUnavailable && api.token?.isNotEmpty == true) {
+    final canAttemptDelivery =
+        !error.isServerUnavailable || error.code == 'REQUEST_TIMEOUT';
+    if (canAttemptDelivery && api.token?.isNotEmpty == true) {
       try {
         await api.submitErrorReport(report);
         return ErrorReportDelivery.sent;
@@ -547,7 +593,7 @@ class _TheEastAppState extends State<TheEastApp>
       builder: (context, child) => AppTextScope(
         language: language,
         child: AppProcessingOverlay(
-          isProcessing: processingRequest,
+          isProcessing: processingRequest && !requestTimeoutDialogOpen,
           child: child ?? const SizedBox.shrink(),
         ),
       ),
