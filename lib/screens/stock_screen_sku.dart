@@ -7,6 +7,7 @@ class _SkuSetupPage extends StatefulWidget {
   final List<StockTag> tags;
   final List<SupplierProfile> suppliers;
   final List<StockSku> skus;
+  final int totalSkuCount;
   final VoidCallback onBack;
   final Future<void> Function(StockSku sku) onCreateSku;
   final Future<void> Function(StockSku sku) onUpdateSku;
@@ -19,6 +20,7 @@ class _SkuSetupPage extends StatefulWidget {
     required this.tags,
     required this.suppliers,
     required this.skus,
+    required this.totalSkuCount,
     required this.onBack,
     required this.onCreateSku,
     required this.onUpdateSku,
@@ -298,7 +300,7 @@ class _SkuSetupPageState extends State<_SkuSetupPage> {
       ),
       children: [
         Row(children: [
-          Expanded(child: _MiniMetric(label: text.t('Total SKU'), value: '${widget.skus.length}', icon: Icons.inventory_2_outlined)),
+          Expanded(child: _MiniMetric(label: text.t('Total SKU'), value: '${widget.totalSkuCount}', icon: Icons.inventory_2_outlined)),
           const SizedBox(width: 10),
           Expanded(child: _MiniMetric(label: text.t('Low'), value: '$lowCount', icon: Icons.warning_amber_rounded, danger: lowCount > 0)),
           const SizedBox(width: 10),
