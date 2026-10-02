@@ -11,6 +11,7 @@ class StockScreen extends StatefulWidget {
   final List<StockSubmission> submissions;
   final List<SupplierProfile> suppliers;
   final List<StockSku> stockSkus;
+  final int totalSkuCount;
   final List<StockReceivableRecord> receivableRecords;
   final List<StockTag> tags;
   final DateTime? tagsLastUpdatedAt;
@@ -64,6 +65,7 @@ class StockScreen extends StatefulWidget {
     required this.submissions,
     required this.suppliers,
     required this.stockSkus,
+    required this.totalSkuCount,
     required this.receivableRecords,
     required this.tags,
     required this.tagsLastUpdatedAt,

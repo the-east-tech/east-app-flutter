@@ -70,6 +70,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   late List<StockTask> stockTasks;
   late List<StockSubmission> stockSubmissions;
   late List<StockSku> stockSkus;
+  int stockSkuTotalCount = 0;
   late List<StockReceivableRecord> stockReceivableRecords;
   late List<SupplierProfile> suppliers;
   late List<AttendanceRecord> attendanceRecords;
@@ -559,6 +560,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
           ? List<StockSku>.from(result.content)
           : [...stockSkus, ...result.content];
       stockSkuPage = result.page;
+      stockSkuTotalCount = result.totalElements;
       stockSkusLast = result.last;
       stockSkusUpdatedAt = widget.api.featureCacheUpdatedAt(cacheKey) ?? DateTime.now();
     });
@@ -1769,6 +1771,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
               submissions: stockSubmissions,
               suppliers: suppliers,
               stockSkus: stockSkus,
+              totalSkuCount: stockSkuTotalCount,
               receivableRecords: stockReceivableRecords,
               tags: stockTags,
               tagsLastUpdatedAt: stockTagsUpdatedAt,

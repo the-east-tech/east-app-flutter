@@ -339,6 +339,7 @@ class _StockScreenState extends State<StockScreen> {
               tags: widget.tags,
               suppliers: widget.suppliers,
               skus: widget.stockSkus,
+              totalSkuCount: widget.totalSkuCount,
               onBack: goHome,
               onCreateSku: widget.onCreateSku,
               onUpdateSku: widget.onUpdateSku,
