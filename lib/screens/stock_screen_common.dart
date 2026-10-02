@@ -84,6 +84,8 @@ Future<T?> showStockBottomSheet<T>(
       if (mediaScope != null) {
         sheet = _StockMediaScope(
           api: mediaScope.api,
+          cachedThumbnail: mediaScope.cachedThumbnail,
+          canLoadThumbnail: mediaScope.canLoadThumbnail,
           loadThumbnail: mediaScope.loadThumbnail,
           loadReceivablePhoto: mediaScope.loadReceivablePhoto,
           child: sheet,
@@ -236,11 +238,15 @@ class _DataRefreshShell extends StatelessWidget {
 
 class _StockMediaScope extends InheritedWidget {
   final EastAppApi api;
+  final Uint8List? Function(String storageKey) cachedThumbnail;
+  final bool Function(String storageKey) canLoadThumbnail;
   final Future<Uint8List> Function(String storageKey) loadThumbnail;
   final Future<Uint8List> Function(String storageKey) loadReceivablePhoto;
 
   const _StockMediaScope({
     required this.api,
+    required this.cachedThumbnail,
+    required this.canLoadThumbnail,
     required this.loadThumbnail,
     required this.loadReceivablePhoto,
     required super.child,
@@ -255,6 +261,8 @@ class _StockMediaScope extends InheritedWidget {
   @override
   bool updateShouldNotify(covariant _StockMediaScope oldWidget) {
     return api != oldWidget.api ||
+        cachedThumbnail != oldWidget.cachedThumbnail ||
+        canLoadThumbnail != oldWidget.canLoadThumbnail ||
         loadThumbnail != oldWidget.loadThumbnail ||
         loadReceivablePhoto != oldWidget.loadReceivablePhoto;
   }

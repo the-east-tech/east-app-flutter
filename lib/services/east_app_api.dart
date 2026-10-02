@@ -121,6 +121,10 @@ class EastAppApi {
       <String, Future<Uint8List>>{};
   int _mediaBytesCacheSize = 0;
   int _mediaBytesCacheGeneration = 0;
+  static const int _maximumConcurrentSkuThumbnailRequests = 3;
+  int _activeSkuThumbnailRequests = 0;
+  final Queue<Completer<void>> _skuThumbnailRequestWaiters =
+      Queue<Completer<void>>();
   final _availableContextsCache = _AsyncMemoryCache<List<EastAppSession>>(
     ttl: const Duration(minutes: 5),
   );
@@ -2994,7 +2998,9 @@ class EastAppApi {
         );
         if (cached != null) return cached;
 
-        final bytes = await _fetchStockSkuThumbnailBytes(normalizedStorageKey);
+        final bytes = await _withSkuThumbnailRequestSlot(
+          () => _fetchStockSkuThumbnailBytes(normalizedStorageKey),
+        );
         await SkuThumbnailCache.instance.write(
           tenantId: normalizedTenantId,
           storageKey: normalizedStorageKey,
@@ -3074,6 +3080,28 @@ class EastAppApi {
       throw error;
     }
     return Uint8List.fromList(response.bodyBytes);
+  }
+
+  Future<T> _withSkuThumbnailRequestSlot<T>(
+    Future<T> Function() request,
+  ) async {
+    if (_activeSkuThumbnailRequests <
+        _maximumConcurrentSkuThumbnailRequests) {
+      _activeSkuThumbnailRequests += 1;
+    } else {
+      final waiter = Completer<void>();
+      _skuThumbnailRequestWaiters.add(waiter);
+      await waiter.future;
+    }
+    try {
+      return await request();
+    } finally {
+      if (_skuThumbnailRequestWaiters.isNotEmpty) {
+        _skuThumbnailRequestWaiters.removeFirst().complete();
+      } else {
+        _activeSkuThumbnailRequests -= 1;
+      }
+    }
   }
 
   Future<Uint8List> stockReceivablePhotoBytes(String storageKey) {
