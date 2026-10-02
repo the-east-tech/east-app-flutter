@@ -3041,6 +3041,9 @@ class EastAppApi {
         timeoutMessage:
             'The application server did not respond within 15 seconds.',
         stopwatch: stopwatch,
+        // A background thumbnail failure leaves its placeholder visible.
+        notifyUserOnError: false,
+        allowTimeoutWait: false,
       );
     } on http.ClientException {
       final error = EastAppApiException(
@@ -3049,8 +3052,9 @@ class EastAppApi {
         message: 'Unable to connect to the application server.',
         method: method,
         path: path,
+        durationMs: stopwatch.elapsedMilliseconds,
       );
-      _reportApiError(error);
+      _reportApiError(error, notifyUser: false);
       throw error;
     }
 
@@ -3061,7 +3065,7 @@ class EastAppApi {
           path: path,
           durationMs: stopwatch.elapsedMilliseconds,
         );
-      _reportApiError(error);
+      _reportApiError(error, notifyUser: error.invalidatesSession);
       if (error.invalidatesSession) {
         useToken(null);
         final callback = onSessionInvalidated;
