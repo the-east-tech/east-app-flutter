@@ -438,7 +438,6 @@ class StockReceivableItem {
   final double invoiceQuantity;
   final double receivedQuantity;
   final String unit;
-  final String condition;
   final String note;
 
   const StockReceivableItem({
@@ -447,9 +446,13 @@ class StockReceivableItem {
     required this.invoiceQuantity,
     required this.receivedQuantity,
     required this.unit,
-    required this.condition,
     required this.note,
   });
+
+  String get condition {
+    if (receivedQuantity == invoiceQuantity) return 'Matched';
+    return receivedQuantity < invoiceQuantity ? 'Short' : 'Excess';
+  }
 }
 
 class StockReceivableRecord {

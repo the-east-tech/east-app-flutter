@@ -281,7 +281,6 @@ StockReceivableItem stockReceivableItemFromJson(Map<String, dynamic> json) {
     invoiceQuantity: (json['invoiceQuantity'] as num).toDouble(),
     receivedQuantity: (json['receivedQuantity'] as num).toDouble(),
     unit: json['unit'] as String,
-    condition: json['condition'] as String? ?? '',
     note: json['note'] as String? ?? '',
   );
 }
@@ -360,7 +359,6 @@ Map<String, Object?> stockReceivableToJson(StockReceivableRecord record) {
               'skuId': item.skuId,
               'invoiceQuantity': item.invoiceQuantity,
               'receivedQuantity': item.receivedQuantity,
-              'condition': item.condition,
               'note': item.note,
             })
         .toList(growable: false),
