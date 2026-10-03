@@ -311,20 +311,19 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
   }
 
   Color receivableConditionColour(StockReceivableRecord record) {
-    final condition = record.items.isEmpty
-        ? ''
-        : record.items.first.condition.toLowerCase();
-    if (condition.contains('good') ||
-        condition.contains('pass') ||
-        condition.contains('ok')) {
-      return AppColours.green;
+    if (record.items.isEmpty) return AppColours.textMuted;
+    return record.items.every((item) => item.condition == 'Matched')
+        ? AppColours.green
+        : AppColours.orange;
+  }
+
+  String receivableItemSummary(StockReceivableItem item) {
+    final received = formatStockNumber(item.receivedQuantity);
+    if (item.condition == 'Matched') {
+      return '$received ${item.unit} · Matched';
     }
-    if (condition.contains('bad') ||
-        condition.contains('reject') ||
-        condition.contains('damag')) {
-      return AppColours.red;
-    }
-    return AppColours.orange;
+    final invoiced = formatStockNumber(item.invoiceQuantity);
+    return 'Received $received / Invoice $invoiced ${item.unit} · ${item.condition}';
   }
 
   String recordDateLabel(DateTime value) => _formatDate(_dateOnly(value));
@@ -560,8 +559,7 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
                           for (final item in record.items)
                             _ReviewInfoRow(
                               label: item.skuName,
-                              value:
-                                  '${formatStockNumber(item.receivedQuantity)} ${item.unit} · ${item.condition}',
+                              value: receivableItemSummary(item),
                             ),
                           if (record.reviewedBy.isNotEmpty)
                             _ReviewInfoRow(
