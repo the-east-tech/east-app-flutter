@@ -365,6 +365,10 @@ Future<void> showActivityEventDetails(
   await showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
+    useSafeArea: true,
+    constraints: BoxConstraints(
+      maxHeight: MediaQuery.sizeOf(context).height * 0.9,
+    ),
     backgroundColor: Colors.transparent,
     builder: (sheetContext) => SafeArea(
       child: Container(
@@ -417,39 +421,172 @@ Future<void> showActivityEventDetails(
               ],
             ),
             const SizedBox(height: 18),
-            _DetailLine(label: text.t('Who'), value: event.actorName),
-            _DetailLine(
-              label: text.t('Employee ID'),
-              value: event.actorEmployeeId,
-            ),
-            _DetailLine(
-              label: text.t('Role'),
-              value: activityRoleLabel(text, event.actorRole),
-            ),
-            _DetailLine(label: text.t('Area'), value: text.t(event.module)),
-            _DetailLine(
-              label: text.t('What happened'),
-              value: text.content(event.summary),
-            ),
-            if (event.detail.isNotEmpty)
-              _DetailLine(
-                label: text.t('Details'),
-                value: text.content(event.detail),
+            Flexible(
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _DetailLine(label: text.t('Who'), value: event.actorName),
+                    _DetailLine(
+                      label: text.t('Employee ID'),
+                      value: event.actorEmployeeId,
+                    ),
+                    _DetailLine(
+                      label: text.t('Role'),
+                      value: activityRoleLabel(text, event.actorRole),
+                    ),
+                    _DetailLine(
+                      label: text.t('Area'),
+                      value: text.t(event.module),
+                    ),
+                    _DetailLine(
+                      label: text.t('What happened'),
+                      value: text.content(event.summary),
+                    ),
+                    if (event.detail.isNotEmpty)
+                      _ActivityDetails(detail: event.detail),
+                    _DetailLine(
+                      label: text.t('When'),
+                      value: formatActivityDateTime(context, event.occurredAt),
+                    ),
+                    if (event.targetId != null)
+                      _DetailLine(
+                        label: text.t('Record ID'),
+                        value: event.targetId!,
+                      ),
+                  ],
+                ),
               ),
-            _DetailLine(
-              label: text.t('When'),
-              value: formatActivityDateTime(context, event.occurredAt),
             ),
-            if (event.targetId != null)
-              _DetailLine(
-                label: text.t('Record ID'),
-                value: event.targetId!,
-              ),
           ],
         ),
       ),
     ),
   );
+}
+
+class _ActivityDetails extends StatelessWidget {
+  final String detail;
+
+  const _ActivityDetails({required this.detail});
+
+  @override
+  Widget build(BuildContext context) {
+    final text = AppTextScope.of(context);
+    final changes = <({String field, String before, String after})>[];
+    final notes = <String>[];
+    final changePattern = RegExp(
+      r'^(.+?):\s*(.*?)\s*(?:->|→)\s*(.*)$',
+      dotAll: true,
+    );
+    for (final entry in detail.split(';')) {
+      final value = entry.trim();
+      if (value.isEmpty) continue;
+      final match = changePattern.firstMatch(value);
+      if (match == null) {
+        notes.add(value);
+      } else {
+        changes.add((
+          field: match.group(1)!.trim(),
+          before: match.group(2)!.trim(),
+          after: match.group(3)!.trim(),
+        ));
+      }
+    }
+    if (changes.isEmpty) {
+      return _DetailLine(
+        label: text.t('Details'),
+        value: text.content(detail),
+      );
+    }
+
+    Widget cell(String value, {bool header = false, bool changed = false}) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+        child: Text(
+          value,
+          style: TextStyle(
+            color: header ? AppColours.textMuted : AppColours.textMain,
+            fontSize: AppTextSize.s14,
+            fontWeight: header || changed ? FontWeight.w700 : FontWeight.w500,
+          ),
+        ),
+      );
+    }
+
+    String changeValue(String field, String value) {
+      if (field.toLowerCase() == 'workflow status') {
+        final label = switch (value) {
+          'NONE' => 'None',
+          'SUBMITTED' => 'Submitted',
+          'REJECTED' => 'Rejected',
+          'DONE' => 'Done',
+          _ => value,
+        };
+        return text.t(label);
+      }
+      return text.content(value);
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            text.t('Details'),
+            style: const TextStyle(
+              color: AppColours.textMuted,
+              fontWeight: FontWeight.w700,
+              fontSize: AppTextSize.s13,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Table(
+            columnWidths: const {
+              0: FlexColumnWidth(2),
+              1: FlexColumnWidth(1.2),
+              2: FlexColumnWidth(1.2),
+            },
+            defaultVerticalAlignment: TableCellVerticalAlignment.top,
+            border: TableBorder.all(color: AppColours.border),
+            children: [
+              TableRow(
+                decoration: const BoxDecoration(color: AppColours.mutedBox),
+                children: [
+                  cell(text.t('Field'), header: true),
+                  cell(text.t('Before'), header: true),
+                  cell(text.t('After'), header: true),
+                ],
+              ),
+              for (final change in changes)
+                TableRow(
+                  children: [
+                    cell(text.t(text.content(change.field))),
+                    cell(changeValue(change.field, change.before)),
+                    cell(
+                      changeValue(change.field, change.after),
+                      changed: change.before != change.after,
+                    ),
+                  ],
+                ),
+            ],
+          ),
+          for (final note in notes)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                text.content(note),
+                style: const TextStyle(
+                  color: AppColours.textMain,
+                  fontSize: AppTextSize.s14,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
 }
 
 class _DetailLine extends StatelessWidget {
