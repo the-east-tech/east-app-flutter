@@ -283,7 +283,6 @@ class _StockReceivablePageState extends State<_StockReceivablePage> {
                                     invoiceQuantity: invoice,
                                     receivedQuantity: received,
                                     unit: sku.unit,
-                                    condition: 'Checked',
                                     note: noteController.text.trim().isEmpty
                                         ? 'No remark provided.'
                                         : noteController.text.trim(),
