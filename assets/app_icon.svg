@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="upper" gradientUnits="userSpaceOnUse" x1="760" y1="256" x2="285" y2="546">
+      <stop offset="0" stop-color="#0C4AA1" />
+      <stop offset="0.5" stop-color="#094396" />
+      <stop offset="1" stop-color="#01255C" />
+    </linearGradient>
+    <linearGradient id="lower" gradientUnits="userSpaceOnUse" x1="500" y1="550" x2="250" y2="810">
+      <stop offset="0" stop-color="#2272E8" />
+      <stop offset="1" stop-color="#36A7FE" />
+    </linearGradient>
+  </defs>
+  <rect id="background" width="1024" height="1024" fill="#FFFFFF" />
+  <g id="mark" transform="translate(512 512) scale(1.13) translate(-512 -531.6)">
+    <path fill="url(#upper)" d="M236.40,546.30 L236.40,377.26 C236.40,310.30 295.20,256.41 371.14,256.41 L735.34,256.41 C763.92,256.41 787.60,280.09 787.60,308.67 L787.60,392.78 C787.60,449.94 741.05,496.48 682.26,496.48 L340.11,496.48 C298.46,496.48 262.53,514.45 236.40,546.30 Z" />
+    <path fill="url(#lower)" d="M326.23,539.76 L473.21,539.76 C495.26,539.76 512.41,556.91 512.41,578.96 L512.41,710.43 C512.41,763.51 469.13,806.79 416.05,806.79 L291.11,806.79 C260.90,806.79 236.40,782.29 236.40,752.08 L236.40,628.77 C236.40,579.78 276.41,539.76 326.23,539.76 Z" />
+  </g>
+</svg>

@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Nic's Kitchen</string>
+	<string>Flow</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -15,7 +15,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>Nic's Kitchen</string>
+	<string>Flow</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -34,7 +34,7 @@
 		<true/>
 	</dict>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>EastApp connects to the local development backend on your network.</string>
+	<string>Flow connects to the local development backend on your network.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>
@@ -80,12 +80,12 @@
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 	<key>NSCameraUsageDescription</key>
-	<string>EastApp uses the camera for attendance face presence detection.</string>
+	<string>Flow uses the camera for attendance face presence detection.</string>
 	<key>NSContactsUsageDescription</key>
-	<string>EastApp uses your contacts to fill a new user's phone number.</string>
+	<string>Flow uses your contacts to fill a new user's phone number.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>EastApp does not record audio for attendance verification.</string>
+	<string>Flow does not record audio for attendance verification.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>EastApp uses your location to record attendance address and geofence status.</string>
+	<string>Flow uses your location to record attendance address and geofence status.</string>
 </dict>
 </plist>
