@@ -486,17 +486,20 @@ class _ActivityDetails extends StatelessWidget {
       if (match == null) {
         notes.add(value);
       } else {
+        final field = match.group(1)!.trim();
+        if (field.toLowerCase() == 'suppliers') continue;
         changes.add((
-          field: match.group(1)!.trim(),
+          field: field,
           before: match.group(2)!.trim(),
           after: match.group(3)!.trim(),
         ));
       }
     }
     if (changes.isEmpty) {
+      if (notes.isEmpty) return const SizedBox.shrink();
       return _DetailLine(
         label: text.t('Details'),
-        value: text.content(detail),
+        value: notes.map(text.content).join('; '),
       );
     }
 
