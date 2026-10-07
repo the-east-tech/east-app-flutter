@@ -1349,9 +1349,33 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
       );
   }
 
+  Future<ErrorReportDelivery> sendDebugReport(String report) async {
+    final reference = RegExp(
+          r'^Reference: (.+)$',
+          multiLine: true,
+        ).firstMatch(report)?.group(1)?.trim() ??
+        'DBG-${DateTime.now().microsecondsSinceEpoch.toRadixString(36).toUpperCase()}';
+    final pendingReport = PendingErrorReport(
+      reference: reference,
+      errorDetails: 'Manual debug report submitted from Help',
+      debugReport: report,
+      queuedAt: DateTime.now(),
+    );
+
+    try {
+      await widget.api.submitErrorReport(pendingReport);
+      return ErrorReportDelivery.sent;
+    } on Object catch (error, stackTrace) {
+      AppDiagnostics.instance.recordError(error, stackTrace);
+      await AppDiagnostics.instance.queueErrorReport(pendingReport);
+      return ErrorReportDelivery.queued;
+    }
+  }
+
   void showHelpSheet() {
     AppFeedback.tap();
     var report = buildDebugReport(context);
+    var sendingReport = false;
 
     showModalBottomSheet<void>(
       context: context,
@@ -1417,14 +1441,88 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
                       ],
                     ),
                     const SizedBox(height: 12),
-                    PrimaryButton(
-                      text: localText.t('Copy Debug Report'),
-                      icon: Icons.content_copy_rounded,
-                      onPressed: () async {
-                        final latestReport = buildDebugReport(context);
-                        setSheetState(() => report = latestReport);
-                        await copyDebugReport(sheetContext, latestReport);
-                      },
+                    Row(
+                      children: [
+                        Expanded(
+                          child: PrimaryButton(
+                            text: localText.t('Copy Report'),
+                            icon: Icons.content_copy_rounded,
+                            outlined: true,
+                            onPressed: () async {
+                              final latestReport = buildDebugReport(context);
+                              setSheetState(() => report = latestReport);
+                              await copyDebugReport(
+                                sheetContext,
+                                latestReport,
+                              );
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: PrimaryButton(
+                            text: localText.t(
+                              sendingReport ? 'Sending…' : 'Send Report',
+                            ),
+                            icon: Icons.send_rounded,
+                            onPressed: sendingReport
+                                ? null
+                                : () async {
+                                    AppFeedback.tap();
+                                    final latestReport = buildDebugReport(
+                                      context,
+                                    );
+                                    setSheetState(() {
+                                      report = latestReport;
+                                      sendingReport = true;
+                                    });
+                                    try {
+                                      final delivery = await sendDebugReport(
+                                        latestReport,
+                                      );
+                                      if (!sheetContext.mounted) return;
+                                      ScaffoldMessenger.of(sheetContext)
+                                        ..hideCurrentSnackBar()
+                                        ..showSnackBar(
+                                          SnackBar(
+                                            content: Text(
+                                              localText.t(
+                                                delivery ==
+                                                        ErrorReportDelivery.sent
+                                                    ? 'Error report sent'
+                                                    : 'Error report queued and will send automatically',
+                                              ),
+                                            ),
+                                          ),
+                                        );
+                                    } on Object catch (error, stackTrace) {
+                                      AppDiagnostics.instance.recordError(
+                                        error,
+                                        stackTrace,
+                                      );
+                                      if (!sheetContext.mounted) return;
+                                      ScaffoldMessenger.of(sheetContext)
+                                        ..hideCurrentSnackBar()
+                                        ..showSnackBar(
+                                          SnackBar(
+                                            content: Text(
+                                              localText.t(
+                                                'Error report failed',
+                                              ),
+                                            ),
+                                          ),
+                                        );
+                                    } finally {
+                                      if (sheetContext.mounted) {
+                                        setSheetState(
+                                          () => sendingReport = false,
+                                        );
+                                      }
+                                    }
+                                  },
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 12),
                     WhiteCard(
@@ -1441,7 +1539,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
                           Expanded(
                             child: Text(
                               localText.t(
-                                'Ask the tester to paste this report into WhatsApp when something fails inside the app.',
+                                'Copy the report or send it directly to support.',
                               ),
                               style: const TextStyle(
                                 color: AppColours.textMuted,
