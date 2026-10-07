@@ -1589,9 +1589,11 @@ const Map<String, String> _myanmar = {
   'Reviewed count': 'ရေတွက်မှု စစ်ဆေးပြီး',
   'Created task': 'တာဝန် ဖန်တီးပြီး',
   'Debug report copied': 'Debug အစီရင်ခံစာ ကူးယူပြီး',
-  'Copy Debug Report': 'Debug အစီရင်ခံစာ ကူးယူရန်',
-  'Ask the tester to paste this report into WhatsApp when something fails inside the app.':
-      'အက်ပ်အတွင်း ပြဿနာဖြစ်ပါက ဤအစီရင်ခံစာကို WhatsApp တွင် ကူးထည့်ပေးရန် စမ်းသပ်သူကို ပြောပါ။',
+  'Copy Report': 'အစီရင်ခံစာ ကူးယူရန်',
+  'Send Report': 'အစီရင်ခံစာ ပို့ရန်',
+  'Sending…': 'ပို့နေသည်…',
+  'Copy the report or send it directly to support.':
+      'အစီရင်ခံစာကို ကူးယူပါ သို့မဟုတ် အကူအညီအဖွဲ့ထံ တိုက်ရိုက်ပို့ပါ။',
   'Report preview': 'အစီရင်ခံစာ အစမ်းမြင်ကွင်း',
   'Select an active user.': 'အသုံးပြုနေသော အသုံးပြုသူတစ်ဦး ရွေးပါ။',
   'Choose at least +1 or -1 point.': 'အနည်းဆုံး +1 သို့မဟုတ် -1 ပွိုင့် ရွေးပါ။',
@@ -2901,9 +2903,10 @@ const Map<String, String> _chinese = {
   'Reviewed count': '已审核盘点',
   'Created task': '已创建任务',
   'Debug report copied': '调试报告已复制',
-  'Copy Debug Report': '复制调试报告',
-  'Ask the tester to paste this report into WhatsApp when something fails inside the app.':
-      '应用内发生问题时，请让测试人员把此报告粘贴到WhatsApp。',
+  'Copy Report': '复制报告',
+  'Send Report': '发送报告',
+  'Sending…': '正在发送…',
+  'Copy the report or send it directly to support.': '复制报告或直接发送给支持团队。',
   'Report preview': '报告预览',
   'Select an active user.': '请选择一位启用的用户。',
   'Choose at least +1 or -1 point.': '请至少选择+1或-1分。',

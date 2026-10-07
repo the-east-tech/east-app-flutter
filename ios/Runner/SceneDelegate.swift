@@ -4,6 +4,8 @@ import UIKit
 class SceneDelegate: FlutterSceneDelegate {
   private weak var protectedScene: UIWindowScene?
   private weak var observedCaptureWindow: UIWindow?
+  private weak var screenshotProtectedView: UIView?
+  private var secureTextField: UITextField?
   private var privacyWindow: UIWindow?
   private var sceneIsActive = false
 
@@ -77,15 +79,49 @@ class SceneDelegate: FlutterSceneDelegate {
       privacyWindow = cover
     }
 
-    if #available(iOS 17.0, *), let appWindow = window,
-      observedCaptureWindow !== appWindow
-    {
+    guard let appWindow = window else { return }
+
+    installScreenshotProtection(on: appWindow)
+
+    if #available(iOS 17.0, *), observedCaptureWindow !== appWindow {
       observedCaptureWindow = appWindow
       appWindow.registerForTraitChanges([UITraitSceneCaptureState.self]) {
         [weak self] (_: UIWindow, _: UITraitCollection) in
         self?.updateCaptureProtection()
       }
     }
+  }
+
+  private func installScreenshotProtection(on appWindow: UIWindow) {
+    guard let rootView = appWindow.rootViewController?.view,
+      screenshotProtectedView !== rootView
+    else {
+      return
+    }
+
+    let field = UITextField(frame: CGRect(x: 0, y: 0, width: 1, height: 1))
+    field.isSecureTextEntry = true
+    field.isUserInteractionEnabled = false
+    field.backgroundColor = .clear
+    field.semanticContentAttribute = .forceLeftToRight
+    rootView.addSubview(field)
+    rootView.layoutIfNeeded()
+
+    guard let parentLayer = rootView.layer.superlayer,
+      let secureLayer = field.layer.sublayers?.last
+    else {
+      field.removeFromSuperview()
+      return
+    }
+
+    // iOS has no public FLAG_SECURE equivalent. Nesting Flutter's root layer
+    // inside a secure text-entry layer makes captures omit the app content.
+    parentLayer.addSublayer(field.layer)
+    secureLayer.addSublayer(rootView.layer)
+    appWindow.backgroundColor = .black
+
+    secureTextField = field
+    screenshotProtectedView = rootView
   }
 
   private func updateCaptureProtection() {
