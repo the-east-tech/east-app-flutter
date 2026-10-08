@@ -587,7 +587,7 @@ class _TheEastAppState extends State<TheEastApp>
   Widget build(BuildContext context) {
     return MaterialApp(
       navigatorKey: navigatorKey,
-      title: "Nic's Kitchen",
+      title: 'Flow',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       builder: (context, child) => AppTextScope(

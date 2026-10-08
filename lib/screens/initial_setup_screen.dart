@@ -202,7 +202,7 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
     if (!RegExp(r'^[A-HJ-NP-Z2-9]{10}$').hasMatch(setupCode)) {
       showErrorSnackBar(
         context,
-        text.t('Enter the 10-character Setup Code shown by EastApp.'),
+        text.t('Enter the 10-character Setup Code shown by Flow.'),
       );
       return;
     }
@@ -367,7 +367,7 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
                 _SetupField(
                   label: 'Business Name',
                   controller: businessNameController,
-                  hint: 'Example: The East',
+                  hint: 'Example: Your Business',
                   textCapitalization: TextCapitalization.words,
                 ),
                 const SizedBox(height: 12),

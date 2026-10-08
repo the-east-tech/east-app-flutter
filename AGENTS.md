@@ -1,4 +1,4 @@
-# EastApp Frontend Rules
+# Flow Frontend Rules
 
 ## Execution
 
@@ -19,6 +19,13 @@
 - A different task gets one new branch and one PR. Never create branches or commits per file, attempt or minor correction.
 - Default delivery is a feature branch plus PR. Never push directly to `main`, merge or deploy unless explicitly requested.
 
+## Brand identity
+
+- Customer-facing product name is `Flow`.
+- Parent company is `Sequosal`; do not show it inside the Flow UI or debug reports.
+- Never expose `EastApp`, `Nic's Kitchen`, or a tenant name as product branding.
+- Keep legacy internal identifiers only where renaming would break package, store, cache, API or deployment compatibility.
+
 ## Scope
 
 - Change only requested frontend files. Preserve unrelated user changes.
@@ -30,13 +37,14 @@
 
 ## Version, commit and PR
 
-- Every new PR, including a documentation-only PR, increments the build number in `pubspec.yaml` exactly once.
-- Select one above the highest frontend build number on latest `main` or any open frontend PR, whichever is higher.
+- Flutter versions use `MAJOR.MINOR.PATCH+BUILD`; Android maps these to `versionName` and integer `versionCode`, while iOS maps them to version and build.
+- The first public store release starts at `1.0.0+1`. Every later PR/store candidate increments `BUILD` exactly once and it must never decrease after upload.
+- Change `MAJOR.MINOR.PATCH` only for a public release decision: patch for fixes, minor for compatible features and major for breaking changes.
 - Further changes to the same open PR do not increment the version again.
 - Finish and review the requested change before committing. Prefer one commit; do not commit each file or attempt separately.
-- Commit and PR title: `frontend vNNN: concise description`. Keep it one line and at most 72 characters.
+- Commit and PR title: `frontend vMAJOR.MINOR.PATCH+BUILD: concise description`. Keep it one line and at most 72 characters.
 - Keep the PR body short: requested changes plus whether checks were run. Do not add long narratives or code dumps.
-- The title version must match the `pubspec.yaml` build number.
+- The full title version must match `pubspec.yaml`.
 - Use the configured assistant/service Git identity, never the user’s personal identity.
 - Final response: PR link, branch, version, brief changes and checks not run.
 
@@ -44,7 +52,7 @@
 
 - Git/PR is the default. Create a ZIP only when explicitly requested; do not provide both unless requested.
 - ZIP delivery does not create a branch, commit or PR unless explicitly requested.
-- Name it `east_app_vNNN_lib.zip`.
+- Name it `flow_vMAJOR.MINOR.PATCH_BUILD_lib.zip`.
 - The ZIP is extracted at the project root. Do not add a wrapper directory inside it.
 - Include every changed top-level folder as its complete final tree so macOS Finder Replace does not remove unchanged files. Include required changed root files individually.
 - Omit unchanged root files, generated files, caches and unrelated content.

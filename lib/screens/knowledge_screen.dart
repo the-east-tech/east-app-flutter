@@ -262,7 +262,7 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
           ? 'Delete Selected SOP?'
           : 'Delete $groupCount SOPs?',
       details:
-          'This permanently removes $groupCount SOP ${groupCount == 1 ? 'group' : 'groups'} and all $videoCount linked video ${videoCount == 1 ? 'version' : 'versions'} from EastApp. The original YouTube ${videoCount == 1 ? 'video is' : 'videos are'} not deleted.',
+          'This permanently removes $groupCount SOP ${groupCount == 1 ? 'group' : 'groups'} and all $videoCount linked video ${videoCount == 1 ? 'version' : 'versions'} from Flow. The original YouTube ${videoCount == 1 ? 'video is' : 'videos are'} not deleted.',
     );
     if (!confirmed || !mounted) return;
 
