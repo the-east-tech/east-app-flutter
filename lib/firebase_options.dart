@@ -12,19 +12,19 @@ abstract final class EastAppFirebaseOptions {
   }
 
   static const android = FirebaseOptions(
-    apiKey: 'AIzaSyDb08cs4kYoSLfvBWjkGeIE_pXWHzLvR8g',
-    appId: '1:359686683344:android:52ab0f2da026826c2c3cd5',
-    messagingSenderId: '359686683344',
-    projectId: 'theeast-888',
-    storageBucket: 'theeast-888.firebasestorage.app',
+    apiKey: 'AIzaSyA9uoeMWLsarIqaFLCs6R0b0bX_Q-HuXcw',
+    appId: '1:312564235088:android:8b54642c83af6f7e254a55',
+    messagingSenderId: '312564235088',
+    projectId: 'sequosal-flow',
+    storageBucket: 'sequosal-flow.firebasestorage.app',
   );
 
   static const ios = FirebaseOptions(
-    apiKey: 'AIzaSyDqIVwq7zNeeoDscb5pvBjr9TSARDm9uzg',
-    appId: '1:359686683344:ios:f2e0d3ef869ecea12c3cd5',
-    messagingSenderId: '359686683344',
-    projectId: 'theeast-888',
-    storageBucket: 'theeast-888.firebasestorage.app',
-    iosBundleId: 'com.jenssen.eastapp.test',
+    apiKey: 'AIzaSyBCeHfIDqRtf0VHrvGImYb3ZfdcU4wfD-k',
+    appId: '1:312564235088:ios:b8f7b5d0fc77ce40254a55',
+    messagingSenderId: '312564235088',
+    projectId: 'sequosal-flow',
+    storageBucket: 'sequosal-flow.firebasestorage.app',
+    iosBundleId: 'com.sequosal.flow',
   );
 }
