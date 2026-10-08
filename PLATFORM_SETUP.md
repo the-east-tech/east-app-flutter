@@ -49,13 +49,13 @@ Ensure `ios/Runner/Info.plist` contains a user-facing `NSPhotoLibraryUsageDescri
 Create Android and iOS apps in one Firebase project using these current identifiers:
 
 - Android application ID: `com.sequosal.flow`
-- iOS bundle ID: `com.jenssen.eastapp.test`
+- iOS bundle ID: `com.sequosal.flow`
 
 Personal Apple development teams cannot provision Push Notifications. The default `DebugProfile.entitlements` and `Release.entitlements` therefore omit `aps-environment` so free-team device builds can be signed. `UIBackgroundModes` retains `remote-notification`, but native iOS push delivery is unavailable in these free-team builds.
 
 After enrolling in the Apple Developer Program, enable Push Notifications for the App ID and in Xcode, configure push-capable provisioning and upload the Apple APNs authentication key to Firebase. In the Runner target's Build Settings, switch `CODE_SIGN_ENTITLEMENTS` for Debug/Profile to `Runner/PushDebugProfile.entitlements`, and for Release to `Runner/PushRelease.entitlements`. Those checked-in opt-in files select development and production APNs respectively. Keep the default entitlements for personal-team builds.
 
-The Firebase client values for project `theeast-888` are included in
+The Firebase client values for project `sequosal-flow` are included in
 `lib/firebase_options.dart`. Run Flow normally:
 
 ```bash
