@@ -121,7 +121,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  t.t("Nic's Kitchen"),
+                  'Flow',
                   style: const TextStyle(
                     fontSize: AppTextSize.s34,
                     fontWeight: FontWeight.w700,
@@ -131,7 +131,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 _LoginField(
                   label: t.t('Company ID'),
                   controller: companyCodeController,
-                  hint: 'EAST',
+                  hint: 'DEMO',
                   textCapitalization: TextCapitalization.characters,
                 ),
                 const SizedBox(height: 12),

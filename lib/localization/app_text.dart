@@ -400,14 +400,14 @@ class AppText {
           : 'SOP $sopDeleteCount ခုကို ဖျက်မည်လား။';
     }
     final sopDeleteDetails = RegExp(
-      r'^This permanently removes (\d+) SOP (?:group|groups) and all (\d+) linked video (?:version|versions) from EastApp\. The original YouTube (?:video is|videos are) not deleted\.$',
+      r'^This permanently removes (\d+) SOP (?:group|groups) and all (\d+) linked video (?:version|versions) from Flow\. The original YouTube (?:video is|videos are) not deleted\.$',
     ).firstMatch(key);
     if (sopDeleteDetails != null) {
       final sopCount = sopDeleteDetails.group(1)!;
       final videoCount = sopDeleteDetails.group(2)!;
       return language == AppLanguage.chinese
-          ? '这将从EastApp永久删除 $sopCount 个SOP组及全部 $videoCount 个关联视频版本。原始YouTube视频不会被删除。'
-          : 'EastApp မှ SOP အုပ်စု $sopCount ခုနှင့် ချိတ်ဆက်ဗီဒီယိုဗားရှင်း $videoCount ခုလုံးကို အပြီးတိုင် ဖျက်မည်။ မူရင်း YouTube ဗီဒီယိုကို မဖျက်ပါ။';
+          ? '这将从Flow永久删除 $sopCount 个SOP组及全部 $videoCount 个关联视频版本。原始YouTube视频不会被删除。'
+          : 'Flow မှ SOP အုပ်စု $sopCount ခုနှင့် ချိတ်ဆက်ဗီဒီယိုဗားရှင်း $videoCount ခုလုံးကို အပြီးတိုင် ဖျက်မည်။ မူရင်း YouTube ဗီဒီယိုကို မဖျက်ပါ။';
     }
     final pointAdjustment = RegExp(
       r'^([+-]?\d+) points? for (.+)\.\n\nReason: ([\s\S]+)$',
@@ -1303,7 +1303,7 @@ const Map<String, String> _myanmar = {
   'No daily count records found.': 'နေ့စဉ်ရေတွက်မှု မှတ်တမ်း မတွေ့ပါ။',
   'Details': 'အသေးစိတ်',
   'changed to': 'ပြောင်းလဲထားသည့်တန်ဖိုး',
-  'Fixed EastApp role hierarchy': 'သတ်မှတ်ထားသော EastApp ရာထူးအဆင့်ဆင့်',
+  'Fixed Flow role hierarchy': 'သတ်မှတ်ထားသော Flow ရာထူးအဆင့်ဆင့်',
   'No role found': 'ရာထူး မတွေ့ပါ',
   'Owner → Head → Manager → Supervisor → Staff1 → Staff2. Roles are fixed and cannot be created, renamed or deleted.':
       'Owner → Head → Manager → Supervisor → Staff1 → Staff2။ ရာထူးများကို သတ်မှတ်ထားပြီး ဖန်တီးခြင်း၊ အမည်ပြောင်းခြင်း သို့မဟုတ် ဖျက်ခြင်း မပြုနိုင်ပါ။',
@@ -1387,8 +1387,8 @@ const Map<String, String> _myanmar = {
   'End date & time *': 'ပြီးဆုံးရက်နှင့် အချိန် *',
   'End date and time must be later than start date and time.':
       'ပြီးဆုံးရက်နှင့် အချိန်သည် စတင်ရက်နှင့် အချိန်နောက်ပိုင်း ဖြစ်ရမည်။',
-  'Enter the full platform amount. EastApp includes 60% in Total Sales and estimates 40% as platform commission.':
-      'ပလက်ဖောင်းပမာဏအပြည့်ကို ထည့်ပါ။ EastApp သည် ရောင်းအားစုစုပေါင်းတွင် ၆၀% ထည့်တွက်ပြီး ၄၀% ကို ပလက်ဖောင်းကော်မရှင်အဖြစ် ခန့်မှန်းသည်။',
+  'Enter the full platform amount. Flow includes 60% in Total Sales and estimates 40% as platform commission.':
+      'ပလက်ဖောင်းပမာဏအပြည့်ကို ထည့်ပါ။ Flow သည် ရောင်းအားစုစုပေါင်းတွင် ၆၀% ထည့်တွက်ပြီး ၄၀% ကို ပလက်ဖောင်းကော်မရှင်အဖြစ် ခန့်မှန်းသည်။',
   'Estimated Age': 'ခန့်မှန်းအသက်',
   'Explain why the bill was voided': 'ဘေလ်ပယ်ဖျက်ရသည့် အကြောင်းရင်းကို ရှင်းပြပါ',
   'Female': 'အမျိုးသမီး',
@@ -1609,8 +1609,8 @@ const Map<String, String> _myanmar = {
   'Apply Adjustment': 'ပြင်ဆင်မှု အတည်ပြုရန်',
   'Current Business Ranking': 'လက်ရှိလုပ်ငန်း အဆင့်သတ်မှတ်ချက်',
   'No active users found.': 'အသုံးပြုနေသော အသုံးပြုသူ မတွေ့ပါ။',
-  'Enter the 10-character Setup Code shown by EastApp.':
-      'EastApp တွင် ပြထားသော စာလုံး ၁၀ လုံးပါ Setup Code ကို ထည့်ပါ။',
+  'Enter the 10-character Setup Code shown by Flow.':
+      'Flow တွင် ပြထားသော စာလုံး ၁၀ လုံးပါ Setup Code ကို ထည့်ပါ။',
   'Initial Setup Code': 'ကနဦး Setup Code',
   'Copy this one-time code. It is available only before Initial Setup is completed.':
       'ဤတစ်ကြိမ်သုံးကုဒ်ကို ကူးယူပါ။ Initial Setup မပြီးမီသာ အသုံးပြုနိုင်ပါသည်။',
@@ -1645,7 +1645,7 @@ const Map<String, String> _myanmar = {
   'Setup Code': 'Setup Code',
   '10-character code': 'စာလုံး ၁၀ လုံးပါ ကုဒ်',
   'Business Name': 'လုပ်ငန်းအမည်',
-  'Example: The East': 'ဥပမာ - The East',
+  'Example: Your Business': 'ဥပမာ - သင့်လုပ်ငန်း',
   'Company Code': 'ကုမ္ပဏီကုဒ်',
   'Example: EAST': 'ဥပမာ - EAST',
   'Employee ID Prefix': 'ဝန်ထမ်း ID ရှေ့ဆက်စာလုံး',
@@ -2620,7 +2620,7 @@ const Map<String, String> _chinese = {
   'No daily count records found.': '未找到每日盘点记录。',
   'Details': '详情',
   'changed to': '更改为',
-  'Fixed EastApp role hierarchy': '固定的EastApp角色层级',
+  'Fixed Flow role hierarchy': '固定的Flow角色层级',
   'No role found': '未找到角色',
   'Owner → Head → Manager → Supervisor → Staff1 → Staff2. Roles are fixed and cannot be created, renamed or deleted.':
       'Owner → Head → Manager → Supervisor → Staff1 → Staff2。角色固定，不能创建、重命名或删除。',
@@ -2702,8 +2702,8 @@ const Map<String, String> _chinese = {
   'End date & time *': '结束日期和时间 *',
   'End date and time must be later than start date and time.':
       '结束日期和时间必须晚于开始日期和时间。',
-  'Enter the full platform amount. EastApp includes 60% in Total Sales and estimates 40% as platform commission.':
-      '请输入完整的平台金额。EastApp将60%计入总销售额，并把40%估算为平台佣金。',
+  'Enter the full platform amount. Flow includes 60% in Total Sales and estimates 40% as platform commission.':
+      '请输入完整的平台金额。Flow将60%计入总销售额，并把40%估算为平台佣金。',
   'Estimated Age': '估计年龄',
   'Explain why the bill was voided': '说明账单作废原因',
   'Female': '女',
@@ -2922,8 +2922,8 @@ const Map<String, String> _chinese = {
   'Apply Adjustment': '应用调整',
   'Current Business Ranking': '当前业务排名',
   'No active users found.': '未找到启用用户。',
-  'Enter the 10-character Setup Code shown by EastApp.':
-      '请输入EastApp显示的10位设置代码。',
+  'Enter the 10-character Setup Code shown by Flow.':
+      '请输入Flow显示的10位设置代码。',
   'Initial Setup Code': '初始设置代码',
   'Copy this one-time code. It is available only before Initial Setup is completed.':
       '复制此一次性代码。它仅在完成初始设置前可用。',
@@ -2958,7 +2958,7 @@ const Map<String, String> _chinese = {
   'Setup Code': '设置代码',
   '10-character code': '10位代码',
   'Business Name': '业务名称',
-  'Example: The East': '例如：The East',
+  'Example: Your Business': '例如：您的企业',
   'Company Code': '公司代码',
   'Example: EAST': '例如：EAST',
   'Employee ID Prefix': '员工编号前缀',

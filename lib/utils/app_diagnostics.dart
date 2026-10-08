@@ -387,7 +387,7 @@ class AppDiagnostics {
     final reportReference =
         'DBG-${generatedAt.microsecondsSinceEpoch.toRadixString(36).toUpperCase()}';
     final buffer = StringBuffer()
-      ..writeln("Nic's Kitchen Debug Report")
+      ..writeln('Flow Debug Report')
       ..writeln('Reference: $reportReference')
       ..writeln('Generated: ${generatedAt.toIso8601String()}')
       ..writeln('UTC offset: ${_formatUtcOffset(generatedAt.timeZoneOffset)}')

@@ -1694,7 +1694,7 @@ class _RoleSetupPage extends StatelessWidget {
 
     return _PeoplePageScaffold(
       title: text.t('Role'),
-      subtitle: 'Fixed EastApp role hierarchy',
+      subtitle: 'Fixed Flow role hierarchy',
       onBack: onBack,
       children: [
         if (loading)

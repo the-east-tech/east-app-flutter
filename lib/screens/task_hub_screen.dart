@@ -2316,7 +2316,7 @@ class _SalesSheetState extends State<_SalesSheet> {
               ),
               const SizedBox(height: 5),
               Text(
-                text.t('Enter the full platform amount. EastApp includes 60% in Total Sales and estimates 40% as platform commission.'),
+                text.t('Enter the full platform amount. Flow includes 60% in Total Sales and estimates 40% as platform commission.'),
                 style: const TextStyle(
                   color: AppColours.textMuted,
                   fontSize: AppTextSize.s10,

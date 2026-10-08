@@ -1,4 +1,4 @@
-# EastApp v309 platform setup
+# Flow platform setup
 
 This release package contains the complete changed `lib/` folder and the
 changed root files only.
@@ -28,10 +28,10 @@ Example:
 
 ```xml
 <key>NSCameraUsageDescription</key>
-<string>EastApp needs camera access to scan attendance QR codes.</string>
+<string>Flow needs camera access to scan attendance QR codes.</string>
 ```
 
-GPS remains required for Attendance. Keep the existing Android/iOS location permissions used by EastApp.
+GPS remains required for Attendance. Keep the existing Android/iOS location permissions used by Flow.
 
 ## iOS photo-library permission
 
@@ -41,7 +41,7 @@ Ensure `ios/Runner/Info.plist` contains a user-facing `NSPhotoLibraryUsageDescri
 
 ```xml
 <key>NSPhotoLibraryUsageDescription</key>
-<string>EastApp needs photo-library access so u can replace an SKU photo.</string>
+<string>Flow needs photo-library access so u can replace an SKU photo.</string>
 ```
 
 ## Native notifications
@@ -56,7 +56,7 @@ Personal Apple development teams cannot provision Push Notifications. The defaul
 After enrolling in the Apple Developer Program, enable Push Notifications for the App ID and in Xcode, configure push-capable provisioning and upload the Apple APNs authentication key to Firebase. In the Runner target's Build Settings, switch `CODE_SIGN_ENTITLEMENTS` for Debug/Profile to `Runner/PushDebugProfile.entitlements`, and for Release to `Runner/PushRelease.entitlements`. Those checked-in opt-in files select development and production APNs respectively. Keep the default entitlements for personal-team builds.
 
 The Firebase client values for project `theeast-888` are included in
-`lib/firebase_options.dart`. Run EastApp normally:
+`lib/firebase_options.dart`. Run Flow normally:
 
 ```bash
 flutter run
@@ -66,7 +66,7 @@ No Firebase `--dart-define` parameters are required.
 
 ## Dependency notes
 
-`flutter_secure_storage` remains on 11.0.0. EastApp v272/v273 already used v10.3.1, whose Android migration is enabled by default, so current installations that have run v10 are on the supported migration path. Do not let an installation jump directly from a pre-v10 EastApp build to v277; run a v10-based build first so legacy secure-storage data is migrated.
+`flutter_secure_storage` remains on 11.0.0. Flow v272/v273 already used v10.3.1, whose Android migration is enabled by default, so current installations that have run v10 are on the supported migration path. Do not let an installation jump directly from a pre-v10 Flow build to v277; run a v10-based build first so legacy secure-storage data is migrated.
 
 After replacing the v309 files in the full project, run normally:
 
