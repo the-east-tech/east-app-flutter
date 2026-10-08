@@ -1,4 +1,4 @@
-package com.jenssen.eastapp.east_app
+package com.sequosal.flow
 
 import android.os.Bundle
 import android.view.WindowManager
