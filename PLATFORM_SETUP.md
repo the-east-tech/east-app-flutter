@@ -48,7 +48,7 @@ Ensure `ios/Runner/Info.plist` contains a user-facing `NSPhotoLibraryUsageDescri
 
 Create Android and iOS apps in one Firebase project using these current identifiers:
 
-- Android application ID: `com.jenssen.eastapp.east_app`
+- Android application ID: `com.sequosal.flow`
 - iOS bundle ID: `com.jenssen.eastapp.test`
 
 Personal Apple development teams cannot provision Push Notifications. The default `DebugProfile.entitlements` and `Release.entitlements` therefore omit `aps-environment` so free-team device builds can be signed. `UIBackgroundModes` retains `remote-notification`, but native iOS push delivery is unavailable in these free-team builds.
