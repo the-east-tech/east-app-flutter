@@ -9,7 +9,7 @@ import '../utils/app_diagnostics.dart';
 import 'flow_api.dart';
 
 @pragma('vm:entry-point')
-Future<void> eastAppFirebaseBackgroundHandler(RemoteMessage message) async {
+Future<void> flowFirebaseBackgroundHandler(RemoteMessage message) async {
   final options = PushNotificationService.currentPlatformOptions;
   if (options == null || Firebase.apps.isNotEmpty) return;
   await Firebase.initializeApp(options: options);
@@ -34,7 +34,7 @@ class PushNotificationService {
 
   static void registerBackgroundHandler() {
     if (_backgroundHandlerRegistered) return;
-    FirebaseMessaging.onBackgroundMessage(eastAppFirebaseBackgroundHandler);
+    FirebaseMessaging.onBackgroundMessage(flowFirebaseBackgroundHandler);
     _backgroundHandlerRegistered = true;
   }
 
