@@ -1,7 +1,7 @@
 part of 'stock_screen.dart';
 
 class _SupplierSetupPage extends StatefulWidget {
-  final EastAppApi api;
+  final FlowApi api;
   final bool isOwner;
   final Future<void> Function() onReloadAfterImport;
   final List<SupplierProfile> suppliers;
@@ -48,7 +48,7 @@ class _SupplierSetupPageState extends State<_SupplierSetupPage> {
           downloadFallbackEnabled: true,
         ),
       );
-    } on EastAppApiException {
+    } on FlowApiException {
       // Global API error handling already presents the failure.
     } finally {
       if (mounted) setState(() => exportingSuppliers = false);
@@ -106,7 +106,7 @@ class _SupplierSetupPageState extends State<_SupplierSetupPage> {
       await widget.api.importStockSupplierCsv(fileName: file.name, bytes: bytes);
       await widget.onReloadAfterImport();
       if (mounted) showSuccessSnackBar(context, 'Suppliers imported');
-    } on EastAppApiException {
+    } on FlowApiException {
       // Global API error handling already presents the failure.
     }
   }
@@ -139,7 +139,7 @@ class _SupplierSetupPageState extends State<_SupplierSetupPage> {
 
   Future<void> deleteSelected() async {
     try {
-      final preview = EastAppDeletionPreview.merge(
+      final preview = FlowDeletionPreview.merge(
         await Future.wait(
           selectedIds.map(widget.api.previewStockSupplierDeletion),
         ),
@@ -149,7 +149,7 @@ class _SupplierSetupPageState extends State<_SupplierSetupPage> {
         await showDeletionDependenciesDialog(context, preview);
         return;
       }
-    } on EastAppApiException {
+    } on FlowApiException {
       return;
     }
     final confirmed = await confirmDataChange(
@@ -167,7 +167,7 @@ class _SupplierSetupPageState extends State<_SupplierSetupPage> {
       }
       setState(selectedIds.clear);
       showSuccessSnackBar(context, 'Deleted');
-    } on EastAppApiException catch (_) {
+    } on FlowApiException catch (_) {
       // Global API error handling already presents the failure.
     }
   }
@@ -181,7 +181,7 @@ class _SupplierSetupPageState extends State<_SupplierSetupPage> {
     final address2 = TextEditingController(text: supplier.address2);
     final websiteOrGoogleLink = TextEditingController(text: supplier.websiteOrGoogleLink);
     final notes = TextEditingController(text: supplier.notes);
-    EastAppGooglePlaceDetails? selectedPlace;
+    FlowGooglePlaceDetails? selectedPlace;
     var editing = false;
     var active = supplier.active;
 
@@ -294,7 +294,7 @@ class _SupplierSetupPageState extends State<_SupplierSetupPage> {
                         await showDeletionDependenciesDialog(context, preview);
                         return;
                       }
-                    } on EastAppApiException {
+                    } on FlowApiException {
                       return;
                     }
                     final confirmed = await confirmDataChange(context, action: 'Delete Supplier?', details: 'This will permanently delete this unassigned supplier.');

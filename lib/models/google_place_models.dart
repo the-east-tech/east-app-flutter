@@ -1,18 +1,18 @@
-class EastAppGooglePlacePrediction {
+class FlowGooglePlacePrediction {
   final String placeId;
   final String mainText;
   final String secondaryText;
   final String fullText;
 
-  const EastAppGooglePlacePrediction({
+  const FlowGooglePlacePrediction({
     required this.placeId,
     required this.mainText,
     required this.secondaryText,
     required this.fullText,
   });
 
-  factory EastAppGooglePlacePrediction.fromJson(Map<String, dynamic> json) {
-    return EastAppGooglePlacePrediction(
+  factory FlowGooglePlacePrediction.fromJson(Map<String, dynamic> json) {
+    return FlowGooglePlacePrediction(
       placeId: json['placeId'] as String,
       mainText: json['mainText'] as String? ?? '',
       secondaryText: json['secondaryText'] as String? ?? '',
@@ -21,7 +21,7 @@ class EastAppGooglePlacePrediction {
   }
 }
 
-class EastAppGooglePlaceDetails {
+class FlowGooglePlaceDetails {
   final String placeId;
   final String displayName;
   final String formattedAddress;
@@ -31,7 +31,7 @@ class EastAppGooglePlaceDetails {
   final double? rating;
   final int? userRatingCount;
 
-  const EastAppGooglePlaceDetails({
+  const FlowGooglePlaceDetails({
     required this.placeId,
     required this.displayName,
     required this.formattedAddress,
@@ -42,8 +42,8 @@ class EastAppGooglePlaceDetails {
     this.userRatingCount,
   });
 
-  factory EastAppGooglePlaceDetails.fromJson(Map<String, dynamic> json) {
-    return EastAppGooglePlaceDetails(
+  factory FlowGooglePlaceDetails.fromJson(Map<String, dynamic> json) {
+    return FlowGooglePlaceDetails(
       placeId: json['placeId'] as String,
       displayName: json['displayName'] as String? ?? '',
       formattedAddress: json['formattedAddress'] as String? ?? '',
@@ -56,7 +56,7 @@ class EastAppGooglePlaceDetails {
   }
 }
 
-class EastAppGoogleRating {
+class FlowGoogleRating {
   final String businessName;
   final String placeId;
   final String placeName;
@@ -66,7 +66,7 @@ class EastAppGoogleRating {
   final int? userRatingCount;
   final String attribution;
 
-  const EastAppGoogleRating({
+  const FlowGoogleRating({
     required this.businessName,
     required this.placeId,
     required this.placeName,
@@ -77,8 +77,8 @@ class EastAppGoogleRating {
     required this.attribution,
   });
 
-  factory EastAppGoogleRating.fromJson(Map<String, dynamic> json) {
-    return EastAppGoogleRating(
+  factory FlowGoogleRating.fromJson(Map<String, dynamic> json) {
+    return FlowGoogleRating(
       businessName: json['businessName'] as String? ?? '',
       placeId: json['placeId'] as String? ?? '',
       placeName: json['placeName'] as String? ?? '',

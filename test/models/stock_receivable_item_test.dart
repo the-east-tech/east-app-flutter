@@ -1,4 +1,4 @@
-import 'package:east_app/models/app_models.dart';
+import 'package:flow_app/models/app_models.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

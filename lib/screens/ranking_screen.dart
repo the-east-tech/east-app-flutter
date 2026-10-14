@@ -6,7 +6,7 @@ import '../theme/app_theme.dart';
 import '../widgets/app_components.dart';
 
 class RankingScreen extends StatelessWidget {
-  final EastAppLeaderboard leaderboard;
+  final FlowLeaderboard leaderboard;
 
   const RankingScreen({
     super.key,
@@ -93,7 +93,7 @@ class RankingScreen extends StatelessWidget {
 }
 
 class _LeaderboardRow extends StatelessWidget {
-  final EastAppLeaderboardMember member;
+  final FlowLeaderboardMember member;
 
   const _LeaderboardRow({required this.member});
 

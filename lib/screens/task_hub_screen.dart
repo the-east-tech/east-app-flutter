@@ -14,7 +14,7 @@ import '../models/api_models.dart';
 import '../models/auth_models.dart';
 import '../models/people_models.dart';
 import '../models/report_models.dart';
-import '../services/east_app_api.dart';
+import '../services/flow_api.dart';
 import '../theme/app_theme.dart';
 import '../utils/app_diagnostics.dart';
 import '../widgets/app_components.dart';
@@ -23,10 +23,10 @@ import '../widgets/app_number_pad.dart';
 import 'tasks_screen.dart';
 
 class TaskHubScreen extends StatefulWidget {
-  final EastAppApi api;
+  final FlowApi api;
   final String tenantId;
-  final EastAppUser currentUser;
-  final Set<EastAppPermission> permissions;
+  final FlowUser currentUser;
+  final Set<FlowPermission> permissions;
   final UserRole role;
   final List<StockSku> stockSkus;
   final ValueChanged<ReportDashboard>? onDashboardLoaded;
@@ -55,28 +55,28 @@ class _TaskHubScreenState extends State<TaskHubScreen> {
 
   bool get isManagement {
     return widget.permissions.contains(
-      EastAppPermission.reportIntelligenceView,
+      FlowPermission.reportIntelligenceView,
     );
   }
 
   bool get canReview {
-    return widget.permissions.contains(EastAppPermission.reportReview);
+    return widget.permissions.contains(FlowPermission.reportReview);
   }
 
   bool get canAccessSales {
-    return widget.permissions.contains(EastAppPermission.salesReportAccess);
+    return widget.permissions.contains(FlowPermission.salesReportAccess);
   }
 
   bool get canManageTasks {
-    return widget.permissions.contains(EastAppPermission.taskManage);
+    return widget.permissions.contains(FlowPermission.taskManage);
   }
 
   bool get canRateTasks {
-    return widget.permissions.contains(EastAppPermission.taskRate);
+    return widget.permissions.contains(FlowPermission.taskRate);
   }
 
   bool get canViewAllTasks {
-    return widget.permissions.contains(EastAppPermission.taskViewAll);
+    return widget.permissions.contains(FlowPermission.taskViewAll);
   }
 
   DateTime get earliestEditableDate {
@@ -120,7 +120,7 @@ class _TaskHubScreenState extends State<TaskHubScreen> {
         loading = false;
       });
       widget.onDashboardLoaded?.call(value);
-    } on EastAppApiException {
+    } on FlowApiException {
       if (!mounted) return;
       setState(() => loading = false);
     }
@@ -385,7 +385,7 @@ class _TaskHubScreenState extends State<TaskHubScreen> {
           );
         },
       );
-    } on EastAppApiException {
+    } on FlowApiException {
       return;
     }
     if (!mounted || loaded == null) return;
@@ -508,7 +508,7 @@ class _TaskHubScreenState extends State<TaskHubScreen> {
       );
       if (loaded == null) return;
       records = loaded;
-    } on EastAppApiException {
+    } on FlowApiException {
       return;
     }
     if (!mounted) return;
@@ -551,7 +551,7 @@ class _TaskHubScreenState extends State<TaskHubScreen> {
       );
       if (loaded == null) return;
       approvals = loaded;
-    } on EastAppApiException {
+    } on FlowApiException {
       return;
     }
     if (!mounted) return;
@@ -992,7 +992,7 @@ Future<T?> _showReportSheet<T>(
 
 Future<bool?> _confirmSalesCsvImport(
   BuildContext context,
-  EastAppCsvPreview preview,
+  FlowCsvPreview preview,
 ) {
   return showDialog<bool>(
     context: context,
@@ -1066,7 +1066,7 @@ Future<T?> _showReportPage<T>(
 }
 
 class _SalesHistorySheet extends StatefulWidget {
-  final EastAppApi api;
+  final FlowApi api;
   final String tenantId;
   final UserRole role;
   final DateTime earliestDate;
@@ -1106,7 +1106,7 @@ class _SalesHistorySheetState extends State<_SalesHistorySheet> {
   String get rangeLabel =>
       '${_formatDate(selectedRange.start)} — ${_formatDate(selectedRange.end)}';
 
-  String get cacheKey => EastAppApi.salesHistoryCacheKey(
+  String get cacheKey => FlowApi.salesHistoryCacheKey(
         widget.tenantId,
         selectedRange.start,
         selectedRange.end,
@@ -1157,7 +1157,7 @@ class _SalesHistorySheetState extends State<_SalesHistorySheet> {
         hasLoaded = true;
         updatedAt = widget.api.featureCacheUpdatedAt(cacheKey);
       });
-    } on EastAppApiException {
+    } on FlowApiException {
       // Keep the previously loaded range visible after a handled API failure.
     } finally {
       if (mounted) setState(() => loading = false);
@@ -1183,7 +1183,7 @@ class _SalesHistorySheetState extends State<_SalesHistorySheet> {
           downloadFallbackEnabled: true,
         ),
       );
-    } on EastAppApiException {
+    } on FlowApiException {
       // Global API error handling already presents the failure.
     }
   }
@@ -1210,7 +1210,7 @@ class _SalesHistorySheetState extends State<_SalesHistorySheet> {
       await widget.onChanged();
       await load(forceRefresh: true);
       if (mounted) showSuccessSnackBar(context, '${result.importedRows} Sales reports imported');
-    } on EastAppApiException {
+    } on FlowApiException {
       // Global API error handling already presents the failure.
     }
   }
@@ -1221,7 +1221,7 @@ class _SalesHistorySheetState extends State<_SalesHistorySheet> {
       recipients = await widget.api.salesCashRecipients(
         tenantId: widget.tenantId,
       );
-    } on EastAppApiException {
+    } on FlowApiException {
       return;
     }
     if (!mounted) return;
@@ -1490,7 +1490,7 @@ class _SalesHistorySheetState extends State<_SalesHistorySheet> {
 }
 
 class _SalesSubmittedDetail extends StatelessWidget {
-  final EastAppApi api;
+  final FlowApi api;
   final SalesReport report;
 
   const _SalesSubmittedDetail({required this.api, required this.report});
@@ -1632,7 +1632,7 @@ IconData _workflowIcon(String status) => switch (status.toUpperCase()) {
     };
 
 class _SalesSheet extends StatefulWidget {
-  final EastAppApi api;
+  final FlowApi api;
   final SalesReport initialReport;
   final List<SalesCashRecipient> cashRecipients;
   final DateTime earliestDate;
@@ -1822,7 +1822,7 @@ class _SalesSheetState extends State<_SalesSheet> {
         context,
         AppTextScope.of(context).t('Void bill recorded'),
       );
-    } on EastAppApiException {
+    } on FlowApiException {
       return;
     }
   }
@@ -2039,7 +2039,7 @@ class _SalesSheetState extends State<_SalesSheet> {
       );
       if (!mounted || loaded == null) return;
       setState(() => applyReport(loaded));
-    } on EastAppApiException {
+    } on FlowApiException {
       return;
     }
   }
@@ -2134,7 +2134,7 @@ class _SalesSheetState extends State<_SalesSheet> {
       if (!mounted || saved == null) return;
       setState(() => applyReport(saved));
       showSuccessSnackBar(context, text.t('Sales report submitted'));
-    } on EastAppApiException {
+    } on FlowApiException {
       return;
     }
   }
@@ -2216,7 +2216,7 @@ class _SalesSheetState extends State<_SalesSheet> {
       if (!mounted || amended == null) return;
       setState(() => applyReport(amended));
       showSuccessSnackBar(context, 'Sales report reopened for amendment');
-    } on EastAppApiException {
+    } on FlowApiException {
       return;
     }
   }
@@ -2552,7 +2552,7 @@ class _InventorySheet extends StatelessWidget {
 }
 
 class _WasteHistorySheet extends StatefulWidget {
-  final EastAppApi api;
+  final FlowApi api;
   final String tenantId;
 
   const _WasteHistorySheet({
@@ -2585,7 +2585,7 @@ class _WasteHistorySheetState extends State<_WasteHistorySheet> {
   String get rangeLabel =>
       '${_formatDate(selectedRange.start)} — ${_formatDate(selectedRange.end)}';
 
-  String get cacheKey => EastAppApi.wasteHistoryCacheKey(
+  String get cacheKey => FlowApi.wasteHistoryCacheKey(
         widget.tenantId,
         selectedRange.start,
         selectedRange.end,
@@ -2636,7 +2636,7 @@ class _WasteHistorySheetState extends State<_WasteHistorySheet> {
         hasLoaded = true;
         updatedAt = widget.api.featureCacheUpdatedAt(cacheKey);
       });
-    } on EastAppApiException {
+    } on FlowApiException {
       // Keep the previously loaded range visible after a handled API failure.
     } finally {
       if (mounted) setState(() => loading = false);
@@ -2918,7 +2918,7 @@ class _WasteHistorySheetState extends State<_WasteHistorySheet> {
 }
 
 class _WasteEvidenceCard extends StatelessWidget {
-  final EastAppApi api;
+  final FlowApi api;
   final WasteReport report;
 
   const _WasteEvidenceCard({required this.api, required this.report});
@@ -2964,7 +2964,7 @@ class _WasteEvidenceCard extends StatelessWidget {
 }
 
 class _WasteSubmittedDetail extends StatelessWidget {
-  final EastAppApi api;
+  final FlowApi api;
   final WasteReport report;
 
   const _WasteSubmittedDetail({required this.api, required this.report});
@@ -2999,7 +2999,7 @@ class _WasteSubmittedDetail extends StatelessWidget {
 }
 
 class _WasteForm extends StatefulWidget {
-  final EastAppApi api;
+  final FlowApi api;
   final Future<void> Function() onSaved;
 
   const _WasteForm({
@@ -3113,7 +3113,7 @@ class _WasteFormState extends State<_WasteForm> {
       if (!mounted || submitted != true) return;
       showSuccessSnackBar(context, text.t('Waste report submitted'));
       Navigator.of(context).pop();
-    } on EastAppApiException {
+    } on FlowApiException {
       return;
     }
   }
@@ -3282,7 +3282,7 @@ class _WasteFormState extends State<_WasteForm> {
 }
 
 class _DailyPhotosSheet extends StatefulWidget {
-  final EastAppApi api;
+  final FlowApi api;
   final DailyPhotoReport initialReport;
   final DateTime earliestDate;
   final Future<void> Function() onChanged;
@@ -3323,7 +3323,7 @@ class _DailyPhotosSheetState extends State<_DailyPhotosSheet> {
       );
       if (!mounted || loaded == null) return;
       setState(() => report = loaded);
-    } on EastAppApiException {
+    } on FlowApiException {
       return;
     }
   }
@@ -3368,7 +3368,7 @@ class _DailyPhotosSheetState extends State<_DailyPhotosSheet> {
       setState(() => report = saved);
       if (!mounted) return;
       showSuccessSnackBar(context, text.t('Daily photos submitted'));
-    } on EastAppApiException {
+    } on FlowApiException {
       return;
     }
   }
@@ -3539,7 +3539,7 @@ class _DailyPhotosSheetState extends State<_DailyPhotosSheet> {
 }
 
 class _ComplaintSheet extends StatelessWidget {
-  final EastAppApi api;
+  final FlowApi api;
   final List<ComplaintReport> records;
   final bool isManagement;
   final Future<void> Function() onChanged;
@@ -3685,7 +3685,7 @@ class _ComplaintSheet extends StatelessWidget {
 }
 
 class _ComplaintForm extends StatefulWidget {
-  final EastAppApi api;
+  final FlowApi api;
   final DateTime earliestDate;
   final Future<void> Function() onSaved;
 
@@ -3799,7 +3799,7 @@ class _ComplaintFormState extends State<_ComplaintForm> {
       if (!mounted) return;
       showSuccessSnackBar(context, text.t('Complaint report created'));
       Navigator.of(context).pop();
-    } on EastAppApiException {
+    } on FlowApiException {
       return;
     }
   }
@@ -3921,7 +3921,7 @@ class _ComplaintFormState extends State<_ComplaintForm> {
 
 Future<void> _showComplaintUpdateDialog(
   BuildContext context, {
-  required EastAppApi api,
+  required FlowApi api,
   required ComplaintReport report,
   required Future<void> Function() onChanged,
 }) async {
@@ -4014,7 +4014,7 @@ Future<void> _showComplaintUpdateDialog(
                 if (context.mounted) {
                   showSuccessSnackBar(context, text.t('Complaint updated'));
                 }
-              } on EastAppApiException {
+              } on FlowApiException {
                 return;
               }
             },
@@ -4029,7 +4029,7 @@ Future<void> _showComplaintUpdateDialog(
 }
 
 class _ApprovalsSheet extends StatefulWidget {
-  final EastAppApi api;
+  final FlowApi api;
   final List<ReportApproval> initialApprovals;
   final String emptyMessage;
   final Future<void> Function() onChanged;
@@ -4087,7 +4087,7 @@ class _ApprovalsSheetState extends State<_ApprovalsSheet> {
           return true;
         });
         if (loaded != true) return;
-      } on EastAppApiException {
+      } on FlowApiException {
         return;
       }
       if (!mounted) return;
@@ -4216,7 +4216,7 @@ class _ApprovalsSheetState extends State<_ApprovalsSheet> {
           context,
           text.t(approve ? 'Report approved' : 'Report rejected'),
         );
-      } on EastAppApiException {
+      } on FlowApiException {
         return;
       }
     } finally {
@@ -4437,7 +4437,7 @@ class _SalesApprovalConfirmation extends StatelessWidget {
 }
 
 class _ApprovalEvidenceView extends StatelessWidget {
-  final EastAppApi api;
+  final FlowApi api;
   final ReportApproval approval;
   final SalesReport? sales;
   final WasteReport? waste;
@@ -4934,7 +4934,7 @@ class _ValidationText extends StatelessWidget {
 }
 
 class _VoidBillRow extends StatelessWidget {
-  final EastAppApi api;
+  final FlowApi api;
   final VoidBill item;
 
   const _VoidBillRow({required this.api, required this.item});
@@ -5269,7 +5269,7 @@ class _MiniInsight extends StatelessWidget {
 }
 
 class _RemoteReportImage extends StatefulWidget {
-  final EastAppApi api;
+  final FlowApi api;
   final String storageKey;
   final double? width;
   final double? height;

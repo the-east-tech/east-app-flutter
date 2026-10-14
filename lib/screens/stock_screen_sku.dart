@@ -1,7 +1,7 @@
 part of 'stock_screen.dart';
 
 class _SkuSetupPage extends StatefulWidget {
-  final EastAppApi api;
+  final FlowApi api;
   final bool isOwner;
   final Future<void> Function() onReloadAfterSkuImport;
   final List<StockTag> tags;
@@ -171,7 +171,7 @@ class _SkuSetupPageState extends State<_SkuSetupPage> {
       );
       if (!mounted || result.status != ShareResultStatus.success) return;
       showSuccessSnackBar(context, 'Exported');
-    } on EastAppApiException {
+    } on FlowApiException {
       // Global API error handling already presents the failure.
     } catch (_) {
       if (mounted) showErrorSnackBar(context, 'Unable to share the SKU CSV file.');
@@ -238,7 +238,7 @@ class _SkuSetupPageState extends State<_SkuSetupPage> {
       if (!mounted) return;
       await widget.onReloadAfterSkuImport();
       if (mounted) showSuccessSnackBar(context, 'SKU CSV imported.');
-    } on EastAppApiException {
+    } on FlowApiException {
       // Global API error handling already presents the failure.
     } catch (_) {
       if (mounted) showErrorSnackBar(context, 'Unable to read the selected SKU CSV file.');

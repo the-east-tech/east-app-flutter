@@ -12,30 +12,30 @@ import 'screens/initial_setup_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/main_shell.dart';
 import 'services/api_configuration.dart';
-import 'services/east_app_api.dart';
+import 'services/flow_api.dart';
 import 'services/session_store.dart';
 import 'theme/app_theme.dart';
 import 'utils/app_build_info.dart';
 import 'utils/app_diagnostics.dart';
 import 'widgets/app_components.dart';
 
-class TheEastApp extends StatefulWidget {
-  const TheEastApp({super.key});
+class FlowApp extends StatefulWidget {
+  const FlowApp({super.key});
 
   @override
-  State<TheEastApp> createState() => _TheEastAppState();
+  State<FlowApp> createState() => _FlowAppState();
 }
 
-class _TheEastAppState extends State<TheEastApp>
+class _FlowAppState extends State<FlowApp>
     with WidgetsBindingObserver {
   static const minimumProcessingDuration = Duration(milliseconds: 400);
   static const adminLoginId = 'ADMIN';
 
-  final EastAppApi api = EastAppApi();
+  final FlowApi api = FlowApi();
   final SessionStore sessionStore = SessionStore();
   final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
-  EastAppSession? session;
+  FlowSession? session;
   AppLanguage language = AppLanguage.english;
   String lastCompanyCode = 'EAST';
   String lastEmployeeId = '';
@@ -46,7 +46,7 @@ class _TheEastAppState extends State<TheEastApp>
   String? initialSetupCode;
   DateTime? initialSetupCodeExpiresAt;
   String? startupError;
-  EastAppApiException? startupApiError;
+  FlowApiException? startupApiError;
   bool apiErrorDialogOpen = false;
   bool requestTimeoutDialogOpen = false;
   Future<bool>? activeRequestTimeoutDecision;
@@ -78,7 +78,7 @@ class _TheEastAppState extends State<TheEastApp>
     initialiseApp();
   }
 
-  void handleApiError(EastAppApiException error) {
+  void handleApiError(FlowApiException error) {
     if (error.invalidatesSession ||
         apiErrorDialogOpen ||
         requestTimeoutDialogOpen ||
@@ -104,7 +104,7 @@ class _TheEastAppState extends State<TheEastApp>
     });
   }
 
-  Future<bool> handleRequestTimeout(EastAppApiException error) {
+  Future<bool> handleRequestTimeout(FlowApiException error) {
     final activeDecision = activeRequestTimeoutDecision;
     if (activeDecision != null) return activeDecision;
 
@@ -126,7 +126,7 @@ class _TheEastAppState extends State<TheEastApp>
     }
   }
 
-  Future<bool> _showRequestTimeoutDialog(EastAppApiException error) async {
+  Future<bool> _showRequestTimeoutDialog(FlowApiException error) async {
     final context = navigatorKey.currentContext;
     if (!mounted ||
         context == null ||
@@ -234,7 +234,7 @@ class _TheEastAppState extends State<TheEastApp>
         initialSetupCodeExpiresAt = null;
       });
       await restoreSession();
-    } on EastAppApiException catch (error) {
+    } on FlowApiException catch (error) {
       if (!mounted) return;
       setState(() {
         checkingSetup = false;
@@ -246,7 +246,7 @@ class _TheEastAppState extends State<TheEastApp>
   }
 
   void handleInitialSetupCompleted(
-    EastAppInitialSetupResult result,
+    FlowInitialSetupResult result,
     String password,
   ) {
     setState(() {
@@ -324,7 +324,7 @@ class _TheEastAppState extends State<TheEastApp>
         restoringSession = false;
       });
       startErrorReportRetry();
-    } on EastAppApiException catch (error) {
+    } on FlowApiException catch (error) {
       if (error.invalidatesSession) {
         api.useToken(null);
         await handleSessionInvalidated();
@@ -367,7 +367,7 @@ class _TheEastAppState extends State<TheEastApp>
   }
 
   Future<void> handleSignedIn(
-    EastAppSession signedInSession,
+    FlowSession signedInSession,
     String password,
   ) async {
     final loginCompanyCode = _loginCompanyCode(signedInSession);
@@ -384,7 +384,7 @@ class _TheEastAppState extends State<TheEastApp>
       AppDiagnostics.instance.logWarning(
         'Failed to store secure session token: $error',
       );
-      throw const EastAppApiException(
+      throw const FlowApiException(
         statusCode: null,
         code: 'SECURE_STORAGE_UNAVAILABLE',
         message: 'Cannot securely store the login session on this device.',
@@ -402,7 +402,7 @@ class _TheEastAppState extends State<TheEastApp>
     startErrorReportRetry();
   }
 
-  Future<ErrorReportDelivery> reportError(EastAppApiException error) async {
+  Future<ErrorReportDelivery> reportError(FlowApiException error) async {
     var report = buildPendingErrorReport(error);
     final canAttemptDelivery =
         !error.isServerUnavailable || error.code == 'REQUEST_TIMEOUT';
@@ -410,7 +410,7 @@ class _TheEastAppState extends State<TheEastApp>
       try {
         await api.submitErrorReport(report);
         return ErrorReportDelivery.sent;
-      } on EastAppApiException catch (deliveryError) {
+      } on FlowApiException catch (deliveryError) {
         report = PendingErrorReport(
           reference: report.reference,
           errorDetails: report.errorDetails,
@@ -426,7 +426,7 @@ class _TheEastAppState extends State<TheEastApp>
     return ErrorReportDelivery.queued;
   }
 
-  PendingErrorReport buildPendingErrorReport(EastAppApiException error) {
+  PendingErrorReport buildPendingErrorReport(FlowApiException error) {
     final currentSession = session;
     final debugReport = AppDiagnostics.instance.buildReport(
       appVersion: AppBuildInfo.displayVersion,
@@ -475,7 +475,7 @@ class _TheEastAppState extends State<TheEastApp>
       for (final report in reports) {
         try {
           await api.submitErrorReport(report);
-        } on EastAppApiException {
+        } on FlowApiException {
           return;
         }
         await AppDiagnostics.instance.removePendingErrorReport(
@@ -487,19 +487,19 @@ class _TheEastAppState extends State<TheEastApp>
     }
   }
 
-  String _loginCompanyCode(EastAppSession value) {
-    return value.can(EastAppPermission.storageAdmin)
+  String _loginCompanyCode(FlowSession value) {
+    return value.can(FlowPermission.storageAdmin)
         ? adminLoginId
         : value.tenant.companyCode;
   }
 
-  String _loginEmployeeId(EastAppSession value) {
-    return value.can(EastAppPermission.storageAdmin)
+  String _loginEmployeeId(FlowSession value) {
+    return value.can(FlowPermission.storageAdmin)
         ? adminLoginId
         : value.user.employeeId;
   }
 
-  void handleCurrentUserChanged(EastAppUser user) {
+  void handleCurrentUserChanged(FlowUser user) {
     final current = session;
     if (current == null) return;
     final roleChanged = current.user.role.systemKey != user.role.systemKey;
@@ -507,7 +507,7 @@ class _TheEastAppState extends State<TheEastApp>
       session = current.copyWith(
         user: user,
         permissions: roleChanged
-            ? const <EastAppPermission>{}
+            ? const <FlowPermission>{}
             : current.permissions,
       );
     });
@@ -535,12 +535,12 @@ class _TheEastAppState extends State<TheEastApp>
         return;
       }
       setState(() => session = refreshed);
-    } on EastAppApiException {
+    } on FlowApiException {
       // The API layer already captured the failed request for Debug.
     }
   }
 
-  void handleSessionChanged(EastAppSession nextSession) {
+  void handleSessionChanged(FlowSession nextSession) {
     setState(() {
       session = nextSession;
       startupError = null;
@@ -559,7 +559,7 @@ class _TheEastAppState extends State<TheEastApp>
     errorReportRetryTimer = null;
     try {
       await api.logout();
-    } on EastAppApiException {
+    } on FlowApiException {
       // The API error is captured; local logout still continues safely.
     } finally {
       try {
@@ -701,7 +701,7 @@ class _StartupScreen extends StatelessWidget {
 
 class _StartupErrorScreen extends StatelessWidget {
   final String message;
-  final EastAppApiException? apiError;
+  final FlowApiException? apiError;
   final ErrorReporter onReportError;
   final VoidCallback onRetry;
   final VoidCallback onClearSession;

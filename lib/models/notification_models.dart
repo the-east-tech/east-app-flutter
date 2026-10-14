@@ -1,6 +1,6 @@
 import 'api_models.dart';
 
-class EastAppActivityEvent {
+class FlowActivityEvent {
   final String id;
   final String actorUserId;
   final String actorName;
@@ -15,7 +15,7 @@ class EastAppActivityEvent {
   final String summary;
   final DateTime occurredAt;
 
-  const EastAppActivityEvent({
+  const FlowActivityEvent({
     required this.id,
     required this.actorUserId,
     required this.actorName,
@@ -31,8 +31,8 @@ class EastAppActivityEvent {
     required this.occurredAt,
   });
 
-  factory EastAppActivityEvent.fromJson(Map<String, dynamic> json) {
-    return EastAppActivityEvent(
+  factory FlowActivityEvent.fromJson(Map<String, dynamic> json) {
+    return FlowActivityEvent(
       id: json['eventId'] as String,
       actorUserId: json['actorUserId'] as String,
       actorName: json['actorName'] as String,
@@ -50,13 +50,13 @@ class EastAppActivityEvent {
   }
 }
 
-class EastAppNotification {
+class FlowNotification {
   final String id;
-  final EastAppActivityEvent event;
+  final FlowActivityEvent event;
   final DateTime? readAt;
   final DateTime createdAt;
 
-  const EastAppNotification({
+  const FlowNotification({
     required this.id,
     required this.event,
     required this.readAt,
@@ -65,10 +65,10 @@ class EastAppNotification {
 
   bool get isUnread => readAt == null;
 
-  factory EastAppNotification.fromJson(Map<String, dynamic> json) {
-    return EastAppNotification(
+  factory FlowNotification.fromJson(Map<String, dynamic> json) {
+    return FlowNotification(
       id: json['notificationId'] as String,
-      event: EastAppActivityEvent.fromJson(
+      event: FlowActivityEvent.fromJson(
         json['event'] as Map<String, dynamic>,
       ),
       readAt: json['readAt'] == null
@@ -79,10 +79,10 @@ class EastAppNotification {
   }
 }
 
-EastAppPage<EastAppActivityEvent> activityEventPageFromJson(
+FlowPage<FlowActivityEvent> activityEventPageFromJson(
   Map<String, dynamic> json,
-) => EastAppPage.fromJson(json, EastAppActivityEvent.fromJson);
+) => FlowPage.fromJson(json, FlowActivityEvent.fromJson);
 
-EastAppPage<EastAppNotification> notificationPageFromJson(
+FlowPage<FlowNotification> notificationPageFromJson(
   Map<String, dynamic> json,
-) => EastAppPage.fromJson(json, EastAppNotification.fromJson);
+) => FlowPage.fromJson(json, FlowNotification.fromJson);

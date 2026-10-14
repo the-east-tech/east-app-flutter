@@ -1,4 +1,4 @@
-class EastAppLeaderboardMember {
+class FlowLeaderboardMember {
   final String userId;
   final String employeeId;
   final String fullName;
@@ -7,7 +7,7 @@ class EastAppLeaderboardMember {
   final int rank;
   final bool currentUser;
 
-  const EastAppLeaderboardMember({
+  const FlowLeaderboardMember({
     required this.userId,
     required this.employeeId,
     required this.fullName,
@@ -17,8 +17,8 @@ class EastAppLeaderboardMember {
     required this.currentUser,
   });
 
-  factory EastAppLeaderboardMember.fromJson(Map<String, dynamic> json) {
-    return EastAppLeaderboardMember(
+  factory FlowLeaderboardMember.fromJson(Map<String, dynamic> json) {
+    return FlowLeaderboardMember(
       userId: json['userId'] as String,
       employeeId: json['employeeId'] as String,
       fullName: json['fullName'] as String,
@@ -30,25 +30,25 @@ class EastAppLeaderboardMember {
   }
 }
 
-class EastAppLeaderboard {
+class FlowLeaderboard {
   final int currentUserTotalPoints;
   final int? currentUserRank;
-  final List<EastAppLeaderboardMember> members;
+  final List<FlowLeaderboardMember> members;
 
-  const EastAppLeaderboard({
+  const FlowLeaderboard({
     required this.currentUserTotalPoints,
     required this.currentUserRank,
     required this.members,
   });
 
-  factory EastAppLeaderboard.fromJson(Map<String, dynamic> json) {
-    return EastAppLeaderboard(
+  factory FlowLeaderboard.fromJson(Map<String, dynamic> json) {
+    return FlowLeaderboard(
       currentUserTotalPoints:
           (json['currentUserTotalPoints'] as num).toInt(),
       currentUserRank: (json['currentUserRank'] as num?)?.toInt(),
       members: (json['members'] as List<dynamic>)
           .map(
-            (item) => EastAppLeaderboardMember.fromJson(
+            (item) => FlowLeaderboardMember.fromJson(
               item as Map<String, dynamic>,
             ),
           )
@@ -57,7 +57,7 @@ class EastAppLeaderboard {
   }
 }
 
-class EastAppPointAdjustment {
+class FlowPointAdjustment {
   final String id;
   final String userId;
   final String employeeId;
@@ -69,7 +69,7 @@ class EastAppPointAdjustment {
   final String adjustedByName;
   final DateTime createdAt;
 
-  const EastAppPointAdjustment({
+  const FlowPointAdjustment({
     required this.id,
     required this.userId,
     required this.employeeId,
@@ -82,8 +82,8 @@ class EastAppPointAdjustment {
     required this.createdAt,
   });
 
-  factory EastAppPointAdjustment.fromJson(Map<String, dynamic> json) {
-    return EastAppPointAdjustment(
+  factory FlowPointAdjustment.fromJson(Map<String, dynamic> json) {
+    return FlowPointAdjustment(
       id: json['id'] as String,
       userId: json['userId'] as String,
       employeeId: json['employeeId'] as String,

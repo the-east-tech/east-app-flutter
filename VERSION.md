@@ -6,9 +6,9 @@ Parent company: `Sequosal` (publisher/owner metadata only; not shown inside the 
 
 Store version: `1.0.0+1`
 
-Flutter package name: `east_app` (legacy internal identifier)
+Flutter package name: `flow_app`
 
-Flutter app class: `TheEastApp` (legacy internal identifier)
+Flutter app class: `FlowApp`
 
 ## Version policy
 

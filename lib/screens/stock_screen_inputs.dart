@@ -207,7 +207,7 @@ class _DialogBareInput extends StatelessWidget {
 
 void showAddSupplierDialog(
   BuildContext context, {
-  required EastAppApi api,
+  required FlowApi api,
   required Future<void> Function(SupplierProfile supplier) onCreateSupplier,
 }) {
   final text = AppTextScope.of(context);
@@ -218,7 +218,7 @@ void showAddSupplierDialog(
   final address2 = TextEditingController();
   final websiteOrGoogleLink = TextEditingController();
   final notes = TextEditingController();
-  EastAppGooglePlaceDetails? selectedPlace;
+  FlowGooglePlaceDetails? selectedPlace;
   var active = true;
   showStockBottomSheet<void>(
     context,

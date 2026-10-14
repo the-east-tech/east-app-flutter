@@ -2,7 +2,7 @@ part of 'stock_screen.dart';
 
 class StockScreen extends StatefulWidget {
   final UserRole role;
-  final EastAppApi api;
+  final FlowApi api;
   final bool isOwner;
   final String currentTenantId;
   final StockReviewSummary? reviewSummary;

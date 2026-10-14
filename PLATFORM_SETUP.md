@@ -1,7 +1,6 @@
 # Flow platform setup
 
-This release package contains the complete changed `lib/` folder and the
-changed root files only.
+The authoritative source is the complete Flutter Git repository.
 
 ## Current Android baseline
 
@@ -49,13 +48,13 @@ Ensure `ios/Runner/Info.plist` contains a user-facing `NSPhotoLibraryUsageDescri
 Create Android and iOS apps in one Firebase project using these current identifiers:
 
 - Android application ID: `com.sequosal.flow`
-- iOS bundle ID: `com.jenssen.eastapp.test`
+- iOS production bundle ID: `com.sequosal.flow`
 
-Personal Apple development teams cannot provision Push Notifications. The default `DebugProfile.entitlements` and `Release.entitlements` therefore omit `aps-environment` so free-team device builds can be signed. `UIBackgroundModes` retains `remote-notification`, but native iOS push delivery is unavailable in these free-team builds.
+The project is configured for paid Apple Developer Team `24MJ8NMULJ` across iOS Debug, Profile and Release. The production Bundle ID is `com.sequosal.flow` for all three configurations. The original identifier must be released by Apple and registered under this paid team before signing, TestFlight or App Store distribution succeeds.
 
-After enrolling in the Apple Developer Program, enable Push Notifications for the App ID and in Xcode, configure push-capable provisioning and upload the Apple APNs authentication key to Firebase. In the Runner target's Build Settings, switch `CODE_SIGN_ENTITLEMENTS` for Debug/Profile to `Runner/PushDebugProfile.entitlements`, and for Release to `Runner/PushRelease.entitlements`. Those checked-in opt-in files select development and production APNs respectively. Keep the default entitlements for personal-team builds.
+Push-capable entitlements are selected for Debug/Profile (`Runner/PushDebugProfile.entitlements`) and Release (`Runner/PushRelease.entitlements`). After Apple releases the identifier, enable Push Notifications on that App ID, create or refresh signing profiles as necessary and upload the APNs authentication key to Firebase. Do not use the old Personal Team or create a temporary production Bundle ID.
 
-The Firebase client values for project `theeast-888` are included in
+The Firebase client values for project `sequosal-flow` are included in
 `lib/firebase_options.dart`. Run Flow normally:
 
 ```bash
@@ -68,8 +67,16 @@ No Firebase `--dart-define` parameters are required.
 
 `flutter_secure_storage` remains on 11.0.0. Flow v272/v273 already used v10.3.1, whose Android migration is enabled by default, so current installations that have run v10 are on the supported migration path. Do not let an installation jump directly from a pre-v10 Flow build to v277; run a v10-based build first so legacy secure-storage data is migrated.
 
-After replacing the v309 files in the full project, run normally:
+From the project root, run normally:
 
 ```bash
 flutter run
 ```
+
+## Project identity
+
+- Flutter/Dart package: `flow_app`
+- Android application ID: `com.sequosal.flow`
+- iOS production Bundle ID: `com.sequosal.flow`
+- Apple paid Team ID: `24MJ8NMULJ`
+- Existing secure-storage keys remain unchanged for existing sessions. The legacy `EASTAPP_API_BASE_URL` Dart define is still accepted for compatibility; use `FLOW_API_BASE_URL` for new builds.

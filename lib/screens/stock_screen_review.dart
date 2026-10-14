@@ -24,7 +24,7 @@ class _StockApprovalScope extends InheritedWidget {
 
 class _StockApprovalLauncher extends StatelessWidget {
   final _StockApprovalKind kind;
-  final EastAppApi api;
+  final FlowApi api;
   final Future<void> Function(StockReceivableRecord record) onReviewReceivable;
   final Future<void> Function(StockSubmission submission) onReviewStockCount;
   final Future<void> Function(List<StockSubmission> submissions)
@@ -149,7 +149,7 @@ class _StockApprovalLauncher extends StatelessWidget {
 
 class _StockApprovalSheet extends StatefulWidget {
   final _StockApprovalKind kind;
-  final EastAppApi api;
+  final FlowApi api;
   final Future<void> Function(StockReceivableRecord record) onReviewReceivable;
   final Future<void> Function(StockSubmission submission) onReviewStockCount;
   final Future<void> Function(List<StockSubmission> submissions)
@@ -270,7 +270,7 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
           lastPage = result.last;
         });
       }
-    } on EastAppApiException catch (_) {
+    } on FlowApiException catch (_) {
       // Global API error UI already presents the failure.
     } finally {
       if (mounted) {
@@ -1079,7 +1079,7 @@ class _StockApprovalSheetState extends State<_StockApprovalSheet> {
 }
 
 class _SkuChangeApprovalSheet extends StatefulWidget {
-  final EastAppApi api;
+  final FlowApi api;
   final List<StockTag> tags;
   final List<SupplierProfile> suppliers;
   final bool canReview;
@@ -1258,7 +1258,7 @@ class _SkuChangeApprovalSheetState extends State<_SkuChangeApprovalSheet> {
       final loaded = await widget.api.stockSkuChangeRequests();
       if (!mounted) return;
       setState(() => records = loaded);
-    } on EastAppApiException {
+    } on FlowApiException {
       // Global API error handling already presents the failure.
     } finally {
       if (mounted) setState(() => loading = false);
@@ -1340,7 +1340,7 @@ class _SkuChangeApprovalSheetState extends State<_SkuChangeApprovalSheet> {
             ? 'SKU change approved'
             : 'SKU change rejected',
       );
-    } on EastAppApiException {
+    } on FlowApiException {
       // Global API error handling already presents the failure.
     } finally {
       if (mounted) setState(() => reviewingId = null);

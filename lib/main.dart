@@ -23,7 +23,7 @@ void main() {
         return false;
       };
 
-      runApp(const TheEastApp());
+      runApp(const FlowApp());
     },
     (Object error, StackTrace stack) {
       AppDiagnostics.instance.recordError(error, stack);

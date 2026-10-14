@@ -5,12 +5,12 @@ import 'package:flutter/material.dart';
 
 import '../localization/app_text_scope.dart';
 import '../models/report_models.dart';
-import '../services/east_app_api.dart';
+import '../services/flow_api.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_components.dart';
 
 class ReportIntelligencePanel extends StatefulWidget {
-  final EastAppApi api;
+  final FlowApi api;
   final String tenantId;
   final ReportDashboard? initialDashboard;
   final ValueChanged<ReportDashboard>? onDashboardLoaded;
@@ -37,7 +37,7 @@ class _ReportIntelligencePanelState extends State<ReportIntelligencePanel>
   DateTime? lastUpdatedAt;
   int loadGeneration = 0;
 
-  String get cacheKey => EastAppApi.reportDashboardCacheKey(
+  String get cacheKey => FlowApi.reportDashboardCacheKey(
         widget.tenantId,
         periodDays,
         managementView: true,
@@ -104,7 +104,7 @@ class _ReportIntelligencePanelState extends State<ReportIntelligencePanel>
         loading = false;
       });
       if (periodDays == 7) widget.onDashboardLoaded?.call(value);
-    } on EastAppApiException {
+    } on FlowApiException {
       if (!mounted || generation != loadGeneration) return;
       setState(() => loading = false);
     }

@@ -18,7 +18,7 @@ import '../models/google_place_models.dart';
 import '../models/people_models.dart';
 import '../models/organisation_models.dart';
 import '../models/stock_api_models.dart';
-import '../services/east_app_api.dart';
+import '../services/flow_api.dart';
 import '../services/stock_purchase_gateway.dart';
 import '../theme/app_theme.dart';
 import '../utils/app_diagnostics.dart';

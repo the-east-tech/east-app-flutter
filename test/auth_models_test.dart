@@ -1,9 +1,9 @@
-import 'package:east_app/models/auth_models.dart';
+import 'package:flow_app/models/auth_models.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test('parses granted permissions from the existing current-user payload', () {
-    final session = EastAppSession.fromCurrentUserJson(
+    final session = FlowSession.fromCurrentUserJson(
       token: 'token',
       json: {
         'tenant': {
@@ -40,16 +40,16 @@ void main() {
     );
 
     expect(
-      session.can(EastAppPermission.reportIntelligenceView),
+      session.can(FlowPermission.reportIntelligenceView),
       isTrue,
     );
-    expect(session.can(EastAppPermission.taskManage), isTrue);
-    expect(session.can(EastAppPermission.reportReview), isFalse);
+    expect(session.can(FlowPermission.taskManage), isTrue);
+    expect(session.can(FlowPermission.reportReview), isFalse);
     expect(session.permissions, hasLength(2));
   });
 
   test('missing permissions fail closed', () {
-    expect(EastAppPermission.tryParse(null), isNull);
-    expect(EastAppPermission.tryParse('NOT_GRANTED'), isNull);
+    expect(FlowPermission.tryParse(null), isNull);
+    expect(FlowPermission.tryParse('NOT_GRANTED'), isNull);
   });
 }

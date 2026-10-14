@@ -1,6 +1,6 @@
 import 'dart:typed_data';
 
-class EastAppPage<T> {
+class FlowPage<T> {
   final List<T> content;
   final int page;
   final int size;
@@ -9,7 +9,7 @@ class EastAppPage<T> {
   final bool first;
   final bool last;
 
-  const EastAppPage({
+  const FlowPage({
     required this.content,
     required this.page,
     required this.size,
@@ -19,11 +19,11 @@ class EastAppPage<T> {
     required this.last,
   });
 
-  factory EastAppPage.fromJson(
+  factory FlowPage.fromJson(
     Map<String, dynamic> json,
     T Function(Map<String, dynamic>) mapper,
   ) {
-    return EastAppPage<T>(
+    return FlowPage<T>(
       content: (json['content'] as List<dynamic>? ?? const [])
           .map((item) => mapper(item as Map<String, dynamic>))
           .toList(growable: false),
@@ -45,21 +45,21 @@ String? formatApiDate(DateTime? value) {
   return '$year-$month-$day';
 }
 
-class EastAppCsvFile {
+class FlowCsvFile {
   final String fileName;
   final Uint8List bytes;
 
-  const EastAppCsvFile({required this.fileName, required this.bytes});
+  const FlowCsvFile({required this.fileName, required this.bytes});
 }
 
-class EastAppCsvPreview {
+class FlowCsvPreview {
   final int totalRows;
   final int readyRows;
   final int duplicateRows;
   final int invalidRows;
   final List<String> errors;
 
-  const EastAppCsvPreview({
+  const FlowCsvPreview({
     required this.totalRows,
     required this.readyRows,
     required this.duplicateRows,
@@ -69,8 +69,8 @@ class EastAppCsvPreview {
 
   bool get canImport => readyRows > 0 && invalidRows == 0;
 
-  factory EastAppCsvPreview.fromJson(Map<String, dynamic> json) {
-    return EastAppCsvPreview(
+  factory FlowCsvPreview.fromJson(Map<String, dynamic> json) {
+    return FlowCsvPreview(
       totalRows: (json['totalRows'] as num? ?? 0).toInt(),
       readyRows: (json['readyRows'] as num? ?? 0).toInt(),
       duplicateRows: (json['duplicateRows'] as num? ?? 0).toInt(),
@@ -82,17 +82,17 @@ class EastAppCsvPreview {
   }
 }
 
-class EastAppCsvImportResult {
+class FlowCsvImportResult {
   final int importedRows;
   final int skippedDuplicateRows;
 
-  const EastAppCsvImportResult({
+  const FlowCsvImportResult({
     required this.importedRows,
     required this.skippedDuplicateRows,
   });
 
-  factory EastAppCsvImportResult.fromJson(Map<String, dynamic> json) {
-    return EastAppCsvImportResult(
+  factory FlowCsvImportResult.fromJson(Map<String, dynamic> json) {
+    return FlowCsvImportResult(
       importedRows: (json['importedRows'] as num? ?? 0).toInt(),
       skippedDuplicateRows:
           (json['skippedDuplicateRows'] as num? ?? 0).toInt(),
@@ -100,21 +100,21 @@ class EastAppCsvImportResult {
   }
 }
 
-class EastAppDeletionDependency {
+class FlowDeletionDependency {
   final String code;
   final String label;
   final int count;
   final String location;
 
-  const EastAppDeletionDependency({
+  const FlowDeletionDependency({
     required this.code,
     required this.label,
     required this.count,
     required this.location,
   });
 
-  factory EastAppDeletionDependency.fromJson(Map<String, dynamic> json) {
-    return EastAppDeletionDependency(
+  factory FlowDeletionDependency.fromJson(Map<String, dynamic> json) {
+    return FlowDeletionDependency(
       code: json['code'] as String? ?? '',
       label: json['label'] as String? ?? '',
       count: (json['count'] as num? ?? 0).toInt(),
@@ -123,21 +123,21 @@ class EastAppDeletionDependency {
   }
 }
 
-class EastAppDeletionPreview {
+class FlowDeletionPreview {
   final bool deletable;
-  final List<EastAppDeletionDependency> dependencies;
+  final List<FlowDeletionDependency> dependencies;
 
-  const EastAppDeletionPreview({
+  const FlowDeletionPreview({
     required this.deletable,
     required this.dependencies,
   });
 
-  factory EastAppDeletionPreview.fromJson(Map<String, dynamic> json) {
-    return EastAppDeletionPreview(
+  factory FlowDeletionPreview.fromJson(Map<String, dynamic> json) {
+    return FlowDeletionPreview(
       deletable: json['deletable'] as bool? ?? false,
       dependencies: (json['dependencies'] as List<dynamic>? ?? const [])
           .map(
-            (item) => EastAppDeletionDependency.fromJson(
+            (item) => FlowDeletionDependency.fromJson(
               item as Map<String, dynamic>,
             ),
           )
@@ -145,15 +145,15 @@ class EastAppDeletionPreview {
     );
   }
 
-  factory EastAppDeletionPreview.merge(
-    Iterable<EastAppDeletionPreview> previews,
+  factory FlowDeletionPreview.merge(
+    Iterable<FlowDeletionPreview> previews,
   ) {
-    final merged = <String, EastAppDeletionDependency>{};
+    final merged = <String, FlowDeletionDependency>{};
     for (final preview in previews) {
       for (final dependency in preview.dependencies) {
         final key = '${dependency.code}:${dependency.location}';
         final existing = merged[key];
-        merged[key] = EastAppDeletionDependency(
+        merged[key] = FlowDeletionDependency(
           code: dependency.code,
           label: dependency.label,
           count: (existing?.count ?? 0) + dependency.count,
@@ -162,7 +162,7 @@ class EastAppDeletionPreview {
       }
     }
     final dependencies = merged.values.toList(growable: false);
-    return EastAppDeletionPreview(
+    return FlowDeletionPreview(
       deletable: dependencies.isEmpty,
       dependencies: dependencies,
     );

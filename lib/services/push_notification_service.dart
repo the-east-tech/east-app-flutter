@@ -6,10 +6,10 @@ import 'package:flutter/foundation.dart';
 
 import '../firebase_options.dart';
 import '../utils/app_diagnostics.dart';
-import 'east_app_api.dart';
+import 'flow_api.dart';
 
 @pragma('vm:entry-point')
-Future<void> eastAppFirebaseBackgroundHandler(RemoteMessage message) async {
+Future<void> flowFirebaseBackgroundHandler(RemoteMessage message) async {
   final options = PushNotificationService.currentPlatformOptions;
   if (options == null || Firebase.apps.isNotEmpty) return;
   await Firebase.initializeApp(options: options);
@@ -18,7 +18,7 @@ Future<void> eastAppFirebaseBackgroundHandler(RemoteMessage message) async {
 class PushNotificationService {
   static bool _backgroundHandlerRegistered = false;
 
-  EastAppApi? _api;
+  FlowApi? _api;
   String? _token;
   bool _firebaseInitialised = false;
   bool _initialMessageHandled = false;
@@ -30,16 +30,16 @@ class PushNotificationService {
   void Function(String? notificationId)? _onOpened;
 
   static FirebaseOptions? get currentPlatformOptions =>
-      EastAppFirebaseOptions.currentPlatform;
+      FlowFirebaseOptions.currentPlatform;
 
   static void registerBackgroundHandler() {
     if (_backgroundHandlerRegistered) return;
-    FirebaseMessaging.onBackgroundMessage(eastAppFirebaseBackgroundHandler);
+    FirebaseMessaging.onBackgroundMessage(flowFirebaseBackgroundHandler);
     _backgroundHandlerRegistered = true;
   }
 
   Future<void> configure({
-    required EastAppApi api,
+    required FlowApi api,
     required void Function(String? notificationId) onReceived,
     required void Function(String? notificationId) onOpened,
   }) {
@@ -139,7 +139,7 @@ class PushNotificationService {
         : 'ANDROID';
     try {
       await api.registerPushDevice(token: token, platform: platform);
-    } on EastAppApiException catch (error) {
+    } on FlowApiException catch (error) {
       AppDiagnostics.instance.recordApiError(
         method: error.method ?? 'POST',
         path: error.path ?? '/api/v1/notifications/devices',
@@ -160,7 +160,7 @@ class PushNotificationService {
     if (api == null || token == null || token.isEmpty) return;
     try {
       await api.unregisterPushDevice(token);
-    } on EastAppApiException catch (error) {
+    } on FlowApiException catch (error) {
       AppDiagnostics.instance.recordApiError(
         method: error.method ?? 'POST',
         path: error.path ?? '/api/v1/notifications/devices/unregister',

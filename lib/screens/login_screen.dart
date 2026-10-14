@@ -3,14 +3,14 @@ import 'package:flutter/material.dart';
 import '../localization/app_language.dart';
 import '../localization/app_text.dart';
 import '../models/auth_models.dart';
-import '../services/east_app_api.dart';
+import '../services/flow_api.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_components.dart';
 import '../widgets/app_feedback.dart';
 
 class LoginScreen extends StatefulWidget {
-  final EastAppApi api;
-  final Future<void> Function(EastAppSession session, String password)
+  final FlowApi api;
+  final Future<void> Function(FlowSession session, String password)
       onSignedIn;
   final String initialCompanyCode;
   final String initialEmployeeId;
@@ -84,7 +84,7 @@ class _LoginScreenState extends State<LoginScreen> {
       );
       await widget.onSignedIn(session, password);
       AppFeedback.loginSuccess();
-    } on EastAppApiException catch (_) {
+    } on FlowApiException catch (_) {
       if (!mounted) return;
     } finally {
       if (mounted) setState(() => signingIn = false);

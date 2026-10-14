@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../localization/app_text_scope.dart';
 import '../models/api_models.dart';
-import '../services/east_app_api.dart';
+import '../services/flow_api.dart';
 import '../theme/app_theme.dart';
 import '../utils/app_diagnostics.dart';
 import 'app_feedback.dart';
@@ -12,7 +12,7 @@ import 'app_feedback.dart';
 enum ErrorReportDelivery { sent, queued }
 
 typedef ErrorReporter = Future<ErrorReportDelivery> Function(
-  EastAppApiException error,
+  FlowApiException error,
 );
 
 Future<bool> showRequestTimeoutDialog(BuildContext context) async {
@@ -69,7 +69,7 @@ Future<bool> showRequestTimeoutDialog(BuildContext context) async {
 
 Future<void> showApiErrorDialog(
   BuildContext context,
-  EastAppApiException error,
+  FlowApiException error,
   ErrorReporter onReportError,
 ) async {
   await AppFeedback.error();
@@ -168,7 +168,7 @@ Future<void> showApiErrorDialog(
 }
 
 class ReportErrorButton extends StatefulWidget {
-  final EastAppApiException error;
+  final FlowApiException error;
   final ErrorReporter onReportError;
   final VoidCallback? onReported;
 
@@ -212,7 +212,7 @@ class _ReportErrorButtonState extends State<ReportErrorButton> {
       AppDiagnostics.instance.recordError(error, stackTrace);
       if (!mounted) return;
       final details = AppDiagnostics.instance.sanitiseForSupport(
-        error is EastAppApiException
+        error is FlowApiException
             ? error.technicalDetails
             : error.toString(),
       );
@@ -311,7 +311,7 @@ Future<bool> confirmDataChange(
 
 Future<void> showDeletionDependenciesDialog(
   BuildContext context,
-  EastAppDeletionPreview preview,
+  FlowDeletionPreview preview,
 ) {
   return showDialog<void>(
     context: context,

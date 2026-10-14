@@ -1,7 +1,7 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 
-abstract final class EastAppFirebaseOptions {
+abstract final class FlowFirebaseOptions {
   static FirebaseOptions? get currentPlatform {
     if (kIsWeb) return null;
     return switch (defaultTargetPlatform) {

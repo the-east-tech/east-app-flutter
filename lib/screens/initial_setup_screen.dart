@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 import '../localization/app_text_scope.dart';
 import '../models/google_place_models.dart';
 import '../models/setup_models.dart';
-import '../services/east_app_api.dart';
+import '../services/flow_api.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_components.dart';
 import '../widgets/east_logo.dart';
@@ -12,10 +12,10 @@ import '../widgets/google_place_picker.dart';
 import '../widgets/phone_number_field.dart';
 
 class InitialSetupScreen extends StatefulWidget {
-  final EastAppApi api;
+  final FlowApi api;
   final String? setupCode;
   final DateTime? setupCodeExpiresAt;
-  final void Function(EastAppInitialSetupResult result, String password)
+  final void Function(FlowInitialSetupResult result, String password)
       onCompleted;
 
   const InitialSetupScreen({
@@ -55,7 +55,7 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
   bool obscurePassword = true;
   bool obscureConfirmation = true;
   bool setupCodeDialogOpen = false;
-  EastAppGooglePlaceDetails? selectedPlace;
+  FlowGooglePlaceDetails? selectedPlace;
 
   @override
   void initState() {
@@ -267,14 +267,14 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
       await _showCreatedAccount(result);
       if (!mounted) return;
       widget.onCompleted(result, password);
-    } on EastAppApiException catch (_) {
+    } on FlowApiException catch (_) {
       // The global API error dialog contains the backend details.
     } finally {
       if (mounted) setState(() => submitting = false);
     }
   }
 
-  Future<void> _showCreatedAccount(EastAppInitialSetupResult result) {
+  Future<void> _showCreatedAccount(FlowInitialSetupResult result) {
     return showDialog<void>(
       context: context,
       barrierDismissible: false,

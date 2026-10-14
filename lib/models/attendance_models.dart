@@ -1,6 +1,6 @@
 import 'api_models.dart';
 
-class EastAppAttendanceEvent {
+class FlowAttendanceEvent {
   final String id;
   final String eventType;
   final DateTime occurredAt;
@@ -19,7 +19,7 @@ class EastAppAttendanceEvent {
   final String appVersion;
   final String validationMethod;
 
-  const EastAppAttendanceEvent({
+  const FlowAttendanceEvent({
     required this.id,
     required this.eventType,
     required this.occurredAt,
@@ -39,8 +39,8 @@ class EastAppAttendanceEvent {
     required this.validationMethod,
   });
 
-  factory EastAppAttendanceEvent.fromJson(Map<String, dynamic> json) {
-    return EastAppAttendanceEvent(
+  factory FlowAttendanceEvent.fromJson(Map<String, dynamic> json) {
+    return FlowAttendanceEvent(
       id: json['id'] as String,
       eventType: json['eventType'] as String,
       occurredAt: DateTime.parse(json['occurredAt'] as String),
@@ -62,14 +62,14 @@ class EastAppAttendanceEvent {
   }
 }
 
-class EastAppAttendanceToday {
+class FlowAttendanceToday {
   final DateTime date;
   final String status;
-  final EastAppAttendanceEvent? clockIn;
-  final EastAppAttendanceEvent? clockOut;
+  final FlowAttendanceEvent? clockIn;
+  final FlowAttendanceEvent? clockOut;
   final int totalWorkingMinutes;
 
-  const EastAppAttendanceToday({
+  const FlowAttendanceToday({
     required this.date,
     required this.status,
     required this.clockIn,
@@ -77,17 +77,17 @@ class EastAppAttendanceToday {
     required this.totalWorkingMinutes,
   });
 
-  factory EastAppAttendanceToday.fromJson(Map<String, dynamic> json) {
+  factory FlowAttendanceToday.fromJson(Map<String, dynamic> json) {
     final clockInJson = json['clockIn'];
     final clockOutJson = json['clockOut'];
-    return EastAppAttendanceToday(
+    return FlowAttendanceToday(
       date: DateTime.parse(json['date'] as String),
       status: json['status'] as String,
       clockIn: clockInJson is Map<String, dynamic>
-          ? EastAppAttendanceEvent.fromJson(clockInJson)
+          ? FlowAttendanceEvent.fromJson(clockInJson)
           : null,
       clockOut: clockOutJson is Map<String, dynamic>
-          ? EastAppAttendanceEvent.fromJson(clockOutJson)
+          ? FlowAttendanceEvent.fromJson(clockOutJson)
           : null,
       totalWorkingMinutes: (json['totalWorkingMinutes'] as num).toInt(),
     );
@@ -109,7 +109,7 @@ enum AttendanceAuditPeriod {
   const AttendanceAuditPeriod(this.apiValue, this.label);
 }
 
-class EastAppAttendanceAuditSummary {
+class FlowAttendanceAuditSummary {
   final int people;
   final int peopleWithAttendance;
   final int presentDays;
@@ -117,7 +117,7 @@ class EastAppAttendanceAuditSummary {
   final int missingCheckOutDays;
   final double completionPercent;
 
-  const EastAppAttendanceAuditSummary({
+  const FlowAttendanceAuditSummary({
     required this.people,
     required this.peopleWithAttendance,
     required this.presentDays,
@@ -126,8 +126,8 @@ class EastAppAttendanceAuditSummary {
     required this.completionPercent,
   });
 
-  factory EastAppAttendanceAuditSummary.fromJson(Map<String, dynamic> json) {
-    return EastAppAttendanceAuditSummary(
+  factory FlowAttendanceAuditSummary.fromJson(Map<String, dynamic> json) {
+    return FlowAttendanceAuditSummary(
       people: (json['people'] as num).toInt(),
       peopleWithAttendance: (json['peopleWithAttendance'] as num).toInt(),
       presentDays: (json['presentDays'] as num).toInt(),
@@ -138,7 +138,7 @@ class EastAppAttendanceAuditSummary {
   }
 }
 
-class EastAppAttendanceUserAudit {
+class FlowAttendanceUserAudit {
   final String userId;
   final String employeeId;
   final String fullName;
@@ -156,7 +156,7 @@ class EastAppAttendanceUserAudit {
   final int? averageWorkingMinutes;
   final double completionPercent;
 
-  const EastAppAttendanceUserAudit({
+  const FlowAttendanceUserAudit({
     required this.userId,
     required this.employeeId,
     required this.fullName,
@@ -175,8 +175,8 @@ class EastAppAttendanceUserAudit {
     required this.completionPercent,
   });
 
-  factory EastAppAttendanceUserAudit.fromJson(Map<String, dynamic> json) {
-    return EastAppAttendanceUserAudit(
+  factory FlowAttendanceUserAudit.fromJson(Map<String, dynamic> json) {
+    return FlowAttendanceUserAudit(
       userId: json['userId'] as String,
       employeeId: json['employeeId'] as String,
       fullName: json['fullName'] as String,
@@ -202,15 +202,15 @@ class EastAppAttendanceUserAudit {
   }
 }
 
-class EastAppAttendanceAudit {
+class FlowAttendanceAudit {
   final AttendanceAuditPeriod period;
   final DateTime startDate;
   final DateTime endDate;
   final String label;
-  final EastAppAttendanceAuditSummary summary;
-  final List<EastAppAttendanceUserAudit> users;
+  final FlowAttendanceAuditSummary summary;
+  final List<FlowAttendanceUserAudit> users;
 
-  const EastAppAttendanceAudit({
+  const FlowAttendanceAudit({
     required this.period,
     required this.startDate,
     required this.endDate,
@@ -219,21 +219,21 @@ class EastAppAttendanceAudit {
     required this.users,
   });
 
-  factory EastAppAttendanceAudit.fromJson(Map<String, dynamic> json) {
+  factory FlowAttendanceAudit.fromJson(Map<String, dynamic> json) {
     final periodValue = json['period'] as String;
     final period = AttendanceAuditPeriod.values.firstWhere(
       (item) => item.apiValue == periodValue,
     );
-    return EastAppAttendanceAudit(
+    return FlowAttendanceAudit(
       period: period,
       startDate: DateTime.parse(json['startDate'] as String),
       endDate: DateTime.parse(json['endDate'] as String),
       label: json['label'] as String,
-      summary: EastAppAttendanceAuditSummary.fromJson(
+      summary: FlowAttendanceAuditSummary.fromJson(
         json['summary'] as Map<String, dynamic>,
       ),
       users: (json['users'] as List<dynamic>)
-          .map((item) => EastAppAttendanceUserAudit.fromJson(
+          .map((item) => FlowAttendanceUserAudit.fromJson(
                 item as Map<String, dynamic>,
               ))
           .toList(growable: false),
@@ -249,15 +249,15 @@ String formatIsoDate(DateTime value) {
 }
 
 
-class EastAppAttendanceDay {
+class FlowAttendanceDay {
   final DateTime date;
   final String status;
   final DateTime? checkInAt;
   final DateTime? checkOutAt;
   final int workingMinutes;
-  final List<EastAppAttendanceEvent> events;
+  final List<FlowAttendanceEvent> events;
 
-  const EastAppAttendanceDay({
+  const FlowAttendanceDay({
     required this.date,
     required this.status,
     required this.checkInAt,
@@ -266,8 +266,8 @@ class EastAppAttendanceDay {
     required this.events,
   });
 
-  factory EastAppAttendanceDay.fromJson(Map<String, dynamic> json) {
-    return EastAppAttendanceDay(
+  factory FlowAttendanceDay.fromJson(Map<String, dynamic> json) {
+    return FlowAttendanceDay(
       date: DateTime.parse(json['date'] as String),
       status: json['status'] as String,
       checkInAt: json['checkInAt'] == null
@@ -278,7 +278,7 @@ class EastAppAttendanceDay {
           : DateTime.parse(json['checkOutAt'] as String).toLocal(),
       workingMinutes: (json['workingMinutes'] as num).toInt(),
       events: (json['events'] as List<dynamic>? ?? const [])
-          .map((item) => EastAppAttendanceEvent.fromJson(item as Map<String, dynamic>))
+          .map((item) => FlowAttendanceEvent.fromJson(item as Map<String, dynamic>))
           .toList(growable: false),
     );
   }
@@ -286,7 +286,7 @@ class EastAppAttendanceDay {
   bool get completed => status == 'COMPLETED';
 }
 
-class EastAppAttendanceMonthSummary {
+class FlowAttendanceMonthSummary {
   final int month;
   final String label;
   final int presentDays;
@@ -296,7 +296,7 @@ class EastAppAttendanceMonthSummary {
   final int? averageWorkingMinutes;
   final double completionPercent;
 
-  const EastAppAttendanceMonthSummary({
+  const FlowAttendanceMonthSummary({
     required this.month,
     required this.label,
     required this.presentDays,
@@ -307,8 +307,8 @@ class EastAppAttendanceMonthSummary {
     required this.completionPercent,
   });
 
-  factory EastAppAttendanceMonthSummary.fromJson(Map<String, dynamic> json) {
-    return EastAppAttendanceMonthSummary(
+  factory FlowAttendanceMonthSummary.fromJson(Map<String, dynamic> json) {
+    return FlowAttendanceMonthSummary(
       month: (json['month'] as num).toInt(),
       label: json['label'] as String,
       presentDays: (json['presentDays'] as num).toInt(),
@@ -321,17 +321,17 @@ class EastAppAttendanceMonthSummary {
   }
 }
 
-class EastAppAttendanceUserDetail {
+class FlowAttendanceUserDetail {
   final AttendanceAuditPeriod period;
   final DateTime startDate;
   final DateTime endDate;
   final String label;
-  final EastAppAttendanceUserAudit summary;
-  final List<EastAppAttendanceDay> days;
-  final List<EastAppAttendanceMonthSummary> months;
-  final EastAppPage<EastAppAttendanceEvent> events;
+  final FlowAttendanceUserAudit summary;
+  final List<FlowAttendanceDay> days;
+  final List<FlowAttendanceMonthSummary> months;
+  final FlowPage<FlowAttendanceEvent> events;
 
-  const EastAppAttendanceUserDetail({
+  const FlowAttendanceUserDetail({
     required this.period,
     required this.startDate,
     required this.endDate,
@@ -342,47 +342,47 @@ class EastAppAttendanceUserDetail {
     required this.events,
   });
 
-  factory EastAppAttendanceUserDetail.fromJson(Map<String, dynamic> json) {
+  factory FlowAttendanceUserDetail.fromJson(Map<String, dynamic> json) {
     final periodValue = json['period'] as String;
-    return EastAppAttendanceUserDetail(
+    return FlowAttendanceUserDetail(
       period: AttendanceAuditPeriod.values.firstWhere(
         (item) => item.apiValue == periodValue,
       ),
       startDate: DateTime.parse(json['startDate'] as String),
       endDate: DateTime.parse(json['endDate'] as String),
       label: json['label'] as String,
-      summary: EastAppAttendanceUserAudit.fromJson(
+      summary: FlowAttendanceUserAudit.fromJson(
         json['summary'] as Map<String, dynamic>,
       ),
       days: (json['days'] as List<dynamic>? ?? const [])
-          .map((item) => EastAppAttendanceDay.fromJson(item as Map<String, dynamic>))
+          .map((item) => FlowAttendanceDay.fromJson(item as Map<String, dynamic>))
           .toList(growable: false),
       months: (json['months'] as List<dynamic>? ?? const [])
-          .map((item) => EastAppAttendanceMonthSummary.fromJson(item as Map<String, dynamic>))
+          .map((item) => FlowAttendanceMonthSummary.fromJson(item as Map<String, dynamic>))
           .toList(growable: false),
-      events: EastAppPage.fromJson(
+      events: FlowPage.fromJson(
         json['events'] as Map<String, dynamic>,
-        EastAppAttendanceEvent.fromJson,
+        FlowAttendanceEvent.fromJson,
       ),
     );
   }
 }
 
-class EastAppAttendanceQrCode {
+class FlowAttendanceQrCode {
   final String id;
   final String eventType;
   final DateTime expiresAt;
   final String qrPayload;
 
-  const EastAppAttendanceQrCode({
+  const FlowAttendanceQrCode({
     required this.id,
     required this.eventType,
     required this.expiresAt,
     required this.qrPayload,
   });
 
-  factory EastAppAttendanceQrCode.fromJson(Map<String, dynamic> json) {
-    return EastAppAttendanceQrCode(
+  factory FlowAttendanceQrCode.fromJson(Map<String, dynamic> json) {
+    return FlowAttendanceQrCode(
       id: json['id'] as String,
       eventType: json['eventType'] as String,
       expiresAt: DateTime.parse(json['expiresAt'] as String).toLocal(),

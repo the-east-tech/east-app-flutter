@@ -11,7 +11,7 @@ import '../models/google_place_models.dart';
 import '../models/notification_models.dart';
 import '../models/report_models.dart';
 import '../models/stock_api_models.dart';
-import '../services/east_app_api.dart';
+import '../services/flow_api.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_components.dart';
 import 'career_path_screen.dart';
@@ -22,11 +22,11 @@ import 'report_intelligence_panel.dart';
 const Duration _googleRatingCacheDuration = Duration(hours: 1);
 final Map<String, _GoogleRatingCacheEntry> _googleRatingCache =
     <String, _GoogleRatingCacheEntry>{};
-final Map<String, Future<EastAppGoogleRating>> _googleRatingRequests =
-    <String, Future<EastAppGoogleRating>>{};
+final Map<String, Future<FlowGoogleRating>> _googleRatingRequests =
+    <String, Future<FlowGoogleRating>>{};
 
 class _GoogleRatingCacheEntry {
-  final EastAppGoogleRating value;
+  final FlowGoogleRating value;
   final DateTime fetchedAt;
 
   const _GoogleRatingCacheEntry({
@@ -39,8 +39,8 @@ class _GoogleRatingCacheEntry {
   }
 }
 
-Future<EastAppGoogleRating> _refreshGoogleRating(
-  EastAppApi api,
+Future<FlowGoogleRating> _refreshGoogleRating(
+  FlowApi api,
   String tenantId,
 ) {
   final existingRequest = _googleRatingRequests[tenantId];
@@ -48,7 +48,7 @@ Future<EastAppGoogleRating> _refreshGoogleRating(
     return existingRequest;
   }
 
-  late final Future<EastAppGoogleRating> request;
+  late final Future<FlowGoogleRating> request;
   request = api.currentGoogleRating().then((value) {
     _googleRatingCache[tenantId] = _GoogleRatingCacheEntry(
       value: value,
@@ -70,13 +70,13 @@ class HomeScreen extends StatefulWidget {
   final String currentRoleSystemKey;
   final String currentRoleName;
   final bool canViewReportIntelligence;
-  final EastAppApi api;
+  final FlowApi api;
   final String tenantId;
   final String businessName;
   final StockReviewSummary? reviewSummary;
   final ReportDashboard? reportDashboard;
   final ValueChanged<ReportDashboard> onReportDashboardLoaded;
-  final List<EastAppActivityEvent> recentActivities;
+  final List<FlowActivityEvent> recentActivities;
   final Future<void> Function({bool forceRefresh}) onRefresh;
   final int googleRatingRefreshSignal;
   final VoidCallback onRanking;
@@ -186,7 +186,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
       setState(() => activeAdvertisements = _publishedAdvertisements(feed, now));
       _scheduleAdvertisementRefreshAt(feed.nextChangeAt);
-    } on EastAppApiException {
+    } on FlowApiException {
       // Keep the currently displayed cached advertisements. Do not poll/retry.
     }
   }
@@ -218,7 +218,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
     if (!mounted || !changed) return;
     await widget.api.invalidateFeatureCache(
-      EastAppApi.advertisementFeedCacheKey(widget.tenantId),
+      FlowApi.advertisementFeedCacheKey(widget.tenantId),
     );
     await _loadAdvertisements(forceRefresh: true);
   }
@@ -466,7 +466,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 }
 
 class _GoogleRatingCard extends StatefulWidget {
-  final EastAppApi api;
+  final FlowApi api;
   final String tenantId;
   final String businessName;
   final int refreshSignal;
@@ -483,7 +483,7 @@ class _GoogleRatingCard extends StatefulWidget {
 }
 
 class _GoogleRatingCardState extends State<_GoogleRatingCard> {
-  EastAppGoogleRating? rating;
+  FlowGoogleRating? rating;
   String? error;
   bool loading = true;
   int _loadGeneration = 0;
@@ -538,7 +538,7 @@ class _GoogleRatingCardState extends State<_GoogleRatingCard> {
         error = null;
         loading = false;
       });
-    } on EastAppApiException catch (apiError) {
+    } on FlowApiException catch (apiError) {
       if (!mounted ||
           loadGeneration != _loadGeneration ||
           tenantId != widget.tenantId) {
@@ -866,7 +866,7 @@ class _ActionTile extends StatelessWidget {
 }
 
 class _RecentActivityRow extends StatelessWidget {
-  final EastAppActivityEvent activity;
+  final FlowActivityEvent activity;
 
   const _RecentActivityRow({
     required this.activity,
@@ -944,7 +944,7 @@ class _RecentActivityRow extends StatelessWidget {
 class _AdvertisementCarousel extends StatefulWidget {
   static const double bannerAspectRatio = 3.45;
 
-  final EastAppApi api;
+  final FlowApi api;
   final List<Advertisement> advertisements;
 
   const _AdvertisementCarousel({
@@ -1154,7 +1154,7 @@ class _AdvertisementCarouselState extends State<_AdvertisementCarousel> {
 }
 
 class _AdvertisementManagerScreen extends StatefulWidget {
-  final EastAppApi api;
+  final FlowApi api;
   final VoidCallback onChanged;
 
   const _AdvertisementManagerScreen({
@@ -1194,7 +1194,7 @@ class _AdvertisementManagerScreenState
         items = value;
         loading = false;
       });
-    } on EastAppApiException catch (error) {
+    } on FlowApiException catch (error) {
       if (!mounted) return;
       setState(() {
         loading = false;
@@ -1263,7 +1263,7 @@ class _AdvertisementManagerScreenState
             .toList(growable: false);
       });
       widget.onChanged();
-    } on EastAppApiException {
+    } on FlowApiException {
       return;
     } finally {
       if (mounted) setState(() => mutating = false);
@@ -1403,7 +1403,7 @@ class _AdvertisementManagerScreenState
 }
 
 class _AdvertisementEditor extends StatefulWidget {
-  final EastAppApi api;
+  final FlowApi api;
   final Advertisement? advertisement;
 
   const _AdvertisementEditor({
@@ -1528,7 +1528,7 @@ class _AdvertisementEditorState extends State<_AdvertisementEditor> {
         );
       }
       if (mounted) Navigator.pop(context, saved);
-    } on EastAppApiException {
+    } on FlowApiException {
       return;
     } finally {
       if (mounted) setState(() => busy = false);

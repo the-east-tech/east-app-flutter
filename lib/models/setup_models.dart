@@ -1,16 +1,16 @@
-class EastAppSetupStatus {
+class FlowSetupStatus {
   final bool setupRequired;
   final String? setupCode;
   final DateTime? setupCodeExpiresAt;
 
-  const EastAppSetupStatus({
+  const FlowSetupStatus({
     required this.setupRequired,
     required this.setupCode,
     required this.setupCodeExpiresAt,
   });
 
-  factory EastAppSetupStatus.fromJson(Map<String, dynamic> json) {
-    return EastAppSetupStatus(
+  factory FlowSetupStatus.fromJson(Map<String, dynamic> json) {
+    return FlowSetupStatus(
       setupRequired: json['setupRequired'] as bool? ?? false,
       setupCode: json['setupCode'] as String?,
       setupCodeExpiresAt: json['setupCodeExpiresAt'] == null
@@ -20,19 +20,19 @@ class EastAppSetupStatus {
   }
 }
 
-class EastAppInitialSetupResult {
+class FlowInitialSetupResult {
   final String companyCode;
   final String businessName;
   final String employeeId;
 
-  const EastAppInitialSetupResult({
+  const FlowInitialSetupResult({
     required this.companyCode,
     required this.businessName,
     required this.employeeId,
   });
 
-  factory EastAppInitialSetupResult.fromJson(Map<String, dynamic> json) {
-    return EastAppInitialSetupResult(
+  factory FlowInitialSetupResult.fromJson(Map<String, dynamic> json) {
+    return FlowInitialSetupResult(
       companyCode: json['companyCode'] as String,
       businessName: json['businessName'] as String,
       employeeId: json['employeeId'] as String,

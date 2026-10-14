@@ -1,13 +1,13 @@
 import 'app_models.dart';
 
-class EastAppRole {
+class FlowRole {
   final String id;
   final String systemKey;
   final String name;
   final bool active;
   final int? assignedUsers;
 
-  const EastAppRole({
+  const FlowRole({
     required this.id,
     required this.systemKey,
     required this.name,
@@ -15,8 +15,8 @@ class EastAppRole {
     this.assignedUsers,
   });
 
-  factory EastAppRole.fromJson(Map<String, dynamic> json) {
-    return EastAppRole(
+  factory FlowRole.fromJson(Map<String, dynamic> json) {
+    return FlowRole(
       id: json['id'] as String,
       systemKey: json['systemKey'] as String,
       name: json['name'] as String,
@@ -43,7 +43,7 @@ class EastAppRole {
   }
 }
 
-class EastAppUser {
+class FlowUser {
   final String id;
   final String employeeId;
   final String fullName;
@@ -53,11 +53,11 @@ class EastAppUser {
   final DateTime? startDate;
   final DateTime? endDate;
   final bool active;
-  final EastAppRole role;
+  final FlowRole role;
   final DateTime createdAt;
   final DateTime updatedAt;
 
-  const EastAppUser({
+  const FlowUser({
     required this.id,
     required this.employeeId,
     required this.fullName,
@@ -72,8 +72,8 @@ class EastAppUser {
     required this.updatedAt,
   });
 
-  factory EastAppUser.fromJson(Map<String, dynamic> json) {
-    return EastAppUser(
+  factory FlowUser.fromJson(Map<String, dynamic> json) {
+    return FlowUser(
       id: json['id'] as String,
       employeeId: json['employeeId'] as String,
       fullName: json['fullName'] as String,
@@ -83,7 +83,7 @@ class EastAppUser {
       startDate: _parseDate(json['startDate']),
       endDate: _parseDate(json['endDate']),
       active: json['active'] as bool,
-      role: EastAppRole.fromJson(json['role'] as Map<String, dynamic>),
+      role: FlowRole.fromJson(json['role'] as Map<String, dynamic>),
       createdAt: DateTime.parse(json['createdAt'] as String),
       updatedAt: DateTime.parse(json['updatedAt'] as String),
     );

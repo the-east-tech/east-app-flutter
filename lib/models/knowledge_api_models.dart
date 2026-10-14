@@ -37,8 +37,8 @@ Map<String, Object?> knowledgeItemToJson(
   };
 }
 
-EastAppPage<KnowledgeItem> knowledgeItemPageFromJson(
+FlowPage<KnowledgeItem> knowledgeItemPageFromJson(
   Map<String, dynamic> json,
 ) {
-  return EastAppPage.fromJson(json, knowledgeItemFromJson);
+  return FlowPage.fromJson(json, knowledgeItemFromJson);
 }

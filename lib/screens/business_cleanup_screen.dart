@@ -5,12 +5,12 @@ import 'package:share_plus/share_plus.dart';
 
 import '../localization/app_text_scope.dart';
 import '../models/storage_models.dart';
-import '../services/east_app_api.dart';
+import '../services/flow_api.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_components.dart';
 
 class BusinessCleanupScreen extends StatefulWidget {
-  final EastAppApi api;
+  final FlowApi api;
 
   const BusinessCleanupScreen({
     super.key,
@@ -68,7 +68,7 @@ class _BusinessCleanupScreenState extends State<BusinessCleanupScreen> {
         runs = value;
         loadingRuns = false;
       });
-    } on EastAppApiException {
+    } on FlowApiException {
       if (mounted) setState(() => loadingRuns = false);
     }
   }
@@ -92,7 +92,7 @@ class _BusinessCleanupScreenState extends State<BusinessCleanupScreen> {
       final value = await widget.api.previewBusinessCleanup(selection);
       if (!mounted) return;
       setState(() => preview = value);
-    } on EastAppApiException {
+    } on FlowApiException {
       // Shared API error handling explains the failure.
     } finally {
       if (mounted) setState(() => working = false);
@@ -135,7 +135,7 @@ class _BusinessCleanupScreenState extends State<BusinessCleanupScreen> {
         }
       }
       if (run != null) await askConfirmSaved(run);
-    } on EastAppApiException {
+    } on FlowApiException {
       // Shared API error handling explains the failure.
     } catch (_) {
       if (mounted) {
@@ -182,7 +182,7 @@ class _BusinessCleanupScreenState extends State<BusinessCleanupScreen> {
       await widget.api.confirmBusinessCleanupSaved(run.id);
       await loadRuns();
       if (mounted) showSuccessSnackBar(context, 'Backup marked as saved.');
-    } on EastAppApiException {
+    } on FlowApiException {
       // Shared API error handling explains the failure.
     } finally {
       if (mounted) setState(() => working = false);
@@ -236,7 +236,7 @@ class _BusinessCleanupScreenState extends State<BusinessCleanupScreen> {
         context,
         '${result.deletedRecordCount} records and ${result.deletedPhotoCount} orphaned photos deleted.',
       );
-    } on EastAppApiException {
+    } on FlowApiException {
       // Shared API error handling explains the failure.
     } finally {
       if (mounted) setState(() => working = false);

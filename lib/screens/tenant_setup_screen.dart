@@ -4,18 +4,18 @@ import '../localization/app_text_scope.dart';
 import '../models/auth_models.dart';
 import '../models/google_place_models.dart';
 import '../models/organisation_models.dart';
-import '../services/east_app_api.dart';
+import '../services/flow_api.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_components.dart';
 import '../widgets/app_feedback.dart';
 import '../widgets/google_place_picker.dart';
 
 class TenantSetupScreen extends StatefulWidget {
-  final EastAppApi api;
+  final FlowApi api;
   final bool isOwner;
-  final EastAppTenant currentTenant;
-  final Future<void> Function(EastAppSession context) onSwitchBusiness;
-  final Future<void> Function(EastAppTenant tenant) onBusinessCreated;
+  final FlowTenant currentTenant;
+  final Future<void> Function(FlowSession context) onSwitchBusiness;
+  final Future<void> Function(FlowTenant tenant) onBusinessCreated;
   final VoidCallback onBack;
 
   const TenantSetupScreen({
@@ -34,9 +34,9 @@ class TenantSetupScreen extends StatefulWidget {
 
 class _TenantSetupScreenState extends State<TenantSetupScreen> {
   final searchController = TextEditingController();
-  EastAppTenant? currentBusiness;
-  List<EastAppTenant> businesses = const [];
-  List<EastAppSession> ownerContexts = const [];
+  FlowTenant? currentBusiness;
+  List<FlowTenant> businesses = const [];
+  List<FlowSession> ownerContexts = const [];
   bool loading = true;
   String? error;
 
@@ -70,15 +70,15 @@ class _TenantSetupScreenState extends State<TenantSetupScreen> {
         widget.api.listTenants(),
         widget.isOwner
             ? widget.api.availableContexts()
-            : Future<List<EastAppSession>>.value(const <EastAppSession>[]),
+            : Future<List<FlowSession>>.value(const <FlowSession>[]),
       ]);
-      final loadedBusinesses = results[0] as List<EastAppTenant>;
-      final contexts = results[1] as List<EastAppSession>;
-      final businessesById = <String, EastAppTenant>{
+      final loadedBusinesses = results[0] as List<FlowTenant>;
+      final contexts = results[1] as List<FlowSession>;
+      final businessesById = <String, FlowTenant>{
         for (final tenant in loadedBusinesses) tenant.id: tenant,
         for (final context in contexts) context.tenant.id: context.tenant,
       };
-      EastAppTenant? loadedCurrent;
+      FlowTenant? loadedCurrent;
       for (final tenant in businessesById.values) {
         if (tenant.id == widget.currentTenant.id) {
           loadedCurrent = tenant;
@@ -92,7 +92,7 @@ class _TenantSetupScreenState extends State<TenantSetupScreen> {
         ownerContexts = contexts;
         loading = false;
       });
-    } on EastAppApiException catch (apiError) {
+    } on FlowApiException catch (apiError) {
       if (!mounted) return;
       setState(() {
         error = apiError.message;
@@ -101,7 +101,7 @@ class _TenantSetupScreenState extends State<TenantSetupScreen> {
     }
   }
 
-  List<EastAppTenant> get filteredBusinesses {
+  List<FlowTenant> get filteredBusinesses {
     final query = searchController.text.trim().toLowerCase();
     final values = businesses
         .where((item) => item.id != widget.currentTenant.id)
@@ -126,15 +126,15 @@ class _TenantSetupScreenState extends State<TenantSetupScreen> {
     await openEditBusiness(tenant);
   }
 
-  Future<void> openEditBusiness(EastAppTenant tenant) async {
+  Future<void> openEditBusiness(FlowTenant tenant) async {
     final updated = await _showBusinessSheet(tenant: tenant);
     if (updated != null && mounted) {
       await loadBusinesses();
     }
   }
 
-  Future<EastAppTenant?> _showBusinessSheet({EastAppTenant? tenant}) {
-    return showModalBottomSheet<EastAppTenant>(
+  Future<FlowTenant?> _showBusinessSheet({FlowTenant? tenant}) {
+    return showModalBottomSheet<FlowTenant>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
@@ -150,7 +150,7 @@ class _TenantSetupScreenState extends State<TenantSetupScreen> {
     );
   }
 
-  EastAppSession? contextFor(String tenantId) {
+  FlowSession? contextFor(String tenantId) {
     for (final item in ownerContexts) {
       if (item.tenant.id == tenantId) return item;
     }
@@ -295,7 +295,7 @@ class _TenantSetupScreenState extends State<TenantSetupScreen> {
 }
 
 class _BusinessCard extends StatelessWidget {
-  final EastAppTenant tenant;
+  final FlowTenant tenant;
   final String? employeeId;
   final bool current;
   final VoidCallback onTap;
@@ -402,8 +402,8 @@ class _BusinessCard extends StatelessWidget {
 }
 
 class _BusinessFormSheet extends StatefulWidget {
-  final EastAppTenant? tenant;
-  final EastAppApi api;
+  final FlowTenant? tenant;
+  final FlowApi api;
   final bool current;
 
   const _BusinessFormSheet({
@@ -420,7 +420,7 @@ class _BusinessFormSheetState extends State<_BusinessFormSheet> {
   final businessNameController = TextEditingController();
   final companyCodeController = TextEditingController();
   final prefixController = TextEditingController();
-  EastAppGooglePlaceDetails? selectedPlace;
+  FlowGooglePlaceDetails? selectedPlace;
   bool active = true;
   bool saving = false;
   bool showErrors = false;
@@ -436,7 +436,7 @@ class _BusinessFormSheetState extends State<_BusinessFormSheet> {
     companyCodeController.text = tenant.companyCode;
     prefixController.text = tenant.employeeIdPrefix;
     active = tenant.active;
-    selectedPlace = EastAppGooglePlaceDetails(
+    selectedPlace = FlowGooglePlaceDetails(
       placeId: tenant.googlePlaceId,
       displayName: tenant.googlePlaceName,
       formattedAddress: tenant.formattedAddress,
@@ -522,7 +522,7 @@ class _BusinessFormSheetState extends State<_BusinessFormSheet> {
 
     setState(() => saving = true);
     try {
-      final EastAppTenant saved;
+      final FlowTenant saved;
       if (isEditing) {
         saved = await widget.api.updateTenant(
           tenantId: widget.tenant!.id,
@@ -540,7 +540,7 @@ class _BusinessFormSheetState extends State<_BusinessFormSheet> {
       }
       if (!mounted) return;
       Navigator.of(context).pop(saved);
-    } on EastAppApiException catch (_) {
+    } on FlowApiException catch (_) {
       // Global API error dialog contains the backend detail.
     } finally {
       if (mounted) setState(() => saving = false);

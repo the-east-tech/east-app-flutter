@@ -30,7 +30,7 @@ class EmployeeSopPlayback {
 }
 
 class EmployeeSopAudit {
-  final EastAppUser user;
+  final FlowUser user;
   final int totalPlayedSeconds;
   final List<EmployeeSopPlayback> videos;
 
@@ -42,7 +42,7 @@ class EmployeeSopAudit {
 
   factory EmployeeSopAudit.fromJson(Map<String, dynamic> json) {
     return EmployeeSopAudit(
-      user: EastAppUser.fromJson(json['user'] as Map<String, dynamic>),
+      user: FlowUser.fromJson(json['user'] as Map<String, dynamic>),
       totalPlayedSeconds: (json['totalPlayedSeconds'] as num).toInt(),
       videos: (json['videos'] as List<dynamic>? ?? const [])
           .map(
