@@ -65,7 +65,7 @@ class _SkuDetailContent extends StatelessWidget {
 }
 
 class _SkuEditorForm extends StatefulWidget {
-  final EastAppApi api;
+  final FlowApi api;
   final List<StockTag> tags;
   final List<SupplierProfile> suppliers;
   final StockSku? initialSku;
@@ -460,7 +460,7 @@ class _SkuEditorFormState extends State<_SkuEditorForm> {
         await showDeletionDependenciesDialog(context, preview);
         return;
       }
-    } on EastAppApiException {
+    } on FlowApiException {
       return;
     }
     final confirmed = await confirmDataChange(

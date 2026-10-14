@@ -24,7 +24,7 @@
 - Customer-facing product name is `Flow`.
 - Parent company is `Sequosal`; do not show it inside the Flow UI or debug reports.
 - Never expose `EastApp`, `Nic's Kitchen`, or a tenant name as product branding.
-- Keep legacy internal identifiers only where renaming would break package, store, cache, API or deployment compatibility.
+- Preserve persisted keys, backend contracts and identifiers where renaming would break existing users or deployments. Use `flow_app` for the Dart package and `Flow` for app classes.
 
 ## Scope
 

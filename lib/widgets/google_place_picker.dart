@@ -4,16 +4,16 @@ import 'package:flutter/material.dart';
 
 import '../models/google_place_models.dart';
 import '../localization/app_text_scope.dart';
-import '../services/east_app_api.dart';
+import '../services/flow_api.dart';
 import '../theme/app_theme.dart';
 
-Future<EastAppGooglePlaceDetails?> showGooglePlacePicker({
+Future<FlowGooglePlaceDetails?> showGooglePlacePicker({
   required BuildContext context,
-  required EastAppApi api,
+  required FlowApi api,
   required bool setupMode,
   String initialQuery = '',
 }) {
-  return showModalBottomSheet<EastAppGooglePlaceDetails>(
+  return showModalBottomSheet<FlowGooglePlaceDetails>(
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
@@ -30,7 +30,7 @@ Future<EastAppGooglePlaceDetails?> showGooglePlacePicker({
 }
 
 class GooglePlaceSelectionCard extends StatelessWidget {
-  final EastAppGooglePlaceDetails? place;
+  final FlowGooglePlaceDetails? place;
   final VoidCallback onSelect;
   final String? errorText;
   final bool enabled;
@@ -163,7 +163,7 @@ class GooglePlaceSelectionCard extends StatelessWidget {
 }
 
 class _GooglePlacePickerSheet extends StatefulWidget {
-  final EastAppApi api;
+  final FlowApi api;
   final bool setupMode;
   final String initialQuery;
 
@@ -181,7 +181,7 @@ class _GooglePlacePickerSheet extends StatefulWidget {
 class _GooglePlacePickerSheetState extends State<_GooglePlacePickerSheet> {
   final searchController = TextEditingController();
   Timer? debounce;
-  List<EastAppGooglePlacePrediction> predictions = const [];
+  List<FlowGooglePlacePrediction> predictions = const [];
   bool searching = false;
   String? error;
   String? loadingPlaceId;
@@ -233,7 +233,7 @@ class _GooglePlacePickerSheetState extends State<_GooglePlacePickerSheet> {
         predictions = result;
         searching = false;
       });
-    } on EastAppApiException catch (apiError) {
+    } on FlowApiException catch (apiError) {
       if (!mounted) return;
       setState(() {
         error = _googlePlacesErrorMessage(apiError);
@@ -243,7 +243,7 @@ class _GooglePlacePickerSheetState extends State<_GooglePlacePickerSheet> {
     }
   }
 
-  Future<void> select(EastAppGooglePlacePrediction prediction) async {
+  Future<void> select(FlowGooglePlacePrediction prediction) async {
     setState(() {
       loadingPlaceId = prediction.placeId;
       error = null;
@@ -255,7 +255,7 @@ class _GooglePlacePickerSheetState extends State<_GooglePlacePickerSheet> {
       );
       if (!mounted) return;
       Navigator.of(context).pop(details);
-    } on EastAppApiException catch (apiError) {
+    } on FlowApiException catch (apiError) {
       if (!mounted) return;
       setState(() {
         error = _googlePlacesErrorMessage(apiError);
@@ -265,7 +265,7 @@ class _GooglePlacePickerSheetState extends State<_GooglePlacePickerSheet> {
   }
 
 
-  String _googlePlacesErrorMessage(EastAppApiException apiError) {
+  String _googlePlacesErrorMessage(FlowApiException apiError) {
     if (apiError.code == 'GOOGLE_PLACES_NOT_CONFIGURED') {
       return 'Google Business Location is required. Replace HARDCODED_API_KEY in GooglePlacesProperties.java, restart the backend, then search again.';
     }

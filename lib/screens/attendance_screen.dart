@@ -17,7 +17,7 @@ import '../models/auth_models.dart';
 import '../models/people_models.dart';
 import '../models/points_models.dart';
 import '../models/organisation_models.dart';
-import '../services/east_app_api.dart';
+import '../services/flow_api.dart';
 import '../theme/app_theme.dart';
 import '../utils/app_build_info.dart';
 import '../widgets/app_components.dart';
@@ -32,16 +32,16 @@ import 'tenant_setup_screen.dart';
 
 class AttendanceScreen extends StatefulWidget {
   final UserRole role;
-  final EastAppApi api;
+  final FlowApi api;
   final bool isSystemAdmin;
-  final EastAppUser currentUser;
-  final EastAppTenant currentTenant;
-  final EastAppLeaderboard? pointsLeaderboard;
-  final ValueChanged<EastAppLeaderboard> onPointsChanged;
+  final FlowUser currentUser;
+  final FlowTenant currentTenant;
+  final FlowLeaderboard? pointsLeaderboard;
+  final ValueChanged<FlowLeaderboard> onPointsChanged;
   final VoidCallback onReportDataInvalidated;
-  final ValueChanged<EastAppUser> onCurrentUserChanged;
-  final Future<void> Function(EastAppSession context) onBusinessContextSelected;
-  final Future<void> Function(EastAppTenant tenant) onBusinessCreated;
+  final ValueChanged<FlowUser> onCurrentUserChanged;
+  final Future<void> Function(FlowSession context) onBusinessContextSelected;
+  final Future<void> Function(FlowTenant tenant) onBusinessCreated;
   final WorkLocation workLocation;
   final List<AttendanceRecord> attendanceRecords;
   final void Function(AttendanceRecord record) onClockIn;
@@ -81,7 +81,7 @@ enum _PeoplePage {
 
 Future<bool?> _confirmPeopleCsvImport(
   BuildContext context,
-  EastAppCsvPreview preview,
+  FlowCsvPreview preview,
 ) {
   return showDialog<bool>(
     context: context,
@@ -151,7 +151,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   bool rolesLoading = false;
   String? rolesError;
 
-  EastAppAttendanceToday? todayAttendance;
+  FlowAttendanceToday? todayAttendance;
   bool attendanceLoading = false;
   String? attendanceError;
   _PeoplePage page = _PeoplePage.home;
@@ -228,7 +228,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     }).query;
     final viewerRole = widget.currentUser.role.systemKey;
     final cacheKey =
-        '${EastAppApi.usersCachePrefix(widget.currentTenant.id)}$viewerRole:$query';
+        '${FlowApi.usersCachePrefix(widget.currentTenant.id)}$viewerRole:$query';
     try {
       final result = await widget.api.listUsers(
         search: usersSearch,
@@ -252,7 +252,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         usersLoaded = true;
         usersUpdatedAt = widget.api.featureCacheUpdatedAt(cacheKey) ?? DateTime.now();
       });
-    } on EastAppApiException catch (error) {
+    } on FlowApiException catch (error) {
       if (!mounted || !canManageUsers) return;
       setState(() {
         usersError = error.message;
@@ -271,7 +271,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     });
     final viewerRole = widget.currentUser.role.systemKey;
     final cacheKey =
-        '${EastAppApi.rolesCachePrefix(widget.currentTenant.id)}visible:$viewerRole';
+        '${FlowApi.rolesCachePrefix(widget.currentTenant.id)}visible:$viewerRole';
     try {
       final result = await widget.api.listRoles(
         tenantId: widget.currentTenant.id,
@@ -285,7 +285,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         rolesLoading = false;
         rolesUpdatedAt = widget.api.featureCacheUpdatedAt(cacheKey) ?? DateTime.now();
       });
-    } on EastAppApiException catch (error) {
+    } on FlowApiException catch (error) {
       if (!mounted || !canManageUsers) return;
       setState(() {
         rolesError = error.message;
@@ -506,7 +506,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
               : null,
         ),
       );
-    } on EastAppApiException catch (error) {
+    } on FlowApiException catch (error) {
       if (!mounted) return;
       setState(() {
         attendanceError = error.message;
@@ -586,7 +586,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     } on _LocationCaptureException catch (error) {
       if (!mounted) return;
       showErrorSnackBar(context, AppTextScope.of(context).t(error.message));
-    } on EastAppApiException catch (error) {
+    } on FlowApiException catch (error) {
       if (!mounted) return;
       showErrorSnackBar(context, error.message);
     }
@@ -779,9 +779,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     api.invalidateTaskTemplates(tenantId);
     widget.onReportDataInvalidated();
     await Future.wait([
-      api.invalidateFeatureCache(EastAppApi.usersCachePrefix(tenantId)),
-      api.invalidateFeatureCache(EastAppApi.rolesCachePrefix(tenantId)),
-      api.invalidateFeatureCache(EastAppApi.stockTagsCachePrefix(tenantId)),
+      api.invalidateFeatureCache(FlowApi.usersCachePrefix(tenantId)),
+      api.invalidateFeatureCache(FlowApi.rolesCachePrefix(tenantId)),
+      api.invalidateFeatureCache(FlowApi.stockTagsCachePrefix(tenantId)),
       api.invalidateFeatureCache('tenant:$tenantId:report:'),
     ]);
   }
@@ -810,7 +810,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
           downloadFallbackEnabled: true,
         ),
       );
-    } on EastAppApiException {
+    } on FlowApiException {
       // Global API error handling already presents the failure.
     }
   }
@@ -840,7 +840,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         loadRoles(force: true),
       ]);
       if (mounted) showSuccessSnackBar(context, '${result.importedRows} users imported');
-    } on EastAppApiException {
+    } on FlowApiException {
       // Global API error handling already presents the failure.
     }
   }
@@ -988,7 +988,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         loadRoles(force: true),
       ]);
       if (mounted) showSuccessSnackBar(context, 'User permanently deleted');
-    } on EastAppApiException {
+    } on FlowApiException {
       // Global API error handling already presents the backend reason.
     }
   }
@@ -2072,7 +2072,7 @@ class _AttendanceFeatureCard extends StatelessWidget {
 }
 
 class _AttendanceCheckInOutSheet extends StatelessWidget {
-  final EastAppAttendanceToday attendance;
+  final FlowAttendanceToday attendance;
   final VoidCallback? onClockIn;
   final VoidCallback? onClockOut;
 
@@ -2263,7 +2263,7 @@ class _AttendanceActionCard extends StatelessWidget {
 }
 
 class _AttendanceQrGeneratorSheet extends StatefulWidget {
-  final EastAppApi api;
+  final FlowApi api;
 
   const _AttendanceQrGeneratorSheet({required this.api});
 
@@ -2273,7 +2273,7 @@ class _AttendanceQrGeneratorSheet extends StatefulWidget {
 
 class _AttendanceQrGeneratorSheetState extends State<_AttendanceQrGeneratorSheet> {
   String selectedAction = 'CLOCK_IN';
-  EastAppAttendanceQrCode? generated;
+  FlowAttendanceQrCode? generated;
   bool generating = false;
   String? error;
   Timer? ticker;
@@ -2304,7 +2304,7 @@ class _AttendanceQrGeneratorSheetState extends State<_AttendanceQrGeneratorSheet
         generated = result;
         generating = false;
       });
-    } on EastAppApiException catch (apiError) {
+    } on FlowApiException catch (apiError) {
       if (!mounted) return;
       setState(() {
         error = apiError.message;
@@ -2787,7 +2787,7 @@ class _UserDraft {
 
 class _UserFormSheet extends StatefulWidget {
   final _PeopleUser? user;
-  final EastAppTenant tenant;
+  final FlowTenant tenant;
   final List<_PeopleRole> initialRoles;
   final Future<List<_PeopleRole>> Function()? loadRoles;
   final bool allowRoleEdit;
@@ -2932,7 +2932,7 @@ class _UserFormSheetState extends State<_UserFormSheet> {
         }
         rolesLoading = false;
       });
-    } on EastAppApiException catch (error) {
+    } on FlowApiException catch (error) {
       if (!mounted) return;
       setState(() {
         rolesError = error.message;
@@ -3069,7 +3069,7 @@ class _UserFormSheetState extends State<_UserFormSheet> {
                 ? 'User created'
                 : 'User created · $generatedEmployeeId'),
       );
-    } on EastAppApiException catch (_) {
+    } on FlowApiException catch (_) {
       if (!mounted) return;
     } finally {
       if (mounted) setState(() => saving = false);
@@ -3687,7 +3687,7 @@ class _PeopleRole {
     this.assignedUsers = 0,
   });
 
-  factory _PeopleRole.fromApi(EastAppRole role) {
+  factory _PeopleRole.fromApi(FlowRole role) {
     return _PeopleRole(
       id: role.id,
       systemKey: role.systemKey,
@@ -3763,7 +3763,7 @@ class _PeopleUser {
     this.lastWorkingDate,
   });
 
-  factory _PeopleUser.fromApi(EastAppUser user) {
+  factory _PeopleUser.fromApi(FlowUser user) {
     return _PeopleUser(
       id: user.id,
       employeeId: user.employeeId,

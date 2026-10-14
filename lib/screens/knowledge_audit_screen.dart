@@ -3,14 +3,14 @@ import 'package:flutter/material.dart';
 import '../localization/app_text_scope.dart';
 import '../models/knowledge_audit_models.dart';
 import '../models/people_models.dart';
-import '../services/east_app_api.dart';
+import '../services/flow_api.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_components.dart';
 
 enum _KnowledgeAuditMode { employee, video }
 
 class KnowledgeAuditScreen extends StatefulWidget {
-  final EastAppApi api;
+  final FlowApi api;
   final VoidCallback onBack;
 
   const KnowledgeAuditScreen({
@@ -26,12 +26,12 @@ class KnowledgeAuditScreen extends StatefulWidget {
 class _KnowledgeAuditScreenState extends State<KnowledgeAuditScreen> {
   final searchController = TextEditingController();
   _KnowledgeAuditMode mode = _KnowledgeAuditMode.employee;
-  List<EastAppUser> users = const [];
+  List<FlowUser> users = const [];
   bool searchRequested = false;
   bool searching = false;
   bool loadingEmployee = false;
   bool loadingImpact = false;
-  EastAppUser? selectedUser;
+  FlowUser? selectedUser;
   EmployeeSopAudit? employeeAudit;
   SopImpactAudit? impactAudit;
   String? inlineError;
@@ -59,7 +59,7 @@ class _KnowledgeAuditScreenState extends State<KnowledgeAuditScreen> {
       );
       if (!mounted) return;
       setState(() => users = page.content);
-    } on EastAppApiException catch (_) {
+    } on FlowApiException catch (_) {
       if (!mounted) return;
       setState(() => inlineError = 'Unable to load employees. Try again.');
     } finally {
@@ -67,7 +67,7 @@ class _KnowledgeAuditScreenState extends State<KnowledgeAuditScreen> {
     }
   }
 
-  Future<void> loadEmployee(EastAppUser user) async {
+  Future<void> loadEmployee(FlowUser user) async {
     if (loadingEmployee) return;
     setState(() {
       selectedUser = user;
@@ -79,7 +79,7 @@ class _KnowledgeAuditScreenState extends State<KnowledgeAuditScreen> {
       final loaded = await widget.api.knowledgeAuditForUser(user.id);
       if (!mounted || selectedUser?.id != user.id) return;
       setState(() => employeeAudit = loaded);
-    } on EastAppApiException catch (_) {
+    } on FlowApiException catch (_) {
       if (!mounted) return;
       setState(() => inlineError = 'Unable to load employee learning time.');
     } finally {
@@ -97,7 +97,7 @@ class _KnowledgeAuditScreenState extends State<KnowledgeAuditScreen> {
       final loaded = await widget.api.knowledgeSopImpactAudit();
       if (!mounted) return;
       setState(() => impactAudit = loaded);
-    } on EastAppApiException catch (_) {
+    } on FlowApiException catch (_) {
       if (!mounted) return;
       setState(
         () => inlineError = 'Unable to load video analytics. Try again.',
@@ -518,7 +518,7 @@ class _AuditCardHeading extends StatelessWidget {
 }
 
 class _EmployeeResultCard extends StatelessWidget {
-  final EastAppUser user;
+  final FlowUser user;
   final bool selected;
   final VoidCallback onTap;
 

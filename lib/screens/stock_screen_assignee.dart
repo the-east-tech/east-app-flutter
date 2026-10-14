@@ -1,7 +1,7 @@
 part of 'stock_screen.dart';
 
 class _SkuAssigneePage extends StatefulWidget {
-  final EastAppApi api;
+  final FlowApi api;
   final String currentTenantId;
   final VoidCallback onBack;
   final Future<void> Function(StockSku sku) onUpdateSku;
@@ -22,7 +22,7 @@ class _SkuAssigneePageState extends State<_SkuAssigneePage> {
 
   final searchController = TextEditingController();
   final List<StockSku> loadedSkus = [];
-  final List<EastAppUser> availableUsers = [];
+  final List<FlowUser> availableUsers = [];
 
   String assignmentFilter = 'Assigned';
   bool hasLoaded = false;
@@ -75,7 +75,7 @@ class _SkuAssigneePageState extends State<_SkuAssigneePage> {
     try {
       if (reset && forceRefresh) {
         await widget.api.invalidateFeatureCache(
-          EastAppApi.stockSkusCachePrefix(widget.currentTenantId),
+          FlowApi.stockSkusCachePrefix(widget.currentTenantId),
         );
       }
       final result = await widget.api.stockSkus(
@@ -98,7 +98,7 @@ class _SkuAssigneePageState extends State<_SkuAssigneePage> {
         updatedAt = DateTime.now();
         skusError = null;
       });
-    } on EastAppApiException catch (error) {
+    } on FlowApiException catch (error) {
       if (!mounted) return;
       setState(() {
         skusError = error.message;
@@ -135,7 +135,7 @@ class _SkuAssigneePageState extends State<_SkuAssigneePage> {
         usersError = null;
       });
       return true;
-    } on EastAppApiException catch (error) {
+    } on FlowApiException catch (error) {
       if (mounted) setState(() => usersError = error.message);
       return false;
     } finally {

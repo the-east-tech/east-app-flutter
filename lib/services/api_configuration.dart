@@ -1,12 +1,18 @@
 import 'package:flutter/foundation.dart';
 
 class ApiConfiguration {
-  static const String _configuredBaseUrl = String.fromEnvironment(
+  static const String _flowBaseUrl = String.fromEnvironment(
+    'FLOW_API_BASE_URL',
+    defaultValue: '',
+  );
+  // Retain existing release-build configuration while callers migrate.
+  static const String _legacyBaseUrl = String.fromEnvironment(
     'EASTAPP_API_BASE_URL',
     defaultValue: '',
   );
 
-  static String get _trimmedConfiguredBaseUrl => _configuredBaseUrl.trim();
+  static String get _trimmedConfiguredBaseUrl =>
+      _flowBaseUrl.trim().isNotEmpty ? _flowBaseUrl.trim() : _legacyBaseUrl.trim();
 
   static bool get hasConfiguredBaseUrl =>
       _trimmedConfiguredBaseUrl.isNotEmpty;
@@ -14,7 +20,7 @@ class ApiConfiguration {
   static String? get startupError {
     if (kReleaseMode && !hasConfiguredBaseUrl) {
       return 'This release build has no backend URL. Rebuild it with '
-          '--dart-define=EASTAPP_API_BASE_URL=https://<railway-domain>.up.railway.app';
+          '--dart-define=FLOW_API_BASE_URL=https://<railway-domain>.up.railway.app';
     }
     return null;
   }
@@ -30,7 +36,7 @@ class ApiConfiguration {
     // Never throw during widget construction. In release mode the app shows
     // ApiConfiguration.startupError instead of leaving a blank native screen.
     if (kReleaseMode) {
-      return 'https://eastapp.invalid';
+      return 'https://flow.invalid';
     }
 
     if (kIsWeb) {

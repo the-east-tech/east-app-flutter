@@ -2,16 +2,16 @@ import 'package:flutter/material.dart';
 
 import '../localization/app_text_scope.dart';
 import '../models/points_models.dart';
-import '../services/east_app_api.dart';
+import '../services/flow_api.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_components.dart';
 import '../widgets/app_feedback.dart';
 
 class PeoplePointsScreen extends StatefulWidget {
-  final EastAppApi api;
-  final EastAppLeaderboard? initialLeaderboard;
+  final FlowApi api;
+  final FlowLeaderboard? initialLeaderboard;
   final VoidCallback onBack;
-  final ValueChanged<EastAppLeaderboard> onLeaderboardChanged;
+  final ValueChanged<FlowLeaderboard> onLeaderboardChanged;
 
   const PeoplePointsScreen({
     super.key,
@@ -27,7 +27,7 @@ class PeoplePointsScreen extends StatefulWidget {
 
 class _PeoplePointsScreenState extends State<PeoplePointsScreen> {
   final TextEditingController reasonController = TextEditingController();
-  EastAppLeaderboard? leaderboard;
+  FlowLeaderboard? leaderboard;
   String? selectedUserId;
   String? validationMessage;
   int pointsDelta = 0;
@@ -48,7 +48,7 @@ class _PeoplePointsScreenState extends State<PeoplePointsScreen> {
   }
 
   void _selectFirstUser() {
-    final members = leaderboard?.members ?? const <EastAppLeaderboardMember>[];
+    final members = leaderboard?.members ?? const <FlowLeaderboardMember>[];
     if (members.isEmpty) {
       selectedUserId = null;
       return;
@@ -71,16 +71,16 @@ class _PeoplePointsScreenState extends State<PeoplePointsScreen> {
         _selectFirstUser();
       });
       widget.onLeaderboardChanged(value);
-    } on EastAppApiException {
+    } on FlowApiException {
       if (mounted) setState(() => loading = false);
     }
   }
 
-  EastAppLeaderboardMember? get selectedUser {
+  FlowLeaderboardMember? get selectedUser {
     final userId = selectedUserId;
     if (userId == null) return null;
     for (final member
-        in leaderboard?.members ?? const <EastAppLeaderboardMember>[]) {
+        in leaderboard?.members ?? const <FlowLeaderboardMember>[]) {
       if (member.userId == userId) return member;
     }
     return null;
@@ -147,7 +147,7 @@ class _PeoplePointsScreenState extends State<PeoplePointsScreen> {
       });
       widget.onLeaderboardChanged(updated);
       showSuccessSnackBar(context, text.t('Points updated'));
-    } on EastAppApiException {
+    } on FlowApiException {
       // Global API error handling already shows the technical error.
     }
   }
@@ -156,7 +156,7 @@ class _PeoplePointsScreenState extends State<PeoplePointsScreen> {
   Widget build(BuildContext context) {
     final text = AppTextScope.of(context);
     final data = leaderboard;
-    final members = data?.members ?? const <EastAppLeaderboardMember>[];
+    final members = data?.members ?? const <FlowLeaderboardMember>[];
     final deltaColour = pointsDelta < 0
         ? AppColours.red
         : pointsDelta > 0

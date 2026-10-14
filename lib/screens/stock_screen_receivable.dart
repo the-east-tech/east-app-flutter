@@ -122,7 +122,7 @@ class _StockReceivablePageState extends State<_StockReceivablePage> {
           showSuccessSnackBar(context, text.t('Invoice photo captured'));
         },
       );
-    } on EastAppApiException {
+    } on FlowApiException {
       // Global API error UI already handles this.
     }
   }
@@ -142,7 +142,7 @@ class _StockReceivablePageState extends State<_StockReceivablePage> {
           showSuccessSnackBar(context, text.t('Goods received photo captured'));
         },
       );
-    } on EastAppApiException {
+    } on FlowApiException {
       // Global API error UI already handles this.
     }
   }
@@ -347,7 +347,7 @@ class _StockReceivablePageState extends State<_StockReceivablePage> {
             .api
             .uploadStockReceivablePhoto(goodsPhotoPath),
       ]);
-    } on EastAppApiException {
+    } on FlowApiException {
       return;
     }
     if (!mounted) return;

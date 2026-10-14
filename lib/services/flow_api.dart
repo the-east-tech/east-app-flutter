@@ -27,7 +27,7 @@ import 'feature_data_cache.dart';
 import 'sku_thumbnail_cache.dart';
 import '../utils/app_diagnostics.dart';
 
-class EastAppApiException implements Exception {
+class FlowApiException implements Exception {
   final int? statusCode;
   final String code;
   final String message;
@@ -37,7 +37,7 @@ class EastAppApiException implements Exception {
   final int? durationMs;
   final String? responseExcerpt;
 
-  const EastAppApiException({
+  const FlowApiException({
     required this.statusCode,
     required this.code,
     required this.message,
@@ -92,15 +92,15 @@ class EastAppApiException implements Exception {
 }
 
 typedef RequestTimeoutHandler = Future<bool> Function(
-  EastAppApiException error,
+  FlowApiException error,
 );
 
-class EastAppApi {
+class FlowApi {
   final http.Client _client;
   final String baseUrl;
   String? _token;
   Future<void> Function()? onSessionInvalidated;
-  void Function(EastAppApiException error)? onApiError;
+  void Function(FlowApiException error)? onApiError;
   RequestTimeoutHandler? onRequestTimeout;
   void Function(bool isProcessing)? onProcessingChanged;
 
@@ -125,10 +125,10 @@ class EastAppApi {
   int _activeSkuThumbnailRequests = 0;
   final Queue<Completer<void>> _skuThumbnailRequestWaiters =
       Queue<Completer<void>>();
-  final _availableContextsCache = _AsyncMemoryCache<List<EastAppSession>>(
+  final _availableContextsCache = _AsyncMemoryCache<List<FlowSession>>(
     ttl: const Duration(minutes: 5),
   );
-  final _tenantsCache = _AsyncMemoryCache<List<EastAppTenant>>(
+  final _tenantsCache = _AsyncMemoryCache<List<FlowTenant>>(
     ttl: const Duration(minutes: 5),
   );
   final Map<String, _TaskMemoryValue<TaskList>>
@@ -145,7 +145,7 @@ class EastAppApi {
 
   static const Duration _requestTimeout = Duration(seconds: 15);
 
-  EastAppApi({
+  FlowApi({
     http.Client? client,
     String? baseUrl,
   })  : _client = client ?? http.Client(),
@@ -399,16 +399,16 @@ class EastAppApi {
     _tenantsCache.invalidate();
   }
 
-  Future<EastAppSetupStatus> setupStatus() async {
+  Future<FlowSetupStatus> setupStatus() async {
     final body = await _requestJson(
       'GET',
       '/api/v1/setup/status',
       authenticated: false,
     ) as Map<String, dynamic>;
-    return EastAppSetupStatus.fromJson(body);
+    return FlowSetupStatus.fromJson(body);
   }
 
-  Future<EastAppInitialSetupResult> completeInitialSetup({
+  Future<FlowInitialSetupResult> completeInitialSetup({
     required String setupCode,
     required String businessName,
     required String companyCode,
@@ -433,10 +433,10 @@ class EastAppApi {
         'googlePlaceId': googlePlaceId,
       },
     ) as Map<String, dynamic>;
-    return EastAppInitialSetupResult.fromJson(body);
+    return FlowInitialSetupResult.fromJson(body);
   }
 
-  Future<EastAppSession> login({
+  Future<FlowSession> login({
     required String companyCode,
     required String employeeId,
     required String password,
@@ -455,20 +455,20 @@ class EastAppApi {
     final token = body['token'] as String;
     final currentUser = body['currentUser'] as Map<String, dynamic>;
     useToken(token);
-    return EastAppSession.fromCurrentUserJson(
+    return FlowSession.fromCurrentUserJson(
       token: token,
       json: currentUser,
     );
   }
 
-  Future<EastAppSession> currentSession(String token) async {
+  Future<FlowSession> currentSession(String token) async {
     useToken(token);
     final body = await _requestJson(
       'GET',
       '/api/v1/auth/me',
       notifyOnUnauthorised: false,
     ) as Map<String, dynamic>;
-    return EastAppSession.fromCurrentUserJson(
+    return FlowSession.fromCurrentUserJson(
       token: token,
       json: body,
     );
@@ -479,7 +479,7 @@ class EastAppApi {
     useToken(null);
   }
 
-  Future<List<EastAppSession>> availableContexts({
+  Future<List<FlowSession>> availableContexts({
     bool forceRefresh = false,
   }) {
     return _availableContextsCache.getOrLoad(
@@ -488,21 +488,21 @@ class EastAppApi {
     );
   }
 
-  Future<List<EastAppSession>> _loadAvailableContexts() async {
+  Future<List<FlowSession>> _loadAvailableContexts() async {
     final body = await _requestJson(
       'GET',
       '/api/v1/auth/contexts',
     ) as List<dynamic>;
     return body.map((item) {
       final context = item as Map<String, dynamic>;
-      return EastAppSession.fromCurrentUserJson(
+      return FlowSession.fromCurrentUserJson(
         token: _token ?? '',
         json: context,
       );
     }).toList(growable: false);
   }
 
-  Future<EastAppSession> switchContext(String userId) async {
+  Future<FlowSession> switchContext(String userId) async {
     final body = await _requestJson(
       'POST',
       '/api/v1/auth/context',
@@ -512,13 +512,13 @@ class EastAppApi {
     invalidateAvailableContextsCache();
     invalidateTenantsCache();
     _clearContentTranslation();
-    return EastAppSession.fromCurrentUserJson(
+    return FlowSession.fromCurrentUserJson(
       token: _token ?? '',
       json: body,
     );
   }
 
-  Future<List<EastAppTenant>> listTenants({
+  Future<List<FlowTenant>> listTenants({
     bool forceRefresh = false,
   }) {
     return _tenantsCache.getOrLoad(
@@ -527,14 +527,14 @@ class EastAppApi {
     );
   }
 
-  Future<List<EastAppTenant>> _loadTenants() async {
+  Future<List<FlowTenant>> _loadTenants() async {
     final body = await _requestJson('GET', '/api/v1/tenants') as List<dynamic>;
     return body
-        .map((item) => EastAppTenant.fromJson(item as Map<String, dynamic>))
+        .map((item) => FlowTenant.fromJson(item as Map<String, dynamic>))
         .toList(growable: false);
   }
 
-  Future<EastAppTenant> createTenant({
+  Future<FlowTenant> createTenant({
     required String businessName,
     required String companyCode,
     required String employeeIdPrefix,
@@ -552,10 +552,10 @@ class EastAppApi {
     ) as Map<String, dynamic>;
     invalidateAvailableContextsCache();
     invalidateTenantsCache();
-    return EastAppTenant.fromJson(body);
+    return FlowTenant.fromJson(body);
   }
 
-  Future<EastAppTenant> updateTenant({
+  Future<FlowTenant> updateTenant({
     required String tenantId,
     required String businessName,
     required bool active,
@@ -572,10 +572,10 @@ class EastAppApi {
     ) as Map<String, dynamic>;
     invalidateAvailableContextsCache();
     invalidateTenantsCache();
-    return EastAppTenant.fromJson(body);
+    return FlowTenant.fromJson(body);
   }
 
-  Future<List<EastAppGooglePlacePrediction>> searchGooglePlaces({
+  Future<List<FlowGooglePlacePrediction>> searchGooglePlaces({
     required String query,
     required bool setupMode,
   }) async {
@@ -590,13 +590,13 @@ class EastAppApi {
       reportError: false,
     ) as List<dynamic>;
     return body
-        .map((item) => EastAppGooglePlacePrediction.fromJson(
+        .map((item) => FlowGooglePlacePrediction.fromJson(
               item as Map<String, dynamic>,
             ))
         .toList(growable: false);
   }
 
-  Future<EastAppGooglePlaceDetails> googlePlaceDetails({
+  Future<FlowGooglePlaceDetails> googlePlaceDetails({
     required String placeId,
     required bool setupMode,
   }) async {
@@ -610,27 +610,27 @@ class EastAppApi {
       authenticated: !setupMode,
       reportError: false,
     ) as Map<String, dynamic>;
-    return EastAppGooglePlaceDetails.fromJson(body);
+    return FlowGooglePlaceDetails.fromJson(body);
   }
 
-  Future<EastAppGoogleRating> currentGoogleRating() async {
+  Future<FlowGoogleRating> currentGoogleRating() async {
     final body = await _requestJson(
       'GET',
       '/api/v1/google-places/current-rating',
       reportError: false,
     ) as Map<String, dynamic>;
-    return EastAppGoogleRating.fromJson(body);
+    return FlowGoogleRating.fromJson(body);
   }
 
-  Future<EastAppLeaderboard> pointsLeaderboard() async {
+  Future<FlowLeaderboard> pointsLeaderboard() async {
     final body = await _requestJson(
       'GET',
       '/api/v1/points/leaderboard',
     ) as Map<String, dynamic>;
-    return EastAppLeaderboard.fromJson(body);
+    return FlowLeaderboard.fromJson(body);
   }
 
-  Future<EastAppPointAdjustment> adjustUserPoints({
+  Future<FlowPointAdjustment> adjustUserPoints({
     required String userId,
     required int pointsDelta,
     required String reason,
@@ -644,7 +644,7 @@ class EastAppApi {
         'reason': reason.trim(),
       },
     ) as Map<String, dynamic>;
-    return EastAppPointAdjustment.fromJson(body);
+    return FlowPointAdjustment.fromJson(body);
   }
 
 
@@ -1214,7 +1214,7 @@ class EastAppApi {
     try {
       final token = _token;
       if (token == null || token.isEmpty) {
-        final error = EastAppApiException(
+        final error = FlowApiException(
           statusCode: 401,
           code: 'MISSING_SESSION',
           message: 'Login required.',
@@ -1239,7 +1239,7 @@ class EastAppApi {
           );
         }
       } on Exception catch (exception) {
-        final error = EastAppApiException(
+        final error = FlowApiException(
           statusCode: null,
           code: 'TASK_PHOTO_READ_FAILED',
           message: 'Unable to read a selected Task photo: $exception',
@@ -1261,7 +1261,7 @@ class EastAppApi {
           stopwatch: stopwatch,
         );
       } on http.ClientException {
-        final error = EastAppApiException(
+        final error = FlowApiException(
           statusCode: null,
           code: 'NETWORK_ERROR',
           message: 'Unable to connect to the application server.',
@@ -1299,7 +1299,7 @@ class EastAppApi {
       } on FormatException {
         // Report the standard invalid response error below.
       }
-      final error = EastAppApiException(
+      final error = FlowApiException(
         statusCode: response.statusCode,
         code: 'INVALID_API_RESPONSE',
         message: 'The backend returned an invalid Task response.',
@@ -1429,7 +1429,7 @@ class EastAppApi {
     return ReportApproval.fromJson(body);
   }
 
-  Future<EastAppPage<EastAppUser>> listUsers({
+  Future<FlowPage<FlowUser>> listUsers({
     String search = '',
     bool? active,
     String? role,
@@ -1457,13 +1457,13 @@ class EastAppApi {
             cacheKey: cacheKey,
             forceRefresh: forceRefresh,
           );
-    return EastAppPage.fromJson(
+    return FlowPage.fromJson(
       body as Map<String, dynamic>,
-      EastAppUser.fromJson,
+      FlowUser.fromJson,
     );
   }
 
-  Future<EastAppUser> createUser({
+  Future<FlowUser> createUser({
     String? password,
     required String fullName,
     required String phoneE164,
@@ -1488,10 +1488,10 @@ class EastAppApi {
       },
     ) as Map<String, dynamic>;
     invalidateAvailableContextsCache();
-    return EastAppUser.fromJson(body);
+    return FlowUser.fromJson(body);
   }
 
-  Future<EastAppUser> updateUser({
+  Future<FlowUser> updateUser({
     required String userId,
     required String fullName,
     required String phoneE164,
@@ -1517,7 +1517,7 @@ class EastAppApi {
       },
     ) as Map<String, dynamic>;
     invalidateAvailableContextsCache();
-    return EastAppUser.fromJson(body);
+    return FlowUser.fromJson(body);
   }
 
   Future<void> resetUserPassword({
@@ -1541,28 +1541,28 @@ class EastAppApi {
     invalidateAvailableContextsCache();
   }
 
-  Future<EastAppDeletionPreview> previewUserDeletion(String userId) async {
+  Future<FlowDeletionPreview> previewUserDeletion(String userId) async {
     final body = await _requestJson(
       'GET',
       '/api/v1/users/$userId/deletion-preview',
     ) as Map<String, dynamic>;
-    return EastAppDeletionPreview.fromJson(body);
+    return FlowDeletionPreview.fromJson(body);
   }
 
-  Future<EastAppCsvFile> exportUsersCsv() =>
+  Future<FlowCsvFile> exportUsersCsv() =>
       _exportCsv('/api/v1/users/export', 'users.csv');
 
-  Future<EastAppCsvPreview> previewUserCsv({
+  Future<FlowCsvPreview> previewUserCsv({
     required String fileName,
     required Uint8List bytes,
   }) => _previewCsv('/api/v1/users/import/preview', fileName, bytes);
 
-  Future<EastAppCsvImportResult> importUserCsv({
+  Future<FlowCsvImportResult> importUserCsv({
     required String fileName,
     required Uint8List bytes,
   }) => _importCsv('/api/v1/users/import', fileName, bytes);
 
-  Future<List<EastAppRole>> listRoles({
+  Future<List<FlowRole>> listRoles({
     String? tenantId,
     String? viewerRole,
     bool forceRefresh = false,
@@ -1579,29 +1579,29 @@ class EastAppApi {
             forceRefresh: forceRefresh,
           );
     return (body as List<dynamic>)
-        .map((item) => EastAppRole.fromJson(item as Map<String, dynamic>))
+        .map((item) => FlowRole.fromJson(item as Map<String, dynamic>))
         .toList(growable: false);
   }
 
-  Future<List<EastAppRole>> listAssignableRoles() async {
+  Future<List<FlowRole>> listAssignableRoles() async {
     final body = await _requestJson(
       'GET',
       '/api/v1/roles/assignable',
     ) as List<dynamic>;
     return body
-        .map((item) => EastAppRole.fromJson(item as Map<String, dynamic>))
+        .map((item) => FlowRole.fromJson(item as Map<String, dynamic>))
         .toList(growable: false);
   }
 
-  Future<EastAppAttendanceToday> attendanceToday() async {
+  Future<FlowAttendanceToday> attendanceToday() async {
     final body = await _requestJson(
       'GET',
       '/api/v1/attendance/today',
     ) as Map<String, dynamic>;
-    return EastAppAttendanceToday.fromJson(body);
+    return FlowAttendanceToday.fromJson(body);
   }
 
-  Future<EastAppAttendanceEvent> createAttendanceEvent({
+  Future<FlowAttendanceEvent> createAttendanceEvent({
     required String clientEventId,
     required DateTime deviceCapturedAt,
     required double latitude,
@@ -1627,10 +1627,10 @@ class EastAppApi {
         'appVersion': appVersion,
       },
     ) as Map<String, dynamic>;
-    return EastAppAttendanceEvent.fromJson(body);
+    return FlowAttendanceEvent.fromJson(body);
   }
 
-  Future<EastAppAttendanceQrCode> generateAttendanceQrCode({
+  Future<FlowAttendanceQrCode> generateAttendanceQrCode({
     required String eventType,
   }) async {
     final body = await _requestJson(
@@ -1638,10 +1638,10 @@ class EastAppApi {
       '/api/v1/attendance/qr-codes',
       body: {'eventType': eventType},
     ) as Map<String, dynamic>;
-    return EastAppAttendanceQrCode.fromJson(body);
+    return FlowAttendanceQrCode.fromJson(body);
   }
 
-  Future<EastAppAttendanceAudit> attendanceAudit({
+  Future<FlowAttendanceAudit> attendanceAudit({
     required AttendanceAuditPeriod period,
     required DateTime anchor,
   }) async {
@@ -1653,11 +1653,11 @@ class EastAppApi {
       'GET',
       '/api/v1/attendance/audit?$query',
     ) as Map<String, dynamic>;
-    return EastAppAttendanceAudit.fromJson(body);
+    return FlowAttendanceAudit.fromJson(body);
   }
 
 
-  Future<EastAppAttendanceUserDetail> attendanceUserAudit({
+  Future<FlowAttendanceUserDetail> attendanceUserAudit({
     required String userId,
     required AttendanceAuditPeriod period,
     required DateTime anchor,
@@ -1674,10 +1674,10 @@ class EastAppApi {
       'GET',
       '/api/v1/attendance/users/$userId?$query',
     ) as Map<String, dynamic>;
-    return EastAppAttendanceUserDetail.fromJson(body);
+    return FlowAttendanceUserDetail.fromJson(body);
   }
 
-  Future<EastAppPage<KnowledgeItem>> knowledgeSops({
+  Future<FlowPage<KnowledgeItem>> knowledgeSops({
     String search = '',
     String? tagId,
     int page = 0,
@@ -1746,7 +1746,7 @@ class EastAppApi {
     );
   }
 
-  Future<EastAppDeletionPreview> previewKnowledgeSopDeletion(
+  Future<FlowDeletionPreview> previewKnowledgeSopDeletion(
     Set<String> sopIds,
   ) async {
     final ids = sopIds.where((id) => id.trim().isNotEmpty).toList()..sort();
@@ -1755,7 +1755,7 @@ class EastAppApi {
       '/api/v1/knowledge/sops/bulk-delete/preview',
       body: {'sopIds': ids},
     ) as Map<String, dynamic>;
-    return EastAppDeletionPreview.fromJson(body);
+    return FlowDeletionPreview.fromJson(body);
   }
 
   Future<void> recordSopWatchTime({
@@ -1793,7 +1793,7 @@ class EastAppApi {
     return SopImpactAudit.fromJson(body);
   }
 
-  Future<EastAppPage<EastAppActivityEvent>> recentActivity({
+  Future<FlowPage<FlowActivityEvent>> recentActivity({
     int page = 0,
     int size = 5,
   }) async {
@@ -1808,7 +1808,7 @@ class EastAppApi {
     return activityEventPageFromJson(body);
   }
 
-  Future<EastAppPage<EastAppNotification>> notifications({
+  Future<FlowPage<FlowNotification>> notifications({
     int page = 0,
     int size = 50,
   }) async {
@@ -1909,7 +1909,7 @@ class EastAppApi {
     try {
       final token = _token;
       if (token == null || token.isEmpty) {
-        final error = EastAppApiException(
+        final error = FlowApiException(
           statusCode: 401,
           code: 'MISSING_SESSION',
           message: 'Login required.',
@@ -1943,7 +1943,7 @@ class EastAppApi {
           requestParameters: selection.toJson(),
         );
       } on http.ClientException {
-        final error = EastAppApiException(
+        final error = FlowApiException(
           statusCode: null,
           code: 'NETWORK_ERROR',
           message: 'Unable to connect to the application server.',
@@ -1975,7 +1975,7 @@ class EastAppApi {
       final match = RegExp(r'filename="?([^";]+)').firstMatch(disposition);
       final runId = response.headers['x-eastapp-cleanup-run-id'];
       if (runId == null || runId.isEmpty) {
-        throw const EastAppApiException(
+        throw const FlowApiException(
           statusCode: null,
           code: 'BUSINESS_BACKUP_RUN_ID_MISSING',
           message: 'The backup response did not include its cleanup record.',
@@ -1994,20 +1994,20 @@ class EastAppApi {
     }
   }
 
-  Future<EastAppNotification> notificationDetail(String notificationId) async {
+  Future<FlowNotification> notificationDetail(String notificationId) async {
     final body = await _requestJson(
       'GET',
       '/api/v1/notifications/${Uri.encodeComponent(notificationId)}',
     ) as Map<String, dynamic>;
-    return EastAppNotification.fromJson(body);
+    return FlowNotification.fromJson(body);
   }
 
-  Future<EastAppNotification> markNotificationRead(String notificationId) async {
+  Future<FlowNotification> markNotificationRead(String notificationId) async {
     final body = await _requestJson(
       'PATCH',
       '/api/v1/notifications/${Uri.encodeComponent(notificationId)}/read',
     ) as Map<String, dynamic>;
-    return EastAppNotification.fromJson(body);
+    return FlowNotification.fromJson(body);
   }
 
   Future<void> dismissNotification(String notificationId) async {
@@ -2054,15 +2054,15 @@ class EastAppApi {
     );
   }
 
-  Future<EastAppStockSnapshot> stockSnapshot() async {
+  Future<FlowStockSnapshot> stockSnapshot() async {
     final body = await _requestJson(
       'GET',
       '/api/v1/stock/snapshot',
     ) as Map<String, dynamic>;
-    return EastAppStockSnapshot.fromJson(body);
+    return FlowStockSnapshot.fromJson(body);
   }
 
-  Future<EastAppPage<StockTag>> stockTags({
+  Future<FlowPage<StockTag>> stockTags({
     String search = '',
     int page = 0,
     int size = 50,
@@ -2108,7 +2108,7 @@ class EastAppApi {
     return List.unmodifiable(result);
   }
 
-  Future<EastAppPage<SupplierProfile>> stockSuppliers({
+  Future<FlowPage<SupplierProfile>> stockSuppliers({
     String search = '',
     int page = 0,
     int size = 50,
@@ -2162,7 +2162,7 @@ class EastAppApi {
     );
   }
 
-  Future<EastAppPage<StockSku>> stockSkus({
+  Future<FlowPage<StockSku>> stockSkus({
     String search = '',
     bool? active,
     bool? assigned,
@@ -2248,20 +2248,20 @@ class EastAppApi {
     );
   }
 
-  Future<EastAppCsvFile> exportStockTagsCsv() =>
+  Future<FlowCsvFile> exportStockTagsCsv() =>
       _exportCsv('/api/v1/stock/tags/export', 'tags.csv');
 
-  Future<EastAppCsvPreview> previewStockTagCsv({
+  Future<FlowCsvPreview> previewStockTagCsv({
     required String fileName,
     required Uint8List bytes,
   }) => _previewCsv('/api/v1/stock/tags/import/preview', fileName, bytes);
 
-  Future<EastAppCsvImportResult> importStockTagCsv({
+  Future<FlowCsvImportResult> importStockTagCsv({
     required String fileName,
     required Uint8List bytes,
   }) => _importCsv('/api/v1/stock/tags/import', fileName, bytes);
 
-  Future<EastAppCsvFile> exportSalesReportsCsv({
+  Future<FlowCsvFile> exportSalesReportsCsv({
     required DateTime from,
     required DateTime to,
   }) {
@@ -2275,27 +2275,27 @@ class EastAppApi {
     );
   }
 
-  Future<EastAppCsvPreview> previewSalesReportCsv({
+  Future<FlowCsvPreview> previewSalesReportCsv({
     required String fileName,
     required Uint8List bytes,
   }) => _previewCsv('/api/v1/reports/sales/import/preview', fileName, bytes);
 
-  Future<EastAppCsvImportResult> importSalesReportCsv({
+  Future<FlowCsvImportResult> importSalesReportCsv({
     required String fileName,
     required Uint8List bytes,
   }) => _importCsv('/api/v1/reports/sales/import', fileName, bytes);
 
-  Future<EastAppCsvFile> _exportCsv(String path, String fallbackName) async {
+  Future<FlowCsvFile> _exportCsv(String path, String fallbackName) async {
     final response = await _stockCsvResponse('GET', path);
     final disposition = response.headers['content-disposition'] ?? '';
     final match = RegExp(r'filename="?([^";]+)').firstMatch(disposition);
-    return EastAppCsvFile(
+    return FlowCsvFile(
       fileName: match?.group(1)?.trim() ?? fallbackName,
       bytes: Uint8List.fromList(response.bodyBytes),
     );
   }
 
-  Future<EastAppCsvPreview> _previewCsv(
+  Future<FlowCsvPreview> _previewCsv(
     String path,
     String fileName,
     Uint8List bytes,
@@ -2306,12 +2306,12 @@ class EastAppApi {
       fileName: fileName,
       bytes: bytes,
     );
-    return EastAppCsvPreview.fromJson(
+    return FlowCsvPreview.fromJson(
       jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>,
     );
   }
 
-  Future<EastAppCsvImportResult> _importCsv(
+  Future<FlowCsvImportResult> _importCsv(
     String path,
     String fileName,
     Uint8List bytes,
@@ -2322,7 +2322,7 @@ class EastAppApi {
       fileName: fileName,
       bytes: bytes,
     );
-    return EastAppCsvImportResult.fromJson(
+    return FlowCsvImportResult.fromJson(
       jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>,
     );
   }
@@ -2365,7 +2365,7 @@ class EastAppApi {
     try {
       final token = _token;
       if (token == null || token.isEmpty) {
-        final error = EastAppApiException(
+        final error = FlowApiException(
           statusCode: 401,
           code: 'MISSING_SESSION',
           message: 'Login required.',
@@ -2422,7 +2422,7 @@ class EastAppApi {
               : {'fileName': fileName, 'sizeBytes': bytes?.length ?? 0},
         );
       } on http.ClientException {
-        final error = EastAppApiException(
+        final error = FlowApiException(
           statusCode: null,
           code: 'NETWORK_ERROR',
           message: 'Unable to connect to the application server.',
@@ -2467,7 +2467,7 @@ class EastAppApi {
     return StockReviewSummary.fromJson(body);
   }
 
-  Future<EastAppPage<StockSubmission>> stockCounts({
+  Future<FlowPage<StockSubmission>> stockCounts({
     bool mine = false,
     StockWorkflowStatus? workflowStatus,
     int page = 0,
@@ -2487,7 +2487,7 @@ class EastAppApi {
     return stockSubmissionPageFromJson(body);
   }
 
-  Future<EastAppPage<StockReceivableRecord>> stockReceivables({
+  Future<FlowPage<StockReceivableRecord>> stockReceivables({
     StockWorkflowStatus? workflowStatus,
     int page = 0,
     int size = 50,
@@ -2545,12 +2545,12 @@ class EastAppApi {
     );
   }
 
-  Future<EastAppDeletionPreview> previewStockTagDeletion(String tagId) async {
+  Future<FlowDeletionPreview> previewStockTagDeletion(String tagId) async {
     final body = await _requestJson(
       'GET',
       '/api/v1/stock/tags/$tagId/deletion-preview',
     ) as Map<String, dynamic>;
-    return EastAppDeletionPreview.fromJson(body);
+    return FlowDeletionPreview.fromJson(body);
   }
 
   Future<SupplierProfile> createStockSupplier(
@@ -2583,14 +2583,14 @@ class EastAppApi {
     );
   }
 
-  Future<EastAppDeletionPreview> previewStockSupplierDeletion(
+  Future<FlowDeletionPreview> previewStockSupplierDeletion(
     String supplierId,
   ) async {
     final body = await _requestJson(
       'GET',
       '/api/v1/stock/suppliers/$supplierId/deletion-preview',
     ) as Map<String, dynamic>;
-    return EastAppDeletionPreview.fromJson(body);
+    return FlowDeletionPreview.fromJson(body);
   }
 
   Future<SupplierProfile> updateStockSupplierBalance({
@@ -2614,7 +2614,7 @@ class EastAppApi {
       const path = '/api/v1/reports/media';
       final token = _token;
       if (token == null || token.isEmpty) {
-        final error = const EastAppApiException(
+        final error = const FlowApiException(
           statusCode: 401,
           code: 'MISSING_SESSION',
           message: 'Login required.',
@@ -2633,7 +2633,7 @@ class EastAppApi {
       try {
         request.files.add(await http.MultipartFile.fromPath('file', filePath));
       } on Exception catch (exception) {
-        final error = EastAppApiException(
+        final error = FlowApiException(
           statusCode: null,
           code: 'REPORT_IMAGE_READ_FAILED',
           message: 'Unable to read the captured report photo: $exception',
@@ -2656,7 +2656,7 @@ class EastAppApi {
           stopwatch: stopwatch,
         );
       } on http.ClientException {
-        final error = EastAppApiException(
+        final error = FlowApiException(
           statusCode: null,
           code: 'NETWORK_ERROR',
           message: 'Unable to connect to the application server.',
@@ -2692,7 +2692,7 @@ class EastAppApi {
       } on FormatException {
         // Report the standard invalid response error below.
       }
-      final error = const EastAppApiException(
+      final error = const FlowApiException(
         statusCode: 201,
         code: 'INVALID_API_RESPONSE',
         message: 'The application server returned an invalid report photo response.',
@@ -2720,7 +2720,7 @@ class EastAppApi {
     final path = '/api/v1/reports/media/$encodedKey';
     final token = _token;
     if (token == null || token.isEmpty) {
-      final error = EastAppApiException(
+      final error = FlowApiException(
         statusCode: 401,
         code: 'MISSING_SESSION',
         message: 'Login required.',
@@ -2750,7 +2750,7 @@ class EastAppApi {
         stopwatch: stopwatch,
       );
     } on http.ClientException {
-      final error = EastAppApiException(
+      final error = FlowApiException(
         statusCode: null,
         code: 'NETWORK_ERROR',
         message: 'Unable to connect to the application server.',
@@ -2788,7 +2788,7 @@ class EastAppApi {
     const path = '/api/v1/stock/media/sku-thumbnails';
     final token = _token;
     if (token == null || token.isEmpty) {
-      final error = const EastAppApiException(
+      final error = const FlowApiException(
         statusCode: 401,
         code: 'MISSING_SESSION',
         message: 'Login required.',
@@ -2807,7 +2807,7 @@ class EastAppApi {
     try {
       request.files.add(await http.MultipartFile.fromPath('file', filePath));
     } on Exception catch (exception) {
-      final error = EastAppApiException(
+      final error = FlowApiException(
         statusCode: null,
         code: 'IMAGE_READ_FAILED',
         message: 'Unable to read the captured SKU thumbnail: $exception',
@@ -2830,7 +2830,7 @@ class EastAppApi {
         stopwatch: stopwatch,
       );
     } on http.ClientException {
-      final error = EastAppApiException(
+      final error = FlowApiException(
         statusCode: null,
         code: 'NETWORK_ERROR',
         message: 'Unable to connect to the application server.',
@@ -2867,7 +2867,7 @@ class EastAppApi {
       // Report the standard invalid response error below.
     }
 
-    final error = const EastAppApiException(
+    final error = const FlowApiException(
       statusCode: 201,
       code: 'INVALID_API_RESPONSE',
       message: 'The application server returned an invalid thumbnail response.',
@@ -2893,7 +2893,7 @@ class EastAppApi {
     const path = '/api/v1/stock/media/receivable-photos';
     final token = _token;
     if (token == null || token.isEmpty) {
-      final error = const EastAppApiException(
+      final error = const FlowApiException(
         statusCode: 401,
         code: 'MISSING_SESSION',
         message: 'Login required.',
@@ -2912,7 +2912,7 @@ class EastAppApi {
     try {
       request.files.add(await http.MultipartFile.fromPath('file', filePath));
     } on Exception catch (exception) {
-      final error = EastAppApiException(
+      final error = FlowApiException(
         statusCode: null,
         code: 'IMAGE_READ_FAILED',
         message: 'Unable to read the captured receivable photo: $exception',
@@ -2935,7 +2935,7 @@ class EastAppApi {
         stopwatch: stopwatch,
       );
     } on http.ClientException {
-      final error = EastAppApiException(
+      final error = FlowApiException(
         statusCode: null,
         code: 'NETWORK_ERROR',
         message: 'Unable to connect to the application server.',
@@ -2972,7 +2972,7 @@ class EastAppApi {
       // Report the standard invalid response error below.
     }
 
-    final error = const EastAppApiException(
+    final error = const FlowApiException(
       statusCode: 201,
       code: 'INVALID_API_RESPONSE',
       message: 'The application server returned an invalid receivable-photo response.',
@@ -3018,7 +3018,7 @@ class EastAppApi {
     final path = '/api/v1/stock/media/sku-thumbnails/$encodedKey';
     final token = _token;
     if (token == null || token.isEmpty) {
-      final error = EastAppApiException(
+      final error = FlowApiException(
         statusCode: 401,
         code: 'MISSING_SESSION',
         message: 'Login required.',
@@ -3052,7 +3052,7 @@ class EastAppApi {
         allowTimeoutWait: false,
       );
     } on http.ClientException {
-      final error = EastAppApiException(
+      final error = FlowApiException(
         statusCode: null,
         code: 'NETWORK_ERROR',
         message: 'Unable to connect to the application server.',
@@ -3118,7 +3118,7 @@ class EastAppApi {
     final path = '/api/v1/stock/media/receivable-photos/$encodedKey';
     final token = _token;
     if (token == null || token.isEmpty) {
-      final error = EastAppApiException(
+      final error = FlowApiException(
         statusCode: 401,
         code: 'MISSING_SESSION',
         message: 'Login required.',
@@ -3149,7 +3149,7 @@ class EastAppApi {
         stopwatch: stopwatch,
       );
     } on http.ClientException {
-      final error = EastAppApiException(
+      final error = FlowApiException(
         statusCode: null,
         code: 'NETWORK_ERROR',
         message: 'Unable to connect to the application server.',
@@ -3204,12 +3204,12 @@ class EastAppApi {
     return StockSkuChangeRequest.fromJson(body);
   }
 
-  Future<EastAppDeletionPreview> previewStockSkuDeletion(String skuId) async {
+  Future<FlowDeletionPreview> previewStockSkuDeletion(String skuId) async {
     final body = await _requestJson(
       'GET',
       '/api/v1/stock/skus/$skuId/deletion-preview',
     ) as Map<String, dynamic>;
-    return EastAppDeletionPreview.fromJson(body);
+    return FlowDeletionPreview.fromJson(body);
   }
 
   Future<List<StockSkuChangeRequest>> stockSkuChangeRequests() async {
@@ -3277,7 +3277,7 @@ class EastAppApi {
     if (submissions.isEmpty) return const [];
     final statuses = submissions.map((item) => item.workflowStatus).toSet();
     if (statuses.length != 1) {
-      throw const EastAppApiException(
+      throw const FlowApiException(
         statusCode: null,
         code: 'INVALID_BULK_REVIEW',
         message: 'All selected daily count records must use the same review status.',
@@ -3490,7 +3490,7 @@ class EastAppApi {
     if (authenticated) {
       final token = _token;
       if (token == null || token.isEmpty) {
-        final error = EastAppApiException(
+        final error = FlowApiException(
           statusCode: 401,
           code: 'MISSING_SESSION',
           message: 'Login required.',
@@ -3565,7 +3565,7 @@ class EastAppApi {
         errorNotificationGeneration: errorNotificationGeneration,
       );
     } on http.ClientException {
-      final error = EastAppApiException(
+      final error = FlowApiException(
         statusCode: null,
         code: 'NETWORK_ERROR',
         message: 'Unable to connect to the application server.',
@@ -3614,7 +3614,7 @@ class EastAppApi {
     try {
       return jsonDecode(utf8.decode(response.bodyBytes));
     } on FormatException {
-      final error = EastAppApiException(
+      final error = FlowApiException(
         statusCode: response.statusCode,
         code: 'INVALID_API_RESPONSE',
         message: 'The application server returned an invalid response.',
@@ -3803,7 +3803,7 @@ class EastAppApi {
     ).hasMatch(text);
   }
 
-  EastAppApiException _apiException(
+  FlowApiException _apiException(
     http.Response response, {
     required String method,
     required String path,
@@ -3819,7 +3819,7 @@ class EastAppApi {
             fieldErrors[key] = value.toString();
           });
         }
-        return EastAppApiException(
+        return FlowApiException(
           statusCode: response.statusCode,
           code: body['code']?.toString() ?? 'API_ERROR',
           message: body['message']?.toString() ?? 'Request failed.',
@@ -3834,7 +3834,7 @@ class EastAppApi {
       // Fall through to the status-based error below.
     }
 
-    return EastAppApiException(
+    return FlowApiException(
       statusCode: response.statusCode,
       code: 'HTTP_${response.statusCode}',
       message: 'Request failed with HTTP ${response.statusCode}.',
@@ -3855,7 +3855,7 @@ class EastAppApi {
   }
 
   void _reportApiError(
-    EastAppApiException error, {
+    FlowApiException error, {
     Object? requestParameters,
     bool notifyUser = true,
   }) {
@@ -3889,7 +3889,7 @@ class EastAppApi {
     try {
       return await request.timeout(timeout);
     } on TimeoutException {
-      final firstTimeout = EastAppApiException(
+      final firstTimeout = FlowApiException(
         statusCode: null,
         code: 'REQUEST_TIMEOUT',
         message: timeoutMessage,
@@ -3920,7 +3920,7 @@ class EastAppApi {
           try {
             return await request.timeout(timeout);
           } on TimeoutException {
-            final secondTimeout = EastAppApiException(
+            final secondTimeout = FlowApiException(
               statusCode: null,
               code: 'REQUEST_TIMEOUT',
               message: timeoutMessage,

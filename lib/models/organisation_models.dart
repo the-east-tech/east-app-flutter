@@ -1,4 +1,4 @@
-class EastAppTenant {
+class FlowTenant {
   final String id;
   final String companyCode;
   final String businessName;
@@ -11,7 +11,7 @@ class EastAppTenant {
   final double longitude;
   final String? googleMapsUri;
 
-  const EastAppTenant({
+  const FlowTenant({
     required this.id,
     required this.companyCode,
     required this.businessName,
@@ -31,8 +31,8 @@ class EastAppTenant {
       ? businessName
       : googlePlaceName.trim();
 
-  factory EastAppTenant.fromJson(Map<String, dynamic> json) {
-    return EastAppTenant(
+  factory FlowTenant.fromJson(Map<String, dynamic> json) {
+    return FlowTenant(
       id: json['id'] as String,
       companyCode: json['companyCode'] as String,
       businessName: (json['businessName'] ?? json['name']) as String,

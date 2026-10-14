@@ -5,13 +5,13 @@ import 'package:flutter/material.dart';
 import '../localization/app_text.dart';
 import '../localization/app_text_scope.dart';
 import '../models/notification_models.dart';
-import '../services/east_app_api.dart';
+import '../services/flow_api.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_components.dart';
 import '../widgets/app_feedback.dart';
 
 class NotificationScreen extends StatefulWidget {
-  final EastAppApi api;
+  final FlowApi api;
   final String? initialNotificationId;
   final VoidCallback onChanged;
 
@@ -27,7 +27,7 @@ class NotificationScreen extends StatefulWidget {
 }
 
 class _NotificationScreenState extends State<NotificationScreen> {
-  List<EastAppNotification> items = const [];
+  List<FlowNotification> items = const [];
   bool loading = true;
   bool openingInitial = false;
   bool clearingAll = false;
@@ -49,7 +49,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
       });
       widget.onChanged();
       await openInitialIfNeeded();
-    } on EastAppApiException {
+    } on FlowApiException {
       if (mounted) setState(() => loading = false);
     }
   }
@@ -58,7 +58,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
     final id = widget.initialNotificationId;
     if (id == null || id.isEmpty || openingInitial) return;
     openingInitial = true;
-    EastAppNotification? notification;
+    FlowNotification? notification;
     for (final item in items) {
       if (item.id == id) {
         notification = item;
@@ -68,7 +68,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
     if (notification == null) {
       try {
         notification = await widget.api.notificationDetail(id);
-      } on EastAppApiException {
+      } on FlowApiException {
         return;
       }
     }
@@ -76,8 +76,8 @@ class _NotificationScreenState extends State<NotificationScreen> {
     await openNotification(notification);
   }
 
-  Future<void> openNotification(EastAppNotification notification) async {
-    EastAppNotification resolved = notification;
+  Future<void> openNotification(FlowNotification notification) async {
+    FlowNotification resolved = notification;
     if (notification.isUnread) {
       try {
         resolved = await widget.api.markNotificationRead(notification.id);
@@ -88,7 +88,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
               .toList(growable: false);
         });
         widget.onChanged();
-      } on EastAppApiException {
+      } on FlowApiException {
         return;
       }
     }
@@ -98,7 +98,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
   }
 
   Future<bool> dismiss(
-    EastAppNotification notification, {
+    FlowNotification notification, {
     bool removeImmediately = true,
   }) async {
     try {
@@ -107,12 +107,12 @@ class _NotificationScreenState extends State<NotificationScreen> {
       if (removeImmediately) removeFromList(notification);
       AppFeedback.tap();
       return true;
-    } on EastAppApiException {
+    } on FlowApiException {
       return false;
     }
   }
 
-  void removeFromList(EastAppNotification notification) {
+  void removeFromList(FlowNotification notification) {
     if (!mounted) return;
     setState(() {
       items = items.where((item) => item.id != notification.id).toList();
@@ -139,7 +139,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
       });
       widget.onChanged();
       AppFeedback.tap();
-    } on EastAppApiException {
+    } on FlowApiException {
       if (mounted) setState(() => clearingAll = false);
     }
   }
@@ -250,7 +250,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
 }
 
 class _NotificationCard extends StatelessWidget {
-  final EastAppNotification notification;
+  final FlowNotification notification;
   final VoidCallback onTap;
   final VoidCallback onDelete;
 
@@ -359,7 +359,7 @@ class _NotificationCard extends StatelessWidget {
 
 Future<void> showActivityEventDetails(
   BuildContext context,
-  EastAppActivityEvent event,
+  FlowActivityEvent event,
 ) async {
   final text = AppTextScope.of(context);
   await showModalBottomSheet<void>(

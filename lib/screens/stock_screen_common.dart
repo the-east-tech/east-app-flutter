@@ -3,7 +3,7 @@ part of 'stock_screen.dart';
 Future<bool?> _confirmCsvImport(
   BuildContext context, {
   required String title,
-  required EastAppCsvPreview preview,
+  required FlowCsvPreview preview,
   String? note,
 }) {
   return showDialog<bool>(
@@ -129,7 +129,7 @@ Future<bool> runStockRequest(
   try {
     await request();
     return true;
-  } on EastAppApiException catch (_) {
+  } on FlowApiException catch (_) {
     return false;
   }
 }
@@ -237,7 +237,7 @@ class _DataRefreshShell extends StatelessWidget {
 }
 
 class _StockMediaScope extends InheritedWidget {
-  final EastAppApi api;
+  final FlowApi api;
   final Uint8List? Function(String storageKey) cachedThumbnail;
   final bool Function(String storageKey) canLoadThumbnail;
   final Future<Uint8List> Function(String storageKey) loadThumbnail;

@@ -287,7 +287,7 @@ class _StockScreenState extends State<StockScreen> {
         case StockPage.review:
           break;
       }
-    } on EastAppApiException catch (_) {
+    } on FlowApiException catch (_) {
       // The global API error dialog already presents the failure.
     } finally {
       if (mounted) setState(() => loadingMore = false);

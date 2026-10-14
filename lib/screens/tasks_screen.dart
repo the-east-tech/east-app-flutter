@@ -11,7 +11,7 @@ import '../models/app_models.dart';
 import '../models/auth_models.dart';
 import '../models/task_models.dart';
 import '../models/people_models.dart';
-import '../services/east_app_api.dart';
+import '../services/flow_api.dart';
 import '../theme/app_theme.dart';
 import '../utils/app_diagnostics.dart';
 import '../widgets/app_components.dart';
@@ -39,10 +39,10 @@ class _TaskTabState {
 }
 
 class TasksScreen extends StatefulWidget {
-  final EastAppApi api;
+  final FlowApi api;
   final String tenantId;
-  final EastAppUser currentUser;
-  final Set<EastAppPermission> permissions;
+  final FlowUser currentUser;
+  final Set<FlowPermission> permissions;
   final Future<void> Function()? onChanged;
   final TasksEntry initialEntry;
 
@@ -71,11 +71,11 @@ class _TasksScreenState extends State<TasksScreen> {
   _TaskTabState get selectedTaskTab => taskTabStates[selectedTab];
 
   bool get canViewAllTasks {
-    return widget.permissions.contains(EastAppPermission.taskViewAll);
+    return widget.permissions.contains(FlowPermission.taskViewAll);
   }
 
   bool get canManageTasks {
-    return widget.permissions.contains(EastAppPermission.taskManage);
+    return widget.permissions.contains(FlowPermission.taskManage);
   }
 
   bool get showingSetup => widget.initialEntry == TasksEntry.setup;
@@ -166,7 +166,7 @@ class _TasksScreenState extends State<TasksScreen> {
         tab.hasLoadedRecords = true;
         tab.loadingRecords = false;
       });
-    } on EastAppApiException {
+    } on FlowApiException {
       if (mounted && tab.requestVersion == requestVersion) {
         setState(() => tab.loadingRecords = false);
       }
@@ -186,7 +186,7 @@ class _TasksScreenState extends State<TasksScreen> {
         templates = result;
         loadingTemplates = false;
       });
-    } on EastAppApiException {
+    } on FlowApiException {
       if (mounted) setState(() => loadingTemplates = false);
     }
   }
@@ -211,7 +211,7 @@ class _TasksScreenState extends State<TasksScreen> {
           }
         }
       });
-    } on EastAppApiException {
+    } on FlowApiException {
       if (mounted) setState(() => loadingTags = false);
     }
   }
@@ -1082,7 +1082,7 @@ class _RequirementChip extends StatelessWidget {
 }
 
 class _TaskDetailPage extends StatefulWidget {
-  final EastAppApi api;
+  final FlowApi api;
   final TaskRecord initialRecord;
   final bool allowRating;
 
@@ -1159,7 +1159,7 @@ class _TaskDetailPageState extends State<_TaskDetailPage> {
       for (final path in pathsToDelete) {
         unawaited(_deleteTemporaryPhoto(path));
       }
-    } on EastAppApiException {
+    } on FlowApiException {
       if (mounted) setState(() => loading = false);
     }
   }
@@ -1300,7 +1300,7 @@ class _TaskDetailPageState extends State<_TaskDetailPage> {
     );
   }
 
-  Future<void> showAlreadySubmitted(EastAppApiException error) async {
+  Future<void> showAlreadySubmitted(FlowApiException error) async {
     await showDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -1339,7 +1339,7 @@ class _TaskDetailPageState extends State<_TaskDetailPage> {
           photoPaths: List<String>.from(selectedPhotoPaths),
         ),
       );
-    } on EastAppApiException catch (error) {
+    } on FlowApiException catch (error) {
       if (error.code == 'TASK_ALREADY_SUBMITTED' && mounted) {
         await showAlreadySubmitted(error);
       }
@@ -1361,7 +1361,7 @@ class _TaskDetailPageState extends State<_TaskDetailPage> {
           comment: value.comment,
         ),
       );
-    } on EastAppApiException {
+    } on FlowApiException {
       return;
     }
   }
@@ -1404,7 +1404,7 @@ class _TaskDetailPageState extends State<_TaskDetailPage> {
           ),
         ),
       );
-    } on EastAppApiException {
+    } on FlowApiException {
       if (mounted) setState(() => loadingLinkedSop = false);
     }
   }
@@ -1880,7 +1880,7 @@ class _SelectedTaskPhotoTile extends StatelessWidget {
 }
 
 class _TaskPhotoTile extends StatefulWidget {
-  final EastAppApi api;
+  final FlowApi api;
   final TaskPhoto photo;
   final Future<void> Function(Uint8List bytes) onTap;
 
@@ -2167,7 +2167,7 @@ class _TaskCameraPageState extends State<_TaskCameraPage> {
 }
 
 class TaskTemplatePage extends StatefulWidget {
-  final EastAppApi api;
+  final FlowApi api;
   final String tenantId;
   final List<StockTag> initialTags;
   final TaskTemplate? template;
@@ -2282,7 +2282,7 @@ class _TaskTemplatePageState extends State<TaskTemplatePage> {
           tagId = null;
         }
       });
-    } on EastAppApiException {
+    } on FlowApiException {
       if (mounted) setState(() => loadingTags = false);
     }
   }
@@ -2298,7 +2298,7 @@ class _TaskTemplatePageState extends State<TaskTemplatePage> {
         options = page.content;
         sopOptions = options;
         setState(() => loadingSops = false);
-      } on EastAppApiException {
+      } on FlowApiException {
         if (mounted) setState(() => loadingSops = false);
         return;
       }
@@ -2377,7 +2377,7 @@ class _TaskTemplatePageState extends State<TaskTemplatePage> {
         );
       }
       if (mounted) Navigator.of(context).pop(saved);
-    } on EastAppApiException {
+    } on FlowApiException {
       return;
     }
   }

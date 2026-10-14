@@ -7,7 +7,7 @@ import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 import '../localization/app_text_scope.dart';
 import '../models/app_models.dart';
 import '../models/auth_models.dart';
-import '../services/east_app_api.dart';
+import '../services/flow_api.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_components.dart';
 import '../widgets/dashboard_menu.dart';
@@ -16,8 +16,8 @@ import 'knowledge_audit_screen.dart';
 
 class KnowledgeScreen extends StatefulWidget {
   final UserRole role;
-  final EastAppApi api;
-  final Set<EastAppPermission> permissions;
+  final FlowApi api;
+  final Set<FlowPermission> permissions;
   final List<KnowledgeItem> knowledgeItems;
   final List<StockTag> tags;
   final bool dataLoaded;
@@ -59,7 +59,7 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
 
   bool get canManageSops => widget.role != UserRole.staff;
   bool get canViewAudit =>
-      widget.permissions.contains(EastAppPermission.knowledgeAuditView);
+      widget.permissions.contains(FlowPermission.knowledgeAuditView);
 
   String tagNameFor(String tagId) {
     for (final tag in widget.tags) {
@@ -253,7 +253,7 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
         await showDeletionDependenciesDialog(context, preview);
         return;
       }
-    } on EastAppApiException {
+    } on FlowApiException {
       return;
     }
     final confirmed = await confirmDataChange(
@@ -279,7 +279,7 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
           groupCount == 1 ? 'SOP deleted.' : 'SOPs deleted.',
         ),
       );
-    } on EastAppApiException catch (_) {
+    } on FlowApiException catch (_) {
       // The global API error dialog presents the failure; keep the selection
       // so the user can retry without selecting the SOPs again.
     }
@@ -712,7 +712,7 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
 }
 
 class KnowledgeSopDetailView extends StatefulWidget {
-  final EastAppApi api;
+  final FlowApi api;
   final KnowledgeItem item;
   final List<KnowledgeItem> versions;
   final String Function(String tagId) tagNameFor;
@@ -850,7 +850,7 @@ class _KnowledgeSopDetailViewState extends State<KnowledgeSopDetailView>
         session.lastSentSeconds = seconds;
       }
       session.nextRetryAt = null;
-    } on EastAppApiException catch (_) {
+    } on FlowApiException catch (_) {
       session.nextRetryAt = DateTime.now().add(const Duration(seconds: 10));
     } finally {
       session.flushInFlight = false;
@@ -1691,7 +1691,7 @@ Future<void> showSopEditorDialog(
                 ),
               );
               if (dialogContext.mounted) Navigator.of(dialogContext).pop();
-            } on EastAppApiException catch (error) {
+            } on FlowApiException catch (error) {
               if (!dialogContext.mounted) return;
               setDialogState(() {
                 submitting = false;

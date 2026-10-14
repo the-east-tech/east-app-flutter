@@ -35,14 +35,14 @@ class StockReviewSummary {
   }
 }
 
-class EastAppStockSnapshot {
+class FlowStockSnapshot {
   final List<StockTag> tags;
   final List<SupplierProfile> suppliers;
   final List<StockSku> skus;
   final List<StockSubmission> submissions;
   final List<StockReceivableRecord> receivableRecords;
 
-  const EastAppStockSnapshot({
+  const FlowStockSnapshot({
     required this.tags,
     required this.suppliers,
     required this.skus,
@@ -50,8 +50,8 @@ class EastAppStockSnapshot {
     required this.receivableRecords,
   });
 
-  factory EastAppStockSnapshot.fromJson(Map<String, dynamic> json) {
-    return EastAppStockSnapshot(
+  factory FlowStockSnapshot.fromJson(Map<String, dynamic> json) {
+    return FlowStockSnapshot(
       tags: _list(json['tags'], stockTagFromJson),
       suppliers: _list(json['suppliers'], stockSupplierFromJson),
       skus: _list(json['skus'], stockSkuFromJson),
@@ -365,30 +365,30 @@ Map<String, Object?> stockReceivableToJson(StockReceivableRecord record) {
   };
 }
 
-EastAppPage<StockTag> stockTagPageFromJson(Map<String, dynamic> json) {
-  return EastAppPage.fromJson(json, stockTagFromJson);
+FlowPage<StockTag> stockTagPageFromJson(Map<String, dynamic> json) {
+  return FlowPage.fromJson(json, stockTagFromJson);
 }
 
-EastAppPage<SupplierProfile> stockSupplierPageFromJson(
+FlowPage<SupplierProfile> stockSupplierPageFromJson(
   Map<String, dynamic> json,
 ) {
-  return EastAppPage.fromJson(json, stockSupplierFromJson);
+  return FlowPage.fromJson(json, stockSupplierFromJson);
 }
 
-EastAppPage<StockSku> stockSkuPageFromJson(Map<String, dynamic> json) {
-  return EastAppPage.fromJson(json, stockSkuFromJson);
+FlowPage<StockSku> stockSkuPageFromJson(Map<String, dynamic> json) {
+  return FlowPage.fromJson(json, stockSkuFromJson);
 }
 
-EastAppPage<StockSubmission> stockSubmissionPageFromJson(
+FlowPage<StockSubmission> stockSubmissionPageFromJson(
   Map<String, dynamic> json,
 ) {
-  return EastAppPage.fromJson(json, stockSubmissionFromJson);
+  return FlowPage.fromJson(json, stockSubmissionFromJson);
 }
 
-EastAppPage<StockReceivableRecord> stockReceivablePageFromJson(
+FlowPage<StockReceivableRecord> stockReceivablePageFromJson(
   Map<String, dynamic> json,
 ) {
-  return EastAppPage.fromJson(json, stockReceivableRecordFromJson);
+  return FlowPage.fromJson(json, stockReceivableRecordFromJson);
 }
 
 class StockSkuCsvFile {

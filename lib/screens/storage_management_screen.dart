@@ -5,12 +5,12 @@ import 'package:flutter/services.dart';
 
 import '../localization/app_text_scope.dart';
 import '../models/storage_models.dart';
-import '../services/east_app_api.dart';
+import '../services/flow_api.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_components.dart';
 
 class StorageManagementScreen extends StatefulWidget {
-  final EastAppApi api;
+  final FlowApi api;
 
   const StorageManagementScreen({
     super.key,
@@ -42,7 +42,7 @@ class _StorageManagementScreenState extends State<StorageManagementScreen> {
         overview = value;
         loading = false;
       });
-    } on EastAppApiException {
+    } on FlowApiException {
       if (mounted) setState(() => loading = false);
     }
   }
@@ -65,7 +65,7 @@ class _StorageManagementScreenState extends State<StorageManagementScreen> {
         selection.rowCount,
         selection.latestFirst,
       );
-    } on EastAppApiException {
+    } on FlowApiException {
       // The shared API error dialog already explains the failure.
     } finally {
       if (mounted) setState(() => viewingTable = null);

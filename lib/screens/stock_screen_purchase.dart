@@ -56,7 +56,7 @@ class _RestockMessagePageState extends State<_RestockMessagePage> {
         };
         loadingStates = false;
       });
-    } on EastAppApiException {
+    } on FlowApiException {
       if (mounted) setState(() => loadingStates = false);
     }
   }
@@ -222,7 +222,7 @@ class _RestockMessagePageState extends State<_RestockMessagePage> {
                   context,
                   text.t('Supplier template saved'),
                 );
-              } on EastAppApiException {
+              } on FlowApiException {
                 // Global API error UI handles this.
               } finally {
                 if (sheetContext.mounted) {

@@ -1,4 +1,4 @@
-import 'east_app_api.dart';
+import 'flow_api.dart';
 
 class StockPurchaseSupplierState {
   final String supplierId;
@@ -18,7 +18,7 @@ class StockPurchaseSupplierState {
 }
 
 class StockPurchaseGateway {
-  final EastAppApi api;
+  final FlowApi api;
   final String tenantId;
 
   const StockPurchaseGateway(
@@ -119,11 +119,11 @@ class StockPurchaseGateway {
         .toList(growable: false);
   }
 
-  EastAppApiException _invalidResponse({
+  FlowApiException _invalidResponse({
     required String method,
     required String path,
   }) {
-    final error = EastAppApiException(
+    final error = FlowApiException(
       statusCode: null,
       code: 'INVALID_API_RESPONSE',
       message: 'The application server returned invalid purchase data.',

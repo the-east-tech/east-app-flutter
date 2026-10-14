@@ -1,7 +1,7 @@
 import 'organisation_models.dart';
 import 'people_models.dart';
 
-enum EastAppPermission {
+enum FlowPermission {
   reportIntelligenceView('REPORT_INTELLIGENCE_VIEW'),
   reportOperationsAccess('REPORT_OPERATIONS_ACCESS'),
   salesReportAccess('SALES_REPORT_ACCESS'),
@@ -16,9 +16,9 @@ enum EastAppPermission {
 
   final String apiValue;
 
-  const EastAppPermission(this.apiValue);
+  const FlowPermission(this.apiValue);
 
-  static EastAppPermission? tryParse(Object? value) {
+  static FlowPermission? tryParse(Object? value) {
     for (final permission in values) {
       if (permission.apiValue == value) return permission;
     }
@@ -26,53 +26,53 @@ enum EastAppPermission {
   }
 }
 
-class EastAppSession {
+class FlowSession {
   final String token;
-  final EastAppTenant tenant;
-  final EastAppUser user;
-  final Set<EastAppPermission> permissions;
+  final FlowTenant tenant;
+  final FlowUser user;
+  final Set<FlowPermission> permissions;
 
-  const EastAppSession({
+  const FlowSession({
     required this.token,
     required this.tenant,
     required this.user,
     required this.permissions,
   });
 
-  factory EastAppSession.fromCurrentUserJson({
+  factory FlowSession.fromCurrentUserJson({
     required String token,
     required Map<String, dynamic> json,
   }) {
-    final granted = <EastAppPermission>{};
+    final granted = <FlowPermission>{};
     final values = json['permissions'];
     if (values is List) {
       for (final value in values) {
-        final permission = EastAppPermission.tryParse(value);
+        final permission = FlowPermission.tryParse(value);
         if (permission != null) granted.add(permission);
       }
     }
 
-    return EastAppSession(
+    return FlowSession(
       token: token,
-      tenant: EastAppTenant.fromJson(
+      tenant: FlowTenant.fromJson(
         json['tenant'] as Map<String, dynamic>,
       ),
-      user: EastAppUser.fromJson(
+      user: FlowUser.fromJson(
         json['user'] as Map<String, dynamic>,
       ),
       permissions: Set.unmodifiable(granted),
     );
   }
 
-  bool can(EastAppPermission permission) => permissions.contains(permission);
+  bool can(FlowPermission permission) => permissions.contains(permission);
 
-  EastAppSession copyWith({
+  FlowSession copyWith({
     String? token,
-    EastAppTenant? tenant,
-    EastAppUser? user,
-    Set<EastAppPermission>? permissions,
+    FlowTenant? tenant,
+    FlowUser? user,
+    Set<FlowPermission>? permissions,
   }) {
-    return EastAppSession(
+    return FlowSession(
       token: token ?? this.token,
       tenant: tenant ?? this.tenant,
       user: user ?? this.user,

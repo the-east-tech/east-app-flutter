@@ -1,7 +1,7 @@
 part of 'stock_screen.dart';
 
 class _TagSetupPage extends StatefulWidget {
-  final EastAppApi api;
+  final FlowApi api;
   final String currentTenantId;
   final bool isOwner;
   final Future<void> Function() onReloadAfterImport;
@@ -50,7 +50,7 @@ class _TagSetupPageState extends State<_TagSetupPage> {
           downloadFallbackEnabled: true,
         ),
       );
-    } on EastAppApiException {
+    } on FlowApiException {
       // Global API error handling already presents the failure.
     } finally {
       if (mounted) setState(() => exportingTags = false);
@@ -84,7 +84,7 @@ class _TagSetupPageState extends State<_TagSetupPage> {
       if (mounted) {
         showSuccessSnackBar(context, '${result.importedRows} ${AppTextScope.of(context).t('Tags imported')}');
       }
-    } on EastAppApiException {
+    } on FlowApiException {
       // Global API error handling already presents the failure.
     }
   }
@@ -107,7 +107,7 @@ class _TagSetupPageState extends State<_TagSetupPage> {
   Future<void> deleteSelected() async {
     final text = AppTextScope.of(context);
     try {
-      final preview = EastAppDeletionPreview.merge(
+      final preview = FlowDeletionPreview.merge(
         await Future.wait(
           selectedIds.map(widget.api.previewStockTagDeletion),
         ),
@@ -117,7 +117,7 @@ class _TagSetupPageState extends State<_TagSetupPage> {
         await showDeletionDependenciesDialog(context, preview);
         return;
       }
-    } on EastAppApiException {
+    } on FlowApiException {
       return;
     }
     final confirmed = await confirmDataChange(context, action: 'Delete Selected Tags?', details: 'This will permanently delete the selected unassigned tags.');
@@ -280,7 +280,7 @@ class _CompactTagRow extends StatelessWidget {
 }
 
 class _TagEditorSheet extends StatefulWidget {
-  final EastAppApi api;
+  final FlowApi api;
   final String currentTenantId;
   final List<StockTag> allTags;
   final StockTag? tag;
@@ -298,7 +298,7 @@ class _TagEditorSheetState extends State<_TagEditorSheet> {
   final userSearchController = TextEditingController();
   final Set<String> selectedUserIds = <String>{};
   final Map<String, StockTagAssignee> knownUsers = <String, StockTagAssignee>{};
-  List<EastAppUser> loadedUsers = const [];
+  List<FlowUser> loadedUsers = const [];
   bool loadingUsers = false;
   late bool active;
 
@@ -336,7 +336,7 @@ class _TagEditorSheetState extends State<_TagEditorSheet> {
         knownUsers[user.id] = StockTagAssignee(userId: user.id, fullName: user.fullName, employeeId: user.employeeId, role: user.role.systemKey);
       }
       setState(() => loadedUsers = page.content);
-    } on EastAppApiException {
+    } on FlowApiException {
       // Global API error handling already presents the failure.
     } finally {
       if (mounted) setState(() => loadingUsers = false);
@@ -377,7 +377,7 @@ class _TagEditorSheetState extends State<_TagEditorSheet> {
         await showDeletionDependenciesDialog(context, preview);
         return;
       }
-    } on EastAppApiException {
+    } on FlowApiException {
       return;
     }
     final confirmed = await confirmDataChange(context, action: 'Delete Tag?', details: 'This permanently deletes this unused tag.');

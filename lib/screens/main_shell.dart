@@ -17,7 +17,7 @@ import '../models/organisation_models.dart';
 import '../models/notification_models.dart';
 import '../models/report_models.dart';
 import '../models/stock_api_models.dart';
-import '../services/east_app_api.dart';
+import '../services/flow_api.dart';
 import '../services/push_notification_service.dart';
 import '../theme/app_theme.dart';
 import '../utils/app_build_info.dart';
@@ -38,11 +38,11 @@ import 'task_hub_screen.dart';
 
 class MainShell extends StatefulWidget {
   final UserRole role;
-  final EastAppSession session;
-  final EastAppApi api;
+  final FlowSession session;
+  final FlowApi api;
   final Future<void> Function() onLogout;
-  final ValueChanged<EastAppSession> onSessionChanged;
-  final ValueChanged<EastAppUser> onCurrentUserChanged;
+  final ValueChanged<FlowSession> onSessionChanged;
+  final ValueChanged<FlowUser> onCurrentUserChanged;
   final ValueChanged<AppLanguage> onLanguageChanged;
   final AppLanguage initialLanguage;
 
@@ -92,11 +92,11 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   bool knowledgeLoading = false;
   int stockResetSignal = 0;
   int homeRefreshSignal = 0;
-  EastAppLeaderboard? pointsLeaderboard;
-  Future<EastAppLeaderboard>? pointsLeaderboardRequest;
+  FlowLeaderboard? pointsLeaderboard;
+  Future<FlowLeaderboard>? pointsLeaderboardRequest;
   StockReviewSummary? homeReviewSummary;
   ReportDashboard? homeReportDashboard;
-  List<EastAppActivityEvent> homeRecentActivities = const [];
+  List<FlowActivityEvent> homeRecentActivities = const [];
   bool homeDataLoaded = false;
   String? homeDataDayKey;
   Future<void>? homeDataRequest;
@@ -186,7 +186,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
         return;
       }
       setState(() => notificationUnreadCount = value);
-    }).onError<EastAppApiException>((_, _) {
+    }).onError<FlowApiException>((_, _) {
       // Badge refresh is silent; the inbox can still be opened and refreshed.
     }).whenComplete(() {
       if (identical(notificationCountRequest, request)) {
@@ -279,7 +279,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     await loadHomeData(forceRefresh: true);
   }
 
-  Future<EastAppLeaderboard?> loadPointsLeaderboard({
+  Future<FlowLeaderboard?> loadPointsLeaderboard({
     bool forceRefresh = false,
   }) async {
     if (!forceRefresh && pointsLeaderboard != null) {
@@ -290,7 +290,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
       return existingRequest;
     }
 
-    late final Future<EastAppLeaderboard> request;
+    late final Future<FlowLeaderboard> request;
     request = widget.api.pointsLeaderboard();
     pointsLeaderboardRequest = request;
     try {
@@ -298,7 +298,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
       if (!mounted) return value;
       setState(() => pointsLeaderboard = value);
       return value;
-    } on EastAppApiException {
+    } on FlowApiException {
       return pointsLeaderboard;
     } finally {
       if (identical(pointsLeaderboardRequest, request)) {
@@ -353,7 +353,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
       final summary = await widget.api.todayStockReviewSummary();
       if (!mounted) return;
       setState(() => homeReviewSummary = summary);
-    } on EastAppApiException {
+    } on FlowApiException {
       _markHomeDataStale();
     }
   }
@@ -370,7 +370,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     if (existingRequest != null) return existingRequest;
 
     final generation = homeDataGeneration;
-    EastAppPage<EastAppActivityEvent>? activity;
+    FlowPage<FlowActivityEvent>? activity;
     StockReviewSummary? summary;
     ReportDashboard? reports;
     var activityLoaded = false;
@@ -385,27 +385,27 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
       ).then<void>((value) {
         activity = value;
         activityLoaded = true;
-      }).onError<EastAppApiException>((_, _) {
+      }).onError<FlowApiException>((_, _) {
         // Keep the previous activity list, but let the other Home data refresh.
       }),
       if (widget.role != UserRole.staff)
         widget.api.todayStockReviewSummary().then<void>((value) {
           summary = value;
           summaryLoaded = true;
-        }).onError<EastAppApiException>((_, _) {
+        }).onError<FlowApiException>((_, _) {
           // Keep the previous summary, but let the other Home data refresh.
         }),
       widget.api.cachedReportDashboard(
         days: 7,
         tenantId: widget.session.tenant.id,
         managementView: widget.session.can(
-          EastAppPermission.reportIntelligenceView,
+          FlowPermission.reportIntelligenceView,
         ),
         userId: widget.session.user.id,
       ).then<void>((value) {
         reports = value;
         reportsLoaded = true;
-      }).onError<EastAppApiException>((_, _) {
+      }).onError<FlowApiException>((_, _) {
         // Keep the previous dashboard, but let the other Home data refresh.
       }),
     ];
@@ -418,7 +418,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
           homeRecentActivities = activity?.content
                   .take(5)
                   .toList(growable: false) ??
-              const <EastAppActivityEvent>[];
+              const <FlowActivityEvent>[];
         }
         if (summaryLoaded) homeReviewSummary = summary;
         if (reportsLoaded && reports != null) homeReportDashboard = reports;
@@ -439,7 +439,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     setState(() => homeReportDashboard = value);
   }
 
-  void handlePointsChanged(EastAppLeaderboard value) {
+  void handlePointsChanged(FlowLeaderboard value) {
     if (!mounted) return;
     setState(() => pointsLeaderboard = value);
   }
@@ -465,7 +465,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     if (!forceRefresh && !reset && stockTagPage >= 0 && stockTagsLast) return;
     final nextPage = reset || forceRefresh ? 0 : stockTagPage + 1;
     final query = Uri(queryParameters: {'page': '$nextPage', 'size': '100'}).query;
-    final cacheKey = '${EastAppApi.stockTagsCachePrefix(widget.session.tenant.id)}$query';
+    final cacheKey = '${FlowApi.stockTagsCachePrefix(widget.session.tenant.id)}$query';
     final result = await widget.api.stockTags(
       page: nextPage,
       size: 100,
@@ -497,8 +497,8 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
         widget.api.knowledgeSops(page: 0, size: 100),
       ]);
       if (!mounted) return;
-      final tagPage = results[0] as EastAppPage<StockTag>;
-      final sopPage = results[1] as EastAppPage<KnowledgeItem>;
+      final tagPage = results[0] as FlowPage<StockTag>;
+      final sopPage = results[1] as FlowPage<KnowledgeItem>;
       setState(() {
         stockTags = List<StockTag>.from(tagPage.content);
         stockTagPage = tagPage.page;
@@ -506,7 +506,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
         knowledge = List<KnowledgeItem>.from(sopPage.content);
         knowledgeLoaded = true;
       });
-    } on EastAppApiException {
+    } on FlowApiException {
       // The global API error handler already displays the request failure.
     } finally {
       knowledgeLoading = false;
@@ -520,7 +520,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     if (!forceRefresh && !reset && stockSupplierPage >= 0 && stockSuppliersLast) return;
     final nextPage = reset || forceRefresh ? 0 : stockSupplierPage + 1;
     final query = Uri(queryParameters: {'page': '$nextPage', 'size': '50'}).query;
-    final cacheKey = '${EastAppApi.stockSuppliersCachePrefix(widget.session.tenant.id)}$query';
+    final cacheKey = '${FlowApi.stockSuppliersCachePrefix(widget.session.tenant.id)}$query';
     final result = await widget.api.stockSuppliers(
       page: nextPage,
       size: 50,
@@ -547,7 +547,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     final query = Uri(
       queryParameters: {'page': '$nextPage', 'size': '50'},
     ).query;
-    final cacheKey = '${EastAppApi.stockSkusCachePrefix(widget.session.tenant.id)}$query';
+    final cacheKey = '${FlowApi.stockSkusCachePrefix(widget.session.tenant.id)}$query';
     final result = await widget.api.stockSkus(
       page: nextPage,
       size: 50,
@@ -660,7 +660,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
           break;
       }
       return null;
-    } on EastAppApiException catch (error) {
+    } on FlowApiException catch (error) {
       return error.message;
     }
   }
@@ -700,9 +700,9 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
       builder: (sheetContext) => AppSettingsSheet(
         language: language,
         translationDirection: widget.api.translationDirection,
-        canManageStorage: widget.session.can(EastAppPermission.storageAdmin),
+        canManageStorage: widget.session.can(FlowPermission.storageAdmin),
         canManageBusinessCleanup:
-            widget.session.can(EastAppPermission.storageAdmin),
+            widget.session.can(FlowPermission.storageAdmin),
         onStorageManagement: () {
           Navigator.of(sheetContext).pop();
           unawaited(
@@ -932,7 +932,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
 
   void invalidateStockTagCaches() {
     final tenantId = widget.session.tenant.id;
-    invalidateSetupCache(EastAppApi.stockTagsCachePrefix(tenantId));
+    invalidateSetupCache(FlowApi.stockTagsCachePrefix(tenantId));
     widget.api.invalidateTaskRecords(tenantId);
     widget.api.invalidateTaskTemplates(tenantId);
   }
@@ -942,7 +942,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     _runCacheCleanup(
       Future.wait([
         widget.api.invalidateFeatureCache(
-          EastAppApi.stockSuppliersCachePrefix(tenantId),
+          FlowApi.stockSuppliersCachePrefix(tenantId),
         ),
         widget.api.invalidateStockPurchaseSupplierStates(tenantId),
       ]),
@@ -1040,7 +1040,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
       balance: balance,
     );
     invalidateSetupCache(
-      EastAppApi.stockSuppliersCachePrefix(widget.session.tenant.id),
+      FlowApi.stockSuppliersCachePrefix(widget.session.tenant.id),
     );
     if (!mounted) return;
     setState(() {
@@ -1068,7 +1068,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
 
   Future<void> reloadAfterSkuChangeReview() {
     invalidateSetupCache(
-      EastAppApi.stockSkusCachePrefix(widget.session.tenant.id),
+      FlowApi.stockSkusCachePrefix(widget.session.tenant.id),
     );
     invalidateReportData();
     stockSkuPage = -1;
@@ -1082,7 +1082,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   ) async {
     final saved = await widget.api.createStockCounts(submissions);
     invalidateSetupCache(
-      EastAppApi.stockSkusCachePrefix(widget.session.tenant.id),
+      FlowApi.stockSkusCachePrefix(widget.session.tenant.id),
     );
     invalidateReportData();
     if (!mounted) return;
@@ -1103,7 +1103,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     invalidateReportData();
     if (saved.workflowStatus == StockWorkflowStatus.done) {
       invalidateSetupCache(
-        EastAppApi.stockSkusCachePrefix(widget.session.tenant.id),
+        FlowApi.stockSkusCachePrefix(widget.session.tenant.id),
       );
     }
     if (!mounted) return;
@@ -1137,7 +1137,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     };
     if (approved.isNotEmpty) {
       invalidateSetupCache(
-        EastAppApi.stockSkusCachePrefix(widget.session.tenant.id),
+        FlowApi.stockSkusCachePrefix(widget.session.tenant.id),
       );
     }
     if (!mounted) return;
@@ -1164,7 +1164,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   ) async {
     final saved = await widget.api.createStockReceivable(record);
     invalidateSetupCache(
-      EastAppApi.stockSkusCachePrefix(widget.session.tenant.id),
+      FlowApi.stockSkusCachePrefix(widget.session.tenant.id),
     );
     invalidateReportData();
     if (!mounted) return;
@@ -1185,7 +1185,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     invalidateReportData();
     if (saved.workflowStatus == StockWorkflowStatus.done) {
       invalidateSetupCache(
-        EastAppApi.stockSkusCachePrefix(widget.session.tenant.id),
+        FlowApi.stockSkusCachePrefix(widget.session.tenant.id),
       );
     }
     if (!mounted) return;
@@ -1610,10 +1610,10 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   Future<void> showContextSwitcher() async {
     if (!widget.session.user.role.isOwner) return;
     AppFeedback.tap();
-    List<EastAppSession> contexts;
+    List<FlowSession> contexts;
     try {
       contexts = await widget.api.availableContexts();
-    } on EastAppApiException {
+    } on FlowApiException {
       return;
     }
     if (!mounted) return;
@@ -1626,7 +1626,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
       return;
     }
 
-    final selected = await showModalBottomSheet<EastAppSession>(
+    final selected = await showModalBottomSheet<FlowSession>(
       context: context,
       backgroundColor: Colors.transparent,
       builder: (sheetContext) {
@@ -1706,7 +1706,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   }
 
 
-  Future<void> switchBusinessContext(EastAppSession selected) async {
+  Future<void> switchBusinessContext(FlowSession selected) async {
     if (selected.user.id == widget.session.user.id) return;
     try {
       final switched = await widget.api.switchContext(selected.user.id);
@@ -1733,14 +1733,14 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
       );
       if (!mounted) return;
       widget.onSessionChanged(switched);
-    } on EastAppApiException {
+    } on FlowApiException {
       return;
     }
   }
 
-  Future<void> switchToCreatedBusiness(EastAppTenant tenant) async {
+  Future<void> switchToCreatedBusiness(FlowTenant tenant) async {
     final contexts = await widget.api.availableContexts();
-    EastAppSession? target;
+    FlowSession? target;
     for (final item in contexts) {
       if (item.tenant.id == tenant.id) {
         target = item;
@@ -1812,7 +1812,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
               currentRoleSystemKey: widget.session.user.role.systemKey,
               currentRoleName: widget.session.user.role.name,
               canViewReportIntelligence: widget.session.can(
-                EastAppPermission.reportIntelligenceView,
+                FlowPermission.reportIntelligenceView,
               ),
               api: widget.api,
               tenantId: widget.session.tenant.id,
@@ -1847,13 +1847,13 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
               onReloadAfterSkuImport: () async {
                 await Future.wait([
                   widget.api.invalidateFeatureCache(
-                    EastAppApi.stockTagsCachePrefix(widget.session.tenant.id),
+                    FlowApi.stockTagsCachePrefix(widget.session.tenant.id),
                   ),
                   widget.api.invalidateFeatureCache(
-                    EastAppApi.stockSuppliersCachePrefix(widget.session.tenant.id),
+                    FlowApi.stockSuppliersCachePrefix(widget.session.tenant.id),
                   ),
                   widget.api.invalidateFeatureCache(
-                    EastAppApi.stockSkusCachePrefix(widget.session.tenant.id),
+                    FlowApi.stockSkusCachePrefix(widget.session.tenant.id),
                   ),
                 ]);
                 await Future.wait([
@@ -1918,7 +1918,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
               role: widget.role,
               api: widget.api,
               isSystemAdmin:
-                  widget.session.can(EastAppPermission.storageAdmin),
+                  widget.session.can(FlowPermission.storageAdmin),
               currentUser: widget.session.user,
               currentTenant: widget.session.tenant,
               pointsLeaderboard: pointsLeaderboard,

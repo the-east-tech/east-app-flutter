@@ -5,13 +5,13 @@ import 'package:flutter/material.dart';
 import '../localization/app_text_scope.dart';
 import '../models/attendance_models.dart';
 import '../models/people_models.dart';
-import '../services/east_app_api.dart';
+import '../services/flow_api.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_components.dart';
 import '../widgets/app_feedback.dart';
 
 class PeopleAuditScreen extends StatefulWidget {
-  final EastAppApi api;
+  final FlowApi api;
   final VoidCallback onBack;
 
   const PeopleAuditScreen({
@@ -28,7 +28,7 @@ class _PeopleAuditScreenState extends State<PeopleAuditScreen> {
   static const int _pageSize = 20;
 
   final TextEditingController searchController = TextEditingController();
-  final List<EastAppUser> users = [];
+  final List<FlowUser> users = [];
   int usersPage = 0;
   int totalUsers = 0;
   bool usersLastPage = true;
@@ -38,10 +38,10 @@ class _PeopleAuditScreenState extends State<PeopleAuditScreen> {
   String? usersError;
   bool? activeFilter;
 
-  EastAppUser? selectedUser;
+  FlowUser? selectedUser;
   AttendanceAuditPeriod period = AttendanceAuditPeriod.day;
   DateTime anchor = DateTime.now();
-  EastAppAttendanceUserDetail? detail;
+  FlowAttendanceUserDetail? detail;
   bool reportLoading = false;
   String? reportError;
 
@@ -83,7 +83,7 @@ class _PeopleAuditScreenState extends State<PeopleAuditScreen> {
         usersLoading = false;
         usersLoadingMore = false;
       });
-    } on EastAppApiException catch (exception) {
+    } on FlowApiException catch (exception) {
       if (!mounted) return;
       setState(() {
         usersError = exception.message;
@@ -107,7 +107,7 @@ class _PeopleAuditScreenState extends State<PeopleAuditScreen> {
     });
   }
 
-  Future<void> selectUser(EastAppUser user) async {
+  Future<void> selectUser(FlowUser user) async {
     if (selectedUser?.id == user.id && detail != null) return;
     AppFeedback.select();
     setState(() {
@@ -139,7 +139,7 @@ class _PeopleAuditScreenState extends State<PeopleAuditScreen> {
         detail = value;
         reportLoading = false;
       });
-    } on EastAppApiException catch (exception) {
+    } on FlowApiException catch (exception) {
       if (!mounted || selectedUser?.id != user.id) return;
       setState(() {
         reportError = exception.message;
@@ -181,7 +181,7 @@ class _PeopleAuditScreenState extends State<PeopleAuditScreen> {
     await loadReport();
   }
 
-  Future<void> openMonth(EastAppAttendanceMonthSummary month) async {
+  Future<void> openMonth(FlowAttendanceMonthSummary month) async {
     if (reportLoading) return;
     AppFeedback.select();
     setState(() {
@@ -508,7 +508,7 @@ class _PeopleAuditScreenState extends State<PeopleAuditScreen> {
     );
   }
 
-  Widget _summaryGrid(EastAppAttendanceUserAudit summary) {
+  Widget _summaryGrid(FlowAttendanceUserAudit summary) {
     return Column(
       children: [
         Row(
@@ -574,7 +574,7 @@ class _PeopleAuditScreenState extends State<PeopleAuditScreen> {
     );
   }
 
-  Widget _payrollContent(EastAppAttendanceUserDetail value) {
+  Widget _payrollContent(FlowAttendanceUserDetail value) {
     final text = AppTextScope.of(context);
     final days = value.days;
     return Column(
@@ -650,7 +650,7 @@ class _PeopleAuditScreenState extends State<PeopleAuditScreen> {
     );
   }
 
-  Widget _attendanceTable(List<EastAppAttendanceDay> days) {
+  Widget _attendanceTable(List<FlowAttendanceDay> days) {
     final text = AppTextScope.of(context);
     return WhiteCard(
       child: SingleChildScrollView(
@@ -687,7 +687,7 @@ class _PeopleAuditScreenState extends State<PeopleAuditScreen> {
     );
   }
 
-  Widget _yearlyContent(EastAppAttendanceUserDetail value) {
+  Widget _yearlyContent(FlowAttendanceUserDetail value) {
     final text = AppTextScope.of(context);
     final summary = value.summary;
     return Column(
@@ -751,7 +751,7 @@ class _PeopleAuditScreenState extends State<PeopleAuditScreen> {
     );
   }
 
-  Widget _monthlyTable(List<EastAppAttendanceMonthSummary> months) {
+  Widget _monthlyTable(List<FlowAttendanceMonthSummary> months) {
     final text = AppTextScope.of(context);
     return WhiteCard(
       child: SingleChildScrollView(
@@ -857,7 +857,7 @@ class _AuditMetric extends StatelessWidget {
 }
 
 class _AttendanceDayCard extends StatelessWidget {
-  final EastAppAttendanceDay day;
+  final FlowAttendanceDay day;
 
   const _AttendanceDayCard({required this.day});
 
@@ -948,7 +948,7 @@ class _AttendanceDayCard extends StatelessWidget {
 }
 
 class _AttendanceEventDetail extends StatelessWidget {
-  final EastAppAttendanceEvent event;
+  final FlowAttendanceEvent event;
 
   const _AttendanceEventDetail({required this.event});
 
