@@ -86,6 +86,8 @@
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Flow does not record audio for attendance verification.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Flow uses your location to record attendance address and geofence status.</string>
+	<string>Flow uses your location during attendance check-in and check-out to verify that you are at your assigned workplace. Flow does not track your location in the background.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Flow uses your location during attendance check-in and check-out to verify that you are at your assigned workplace. Flow does not track your location in the background.</string>
 </dict>
 </plist>
