@@ -2029,6 +2029,7 @@ class FlowApi {
   Future<void> registerPushDevice({
     required String token,
     required String platform,
+    required String appVersion,
   }) async {
     await _requestJson(
       'POST',
@@ -2036,6 +2037,7 @@ class FlowApi {
       body: {
         'token': token,
         'platform': platform,
+        'appVersion': appVersion,
       },
       expectBody: false,
       reportError: false,
