@@ -3,8 +3,10 @@ import 'dart:async';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../firebase_options.dart';
+import '../utils/app_build_info.dart';
 import '../utils/app_diagnostics.dart';
 import 'flow_api.dart';
 
@@ -17,9 +19,13 @@ Future<void> flowFirebaseBackgroundHandler(RemoteMessage message) async {
 
 class PushNotificationService {
   static bool _backgroundHandlerRegistered = false;
+  static const _firebaseIdentityStorageKey =
+      'flow.push.firebase.configuration';
 
+  final FlutterSecureStorage _storage = const FlutterSecureStorage();
   FlowApi? _api;
   String? _token;
+  String? _configuredFirebaseIdentity;
   bool _firebaseInitialised = false;
   bool _initialMessageHandled = false;
   Future<void>? _configureRequest;
@@ -90,7 +96,9 @@ class PushNotificationService {
       if (defaultTargetPlatform == TargetPlatform.iOS) {
         await _waitForApnsToken();
       }
+      await _resetTokenAfterFirebaseMigration(options);
       _token = await FirebaseMessaging.instance.getToken();
+      await _rememberFirebaseIdentity(options);
       await _registerCurrentToken();
 
       if (!_initialMessageHandled) {
@@ -130,6 +138,46 @@ class PushNotificationService {
     throw StateError('APNs token was not available after notification setup.');
   }
 
+  Future<void> _resetTokenAfterFirebaseMigration(
+    FirebaseOptions options,
+  ) async {
+    final identity = _firebaseIdentity(options);
+    if (_configuredFirebaseIdentity == identity) return;
+
+    String? storedIdentity;
+    try {
+      storedIdentity = await _storage.read(key: _firebaseIdentityStorageKey);
+    } catch (error) {
+      AppDiagnostics.instance.logWarning(
+        'Unable to read the saved Firebase push configuration: $error',
+      );
+      _configuredFirebaseIdentity = identity;
+      return;
+    }
+
+    if (storedIdentity != identity) {
+      await FirebaseMessaging.instance.deleteToken();
+    }
+    _configuredFirebaseIdentity = identity;
+  }
+
+  Future<void> _rememberFirebaseIdentity(FirebaseOptions options) async {
+    if (_token == null || _token!.isEmpty) return;
+    try {
+      await _storage.write(
+        key: _firebaseIdentityStorageKey,
+        value: _firebaseIdentity(options),
+      );
+    } catch (error) {
+      AppDiagnostics.instance.logWarning(
+        'Unable to save the Firebase push configuration: $error',
+      );
+    }
+  }
+
+  String _firebaseIdentity(FirebaseOptions options) =>
+      '${options.projectId}:${options.messagingSenderId}:${options.appId}';
+
   Future<void> _registerCurrentToken() async {
     final api = _api;
     final token = _token;
@@ -137,8 +185,13 @@ class PushNotificationService {
     final platform = defaultTargetPlatform == TargetPlatform.iOS
         ? 'IOS'
         : 'ANDROID';
+    final appVersion = AppBuildInfo.displayVersion;
     try {
-      await api.registerPushDevice(token: token, platform: platform);
+      await api.registerPushDevice(
+        token: token,
+        platform: platform,
+        appVersion: appVersion,
+      );
     } on FlowApiException catch (error) {
       AppDiagnostics.instance.recordApiError(
         method: error.method ?? 'POST',
@@ -149,7 +202,11 @@ class PushNotificationService {
         fieldErrors: error.fieldErrors,
         durationMs: error.durationMs,
         responseExcerpt: error.responseExcerpt,
-        requestParameters: {'token': token, 'platform': platform},
+        requestParameters: {
+          'token': token,
+          'platform': platform,
+          'appVersion': appVersion,
+        },
       );
     }
   }
