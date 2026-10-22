@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-class EastBrandGradient {
+class FlowBrandGradient {
   static const List<Color> colours = <Color>[
     Color(0xFF07011D),
     Color(0xFF1237B8),
@@ -16,14 +16,14 @@ class EastBrandGradient {
   }
 }
 
-class EastAnimatedGradientSurface extends StatefulWidget {
+class FlowAnimatedGradientSurface extends StatefulWidget {
   final Widget child;
   final BorderRadiusGeometry? borderRadius;
   final EdgeInsetsGeometry? padding;
   final double? width;
   final double? height;
 
-  const EastAnimatedGradientSurface({
+  const FlowAnimatedGradientSurface({
     super.key,
     required this.child,
     this.borderRadius,
@@ -33,11 +33,11 @@ class EastAnimatedGradientSurface extends StatefulWidget {
   });
 
   @override
-  State<EastAnimatedGradientSurface> createState() =>
-      _EastAnimatedGradientSurfaceState();
+  State<FlowAnimatedGradientSurface> createState() =>
+      _FlowAnimatedGradientSurfaceState();
 }
 
-class _EastAnimatedGradientSurfaceState extends State<EastAnimatedGradientSurface>
+class _FlowAnimatedGradientSurfaceState extends State<FlowAnimatedGradientSurface>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
 
@@ -67,7 +67,7 @@ class _EastAnimatedGradientSurfaceState extends State<EastAnimatedGradientSurfac
           padding: widget.padding,
           decoration: BoxDecoration(
             borderRadius: widget.borderRadius,
-            gradient: EastBrandGradient.at(_controller.value),
+            gradient: FlowBrandGradient.at(_controller.value),
           ),
           child: child,
         );

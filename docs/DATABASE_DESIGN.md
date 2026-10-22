@@ -1,6 +1,6 @@
 # Database Design Draft
 
-Version: `east_app_staffreward_v6`
+Version: `flow_staffreward_v6`
 
 This is a practical first-draft database design for the future Java Spring Boot backend. It is not final. Verify and refine before implementation.
 

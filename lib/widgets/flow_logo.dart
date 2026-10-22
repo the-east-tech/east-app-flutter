@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 
-class EastLogo extends StatelessWidget {
+class FlowLogo extends StatelessWidget {
   final double size;
   final BoxFit fit;
   final BorderRadius? borderRadius;
   final Color? backgroundColor;
   final EdgeInsetsGeometry padding;
 
-  const EastLogo({
+  const FlowLogo({
     super.key,
     this.size = 48,
     this.fit = BoxFit.cover,

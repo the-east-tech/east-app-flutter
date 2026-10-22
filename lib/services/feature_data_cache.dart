@@ -18,7 +18,7 @@ class FeatureDataCache {
   FeatureDataCache._();
 
   static final FeatureDataCache instance = FeatureDataCache._();
-  static const String _prefix = 'eastapp_feature_cache_v1_';
+  static const String _prefix = 'flow_feature_cache_v1_';
   static const int _maximumStoredEntries = 200;
 
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
