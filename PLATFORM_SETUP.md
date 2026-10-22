@@ -79,4 +79,12 @@ flutter run
 - Android application ID: `com.sequosal.flow`
 - iOS production Bundle ID: `com.sequosal.flow`
 - Apple paid Team ID: `24MJ8NMULJ`
-- Existing secure-storage keys remain unchanged for existing sessions. Release builds use only the `FLOW_API_BASE_URL` Dart define.
+- Existing secure-storage session and diagnostic values migrate once to `flow_*` keys.
+- Production builds read `FLOW_API_BASE_URL` from `dart_defines/production.json`.
+
+Build iOS and Android production releases from the project root:
+
+```bash
+flutter build ipa --release --dart-define-from-file=dart_defines/production.json
+flutter build appbundle --release --dart-define-from-file=dart_defines/production.json
+```
