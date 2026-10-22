@@ -4,21 +4,21 @@ import 'package:package_info_plus/package_info_plus.dart';
 abstract final class AppBuildInfo {
   static const String _buildName = String.fromEnvironment(
     'FLUTTER_BUILD_NAME',
-    defaultValue: '1.0.1',
+    defaultValue: '1.0.0',
   );
   static const String _buildNumber = String.fromEnvironment(
     'FLUTTER_BUILD_NUMBER',
-    defaultValue: '4',
+    defaultValue: '6',
   );
   static String _runtimeBuildName = _buildName;
   static String _runtimeBuildNumber = _buildNumber;
   static Future<void>? _initialising;
 
   static String get buildName =>
-      _runtimeBuildName.trim().isEmpty ? '1.0.1' : _runtimeBuildName.trim();
+      _runtimeBuildName.trim().isEmpty ? '1.0.0' : _runtimeBuildName.trim();
 
   static String get buildNumber =>
-      _runtimeBuildNumber.trim().isEmpty ? '4' : _runtimeBuildNumber.trim();
+      _runtimeBuildNumber.trim().isEmpty ? '6' : _runtimeBuildNumber.trim();
 
   static Future<void> initialise() => _initialising ??= _loadPackageInfo();
 

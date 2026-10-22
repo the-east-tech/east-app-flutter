@@ -26,6 +26,7 @@ import '../models/translation_models.dart';
 import 'api_configuration.dart';
 import 'feature_data_cache.dart';
 import 'sku_thumbnail_cache.dart';
+import '../utils/app_build_info.dart';
 import '../utils/app_diagnostics.dart';
 
 class FlowApiException implements Exception {
@@ -149,7 +150,7 @@ class FlowApi {
   FlowApi({
     http.Client? client,
     String? baseUrl,
-  })  : _client = client ?? http.Client(),
+  })  : _client = _FlowAppMetadataClient(client ?? http.Client()),
         baseUrl = baseUrl ?? ApiConfiguration.baseUrl {
     AppDiagnostics.instance.registerPrivateEndpoint(this.baseUrl);
   }
@@ -4000,6 +4001,26 @@ class FlowApi {
     onProcessingChanged = null;
     _client.close();
   }
+}
+
+class _FlowAppMetadataClient extends http.BaseClient {
+  final http.Client _inner;
+
+  _FlowAppMetadataClient(this._inner);
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) {
+    request.headers['X-Flow-App-Version'] = AppBuildInfo.buildName;
+    request.headers['X-Flow-App-Build'] = AppBuildInfo.buildNumber;
+    final platform = AppBuildInfo.platformApiValue;
+    if (platform != null) {
+      request.headers['X-Flow-App-Platform'] = platform;
+    }
+    return _inner.send(request);
+  }
+
+  @override
+  void close() => _inner.close();
 }
 
 String _localDayKey() {
