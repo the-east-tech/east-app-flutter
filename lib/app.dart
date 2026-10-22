@@ -2,12 +2,15 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'localization/app_language.dart';
 import 'localization/app_text_scope.dart';
+import 'models/app_version_models.dart';
 import 'models/auth_models.dart';
 import 'models/people_models.dart';
 import 'models/setup_models.dart';
+import 'screens/app_update_screen.dart';
 import 'screens/initial_setup_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/main_shell.dart';
@@ -55,7 +58,9 @@ class _FlowAppState extends State<FlowApp>
   Timer? processingDismissTimer;
   Timer? errorReportRetryTimer;
   bool flushingErrorReports = false;
+  bool refreshingAppVersionPolicy = false;
   int apiErrorPresentationGeneration = 0;
+  AppVersionPolicy? appVersionPolicy;
 
   @override
   void initState() {
@@ -147,6 +152,7 @@ class _FlowAppState extends State<FlowApp>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      unawaited(refreshAppVersionPolicy());
       unawaited(flushPendingErrorReports());
       return;
     }
@@ -202,9 +208,26 @@ class _FlowAppState extends State<FlowApp>
       startupApiError = null;
       initialSetupCode = null;
       initialSetupCodeExpiresAt = null;
+      appVersionPolicy = null;
     });
 
+    await AppBuildInfo.initialise();
+    if (!mounted) return;
+
     try {
+      final policy = await loadAppVersionPolicy();
+      if (!mounted) return;
+      if (policy != null) {
+        setState(() => appVersionPolicy = policy);
+        if (policy.updateRequired) {
+          setState(() {
+            checkingSetup = false;
+            restoringSession = false;
+          });
+          return;
+        }
+      }
+
       final status = await api.setupStatus();
       if (!mounted) return;
       if (status.setupRequired) {
@@ -548,6 +571,70 @@ class _FlowAppState extends State<FlowApp>
     });
   }
 
+  Future<AppVersionPolicy?> loadAppVersionPolicy() async {
+    final platform = AppBuildInfo.platformApiValue;
+    if (platform == null) return null;
+    try {
+      return await api.appVersionPolicy(
+        platform: platform,
+        version: AppBuildInfo.buildName,
+        buildNumber: AppBuildInfo.numericBuildNumber,
+      );
+    } on FlowApiException catch (error) {
+      AppDiagnostics.instance.logWarning(
+        'App version policy is temporarily unavailable: ${error.code}',
+      );
+      return null;
+    }
+  }
+
+  Future<void> refreshAppVersionPolicy() async {
+    if (refreshingAppVersionPolicy || ApiConfiguration.startupError != null) {
+      return;
+    }
+    refreshingAppVersionPolicy = true;
+    try {
+      final policy = await loadAppVersionPolicy();
+      if (!mounted || policy == null) return;
+      setState(() => appVersionPolicy = policy);
+      if (policy.updateRequired) {
+        apiErrorPresentationGeneration++;
+        api.invalidateInFlightErrorNotifications();
+      }
+    } finally {
+      refreshingAppVersionPolicy = false;
+    }
+  }
+
+  Future<void> openAppUpdate(AppVersionPolicy policy) async {
+    final uri = Uri.tryParse(policy.updateUrl.trim());
+    if (uri == null || !uri.hasScheme) {
+      showUpdateLaunchError();
+      return;
+    }
+    try {
+      final launched = await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
+      if (!launched) showUpdateLaunchError();
+    } catch (_) {
+      showUpdateLaunchError();
+    }
+  }
+
+  void showUpdateLaunchError() {
+    final context = navigatorKey.currentContext;
+    if (!mounted || context == null) return;
+    final text = AppTextScope.of(context);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          text.t('Unable to open the app store. Please update Flow manually.'),
+        ),
+      ),
+    );
+  }
 
   void handleLanguageChanged(AppLanguage value) {
     if (language == value) return;
@@ -602,6 +689,15 @@ class _FlowAppState extends State<FlowApp>
   }
 
   Widget _buildHome() {
+    final policy = appVersionPolicy;
+    if (policy?.updateRequired == true) {
+      final canOpenStore = policy!.updateUrl.trim().isNotEmpty;
+      return AppUpdateScreen(
+        policy: policy,
+        onUpdate: canOpenStore ? () => openAppUpdate(policy) : null,
+      );
+    }
+
     if (checkingSetup || restoringSession) {
       return const _StartupScreen();
     }
