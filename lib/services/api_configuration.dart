@@ -15,7 +15,7 @@ class ApiConfiguration {
   static String? get startupError {
     if (kReleaseMode && !hasConfiguredBaseUrl) {
       return 'This release build has no backend URL. Rebuild it with '
-          '--dart-define=FLOW_API_BASE_URL=https://<railway-domain>.up.railway.app';
+          '--dart-define-from-file=dart_defines/production.json';
     }
     return null;
   }
