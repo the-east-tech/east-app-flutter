@@ -21,6 +21,7 @@ import '../models/setup_models.dart';
 import '../models/stock_api_models.dart';
 import '../models/storage_models.dart';
 import '../models/app_models.dart';
+import '../models/app_version_models.dart';
 import '../models/translation_models.dart';
 import 'api_configuration.dart';
 import 'feature_data_cache.dart';
@@ -406,6 +407,32 @@ class FlowApi {
       authenticated: false,
     ) as Map<String, dynamic>;
     return FlowSetupStatus.fromJson(body);
+  }
+
+  Future<AppVersionPolicy> appVersionPolicy({
+    required String platform,
+    required String version,
+    required int buildNumber,
+  }) async {
+    final query = Uri(
+      queryParameters: {
+        'platform': platform,
+        'version': version,
+        'buildNumber': buildNumber.toString(),
+      },
+    ).query;
+    final body = await _requestJson(
+      'GET',
+      '/api/v1/app-version/policy?$query',
+      authenticated: false,
+      reportError: false,
+      notifyUserOnError: false,
+      observeContent: false,
+      blockUi: false,
+      allowTimeoutWait: false,
+      timeout: const Duration(seconds: 5),
+    ) as Map<String, dynamic>;
+    return AppVersionPolicy.fromJson(body);
   }
 
   Future<FlowInitialSetupResult> completeInitialSetup({

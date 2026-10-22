@@ -1846,6 +1846,16 @@ const Map<String, String> _myanmar = {
       'Tag ပြောင်းပြီးနောက် Load Tasks ကို နှိပ်ပါ။',
   'Tap Load Tasks to load the next 3 pending Tasks.':
       'နောက်လာမည့် စောင့်ဆိုင်းနေသော တာဝန် ၃ ခုကို ရယူရန် Load Tasks ကို နှိပ်ပါ။',
+  'Flow update required': 'Flow ကို အပ်ဒိတ်လုပ်ရန် လိုအပ်သည်',
+  'This version is no longer supported. Update Flow to continue.':
+      'ဤဗားရှင်းကို မပံ့ပိုးတော့ပါ။ ဆက်လက်အသုံးပြုရန် Flow ကို အပ်ဒိတ်လုပ်ပါ။',
+  'Installed': 'လက်ရှိဗားရှင်း',
+  'Latest': 'နောက်ဆုံးဗားရှင်း',
+  'Update Flow': 'Flow ကို အပ်ဒိတ်လုပ်ရန်',
+  'Open the app store and update Flow.':
+      'App store ကိုဖွင့်ပြီး Flow ကို အပ်ဒိတ်လုပ်ပါ။',
+  'Unable to open the app store. Please update Flow manually.':
+      'App store ကို ဖွင့်၍မရပါ။ Flow ကို ကိုယ်တိုင် အပ်ဒိတ်လုပ်ပါ။',
 };
 
 const Map<String, String> _chinese = {
@@ -3149,4 +3159,13 @@ const Map<String, String> _chinese = {
   'Change Tag, then tap Load Tasks.': '更改标签后，点击“加载任务”。',
   'Tap Load Tasks to load the next 3 pending Tasks.':
       '点击“加载任务”以加载接下来3个待处理任务。',
+  'Flow update required': '必须更新Flow',
+  'This version is no longer supported. Update Flow to continue.':
+      '此版本已停止支持。请更新Flow后继续使用。',
+  'Installed': '当前版本',
+  'Latest': '最新版本',
+  'Update Flow': '更新Flow',
+  'Open the app store and update Flow.': '请打开应用商店并更新Flow。',
+  'Unable to open the app store. Please update Flow manually.':
+      '无法打开应用商店。请手动更新Flow。',
 };
