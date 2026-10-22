@@ -40,7 +40,7 @@ class _FlowAppState extends State<FlowApp>
 
   FlowSession? session;
   AppLanguage language = AppLanguage.english;
-  String lastCompanyCode = 'EAST';
+  String lastCompanyCode = '';
   String lastEmployeeId = '';
   String lastPassword = '';
   bool restoringSession = true;

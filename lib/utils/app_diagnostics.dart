@@ -98,12 +98,15 @@ class AppDiagnostics {
   }
 
   static final AppDiagnostics instance = AppDiagnostics._();
-  static const String _recentErrorsKey = 'eastapp_recent_errors_v2';
-  static const String _recentEventsKey = 'eastapp_recent_warnings_v1';
+  static const String _recentErrorsKey = 'flow_recent_errors_v2';
+  static const String _recentEventsKey = 'flow_recent_warnings_v1';
+  static const String _legacyCurrentErrorsKey = 'eastapp_recent_errors_v2';
+  static const String _legacyCurrentEventsKey = 'eastapp_recent_warnings_v1';
   static const String _legacyRecentErrorsKey = 'eastapp_recent_errors_v1';
   static const String _legacyRecentEventsKeyV1 = 'eastapp_recent_events_v1';
   static const String _legacyRecentEventsKeyV2 = 'eastapp_recent_events_v2';
-  static const String _pendingErrorReportsKey =
+  static const String _pendingErrorReportsKey = 'flow_pending_error_reports_v1';
+  static const String _legacyPendingErrorReportsKey =
       'eastapp_pending_error_reports_v1';
   static const int _maximumRecentErrors = 5;
   static const int _maximumRecentEvents = 10;
@@ -123,6 +126,14 @@ class AppDiagnostics {
   Future<void> _initialiseStorage() async {
     try {
       await Future.wait<void>([
+        _migrateStorageValue(_legacyCurrentErrorsKey, _recentErrorsKey),
+        _migrateStorageValue(_legacyCurrentEventsKey, _recentEventsKey),
+        _migrateStorageValue(
+          _legacyPendingErrorReportsKey,
+          _pendingErrorReportsKey,
+        ),
+      ]);
+      await Future.wait<void>([
         _storage.delete(key: _legacyRecentErrorsKey),
         _storage.delete(key: _legacyRecentEventsKeyV1),
         _storage.delete(key: _legacyRecentEventsKeyV2),
@@ -135,6 +146,15 @@ class AppDiagnostics {
       _loadPersistedEvents(),
       _loadPendingErrorReports(),
     ]);
+  }
+
+  Future<void> _migrateStorageValue(String legacyKey, String key) async {
+    final currentValue = await _storage.read(key: key);
+    if (currentValue != null) return;
+    final legacyValue = await _storage.read(key: legacyKey);
+    if (legacyValue == null) return;
+    await _storage.write(key: key, value: legacyValue);
+    await _storage.delete(key: legacyKey);
   }
 
   Future<void> queueErrorReport(PendingErrorReport report) async {

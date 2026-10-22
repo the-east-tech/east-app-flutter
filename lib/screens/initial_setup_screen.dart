@@ -7,7 +7,7 @@ import '../models/setup_models.dart';
 import '../services/flow_api.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_components.dart';
-import '../widgets/east_logo.dart';
+import '../widgets/flow_logo.dart';
 import '../widgets/google_place_picker.dart';
 import '../widgets/phone_number_field.dart';
 
@@ -325,7 +325,7 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
                     borderRadius: BorderRadius.circular(18),
                     border: Border.all(color: AppColours.border),
                   ),
-                  child: const EastLogo(
+                  child: const FlowLogo(
                     size: 64,
                     borderRadius: BorderRadius.all(Radius.circular(14)),
                   ),
@@ -374,7 +374,7 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
                 _SetupField(
                   label: 'Company Code',
                   controller: companyCodeController,
-                  hint: 'Example: EAST',
+                  hint: 'Example: FLOW',
                   textCapitalization: TextCapitalization.characters,
                 ),
                 const SizedBox(height: 12),

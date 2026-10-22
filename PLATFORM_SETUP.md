@@ -79,4 +79,4 @@ flutter run
 - Android application ID: `com.sequosal.flow`
 - iOS production Bundle ID: `com.sequosal.flow`
 - Apple paid Team ID: `24MJ8NMULJ`
-- Existing secure-storage keys remain unchanged for existing sessions. The legacy `EASTAPP_API_BASE_URL` Dart define is still accepted for compatibility; use `FLOW_API_BASE_URL` for new builds.
+- Existing secure-storage keys remain unchanged for existing sessions. Release builds use only the `FLOW_API_BASE_URL` Dart define.
