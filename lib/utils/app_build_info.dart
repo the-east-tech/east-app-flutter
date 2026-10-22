@@ -8,7 +8,7 @@ abstract final class AppBuildInfo {
   );
   static const String _buildNumber = String.fromEnvironment(
     'FLUTTER_BUILD_NUMBER',
-    defaultValue: '6',
+    defaultValue: '7',
   );
   static String _runtimeBuildName = _buildName;
   static String _runtimeBuildNumber = _buildNumber;
@@ -18,7 +18,7 @@ abstract final class AppBuildInfo {
       _runtimeBuildName.trim().isEmpty ? '1.0.0' : _runtimeBuildName.trim();
 
   static String get buildNumber =>
-      _runtimeBuildNumber.trim().isEmpty ? '6' : _runtimeBuildNumber.trim();
+      _runtimeBuildNumber.trim().isEmpty ? '7' : _runtimeBuildNumber.trim();
 
   static Future<void> initialise() => _initialising ??= _loadPackageInfo();
 

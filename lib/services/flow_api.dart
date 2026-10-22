@@ -2001,7 +2001,7 @@ class FlowApi {
 
       final disposition = response.headers['content-disposition'] ?? '';
       final match = RegExp(r'filename="?([^";]+)').firstMatch(disposition);
-      final runId = response.headers['x-eastapp-cleanup-run-id'];
+      final runId = response.headers['x-flow-cleanup-run-id'];
       if (runId == null || runId.isEmpty) {
         throw const FlowApiException(
           statusCode: null,
@@ -2014,7 +2014,7 @@ class FlowApi {
       return BusinessCleanupBackupFile(
         runId: runId,
         fileName: match?.group(1)?.trim() ?? 'business-backup.zip',
-        sha256: response.headers['x-eastapp-backup-sha256'] ?? '',
+        sha256: response.headers['x-flow-backup-sha256'] ?? '',
         bytes: Uint8List.fromList(response.bodyBytes),
       );
     } finally {

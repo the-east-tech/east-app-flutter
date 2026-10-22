@@ -5,14 +5,9 @@ class ApiConfiguration {
     'FLOW_API_BASE_URL',
     defaultValue: '',
   );
-  // Retain existing release-build configuration while callers migrate.
-  static const String _legacyBaseUrl = String.fromEnvironment(
-    'EASTAPP_API_BASE_URL',
-    defaultValue: '',
-  );
 
   static String get _trimmedConfiguredBaseUrl =>
-      _flowBaseUrl.trim().isNotEmpty ? _flowBaseUrl.trim() : _legacyBaseUrl.trim();
+      _flowBaseUrl.trim();
 
   static bool get hasConfiguredBaseUrl =>
       _trimmedConfiguredBaseUrl.isNotEmpty;

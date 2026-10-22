@@ -8,8 +8,8 @@ void main() {
       json: {
         'tenant': {
           'id': 'tenant-1',
-          'companyCode': 'EAST',
-          'businessName': 'The East',
+          'companyCode': 'FLOW',
+          'businessName': 'Flow Demo',
           'employeeIdPrefix': 'E',
         },
         'user': {

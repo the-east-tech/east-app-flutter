@@ -1,6 +1,6 @@
 # API Contracts for Future Java Spring Boot Backend
 
-Frontend version: `east_app_staffreward_v6`
+Frontend version: `flow_staffreward_v6`
 
 Current Flutter mode: hardcoded sample data.
 
