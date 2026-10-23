@@ -976,6 +976,9 @@ const Map<String, String> _myanmar = {
   'Watch Video': 'ဗီဒီယိုကြည့်ရန်',
   'Your Current Rank': 'လက်ရှိအဆင့်',
   'Settings': 'ဆက်တင်များ',
+  'Privacy Policy': 'ကိုယ်ရေးအချက်အလက် မူဝါဒ',
+  'Unable to open the privacy policy. Please try again.':
+      'ကိုယ်ရေးအချက်အလက် မူဝါဒကို ဖွင့်၍မရပါ။ ထပ်မံကြိုးစားပါ။',
   'Localisation': 'အက်ပ် ဘာသာစကား',
   'Translate': 'ဘာသာပြန်ရန်',
   'Chinese': 'တရုတ်',
@@ -2317,6 +2320,9 @@ const Map<String, String> _chinese = {
   'Watch Video': '观看视频',
   'Your Current Rank': '当前排名',
   'Settings': '设置',
+  'Privacy Policy': '隐私政策',
+  'Unable to open the privacy policy. Please try again.':
+      '无法打开隐私政策，请重试。',
   'Localisation': '界面语言',
   'Translate': '翻译内容',
   'Chinese': '中文',
