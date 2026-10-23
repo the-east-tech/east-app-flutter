@@ -5,7 +5,7 @@ import '../localization/app_language.dart';
 import '../localization/app_text.dart';
 
 final Uri flowPrivacyPolicyUrl =
-    Uri.parse('https://sequosal.com/flow/privacy');
+    Uri.parse('https://sequosal.com/flow/privacy/');
 
 Future<void> openFlowPrivacyPolicy(
   BuildContext context,
