@@ -4,6 +4,7 @@ import '../localization/app_language.dart';
 import '../localization/app_text.dart';
 import '../models/translation_models.dart';
 import '../theme/app_theme.dart';
+import '../utils/privacy_policy.dart';
 import 'app_components.dart';
 import 'app_feedback.dart';
 
@@ -509,6 +510,24 @@ class _AppSettingsSheetState extends State<AppSettingsSheet> {
                   ),
                 ),
               ],
+              const SizedBox(height: 12),
+              WhiteCard(
+                padding: EdgeInsets.zero,
+                child: ListTile(
+                  onTap: () async {
+                    await openFlowPrivacyPolicy(context, language);
+                  },
+                  leading: const Icon(
+                    Icons.privacy_tip_outlined,
+                    color: AppColours.blue,
+                  ),
+                  title: Text(
+                    text.t('Privacy Policy'),
+                    style: const TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                  trailing: const Icon(Icons.open_in_new_rounded),
+                ),
+              ),
               const SizedBox(height: 16),
               Row(
                 children: [

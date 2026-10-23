@@ -5,6 +5,7 @@ import '../localization/app_text.dart';
 import '../models/auth_models.dart';
 import '../services/flow_api.dart';
 import '../theme/app_theme.dart';
+import '../utils/privacy_policy.dart';
 import '../widgets/app_components.dart';
 import '../widgets/app_feedback.dart';
 
@@ -189,6 +190,14 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           ),
                   ),
+                ),
+                const SizedBox(height: 8),
+                TextButton.icon(
+                  onPressed: () async {
+                    await openFlowPrivacyPolicy(context, language);
+                  },
+                  icon: const Icon(Icons.privacy_tip_outlined, size: 18),
+                  label: Text(t.t('Privacy Policy')),
                 ),
               ],
             ),
